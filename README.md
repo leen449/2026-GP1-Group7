@@ -1,8 +1,9 @@
-<img src='https://img.freepik.com/premium-photo/car-crash-accident-road_293060-1.jpg' alt='car crashed' width='500/'>
----
 # CrashLens  
 ### AI-Powered Vehicle Accident Damage Assessment System
 
+---
+
+<img src='https://img.freepik.com/premium-photo/car-crash-accident-road_293060-1.jpg' alt='car crashed' width='1000/'>
 ---
 
 ## Project Overview
@@ -77,5 +78,6 @@ developed.
 - **Sprint 1+:** Core implementation of mobile app and AI assessment pipeline  
 
 ---
+
 
 
