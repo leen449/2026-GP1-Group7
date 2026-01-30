@@ -4,8 +4,8 @@
 ---
 
 <img src='https://img.freepik.com/premium-photo/car-crash-accident-road_293060-1.jpg' alt='car crashed' width='1000/'>
----
 
+<br>
 ## Project Overview
 
 CrashLens is a mobile-based intelligent accident assessment system that uses
@@ -78,6 +78,7 @@ developed.
 - **Sprint 1+:** Core implementation of mobile app and AI assessment pipeline  
 
 ---
+
 
 
 
