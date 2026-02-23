@@ -49,11 +49,32 @@ The project will be developed using the following technologies:
 
 This repository is organized as follows:
 
-- `docs/` → Submitted sprint reports, proposal, and documentation  
-- `mobile_app/` → Flutter-based mobile frontend  
-- `backend_api/` → Backend services and API endpoints  
-- `ml_model/` → Machine learning training and inference components  
-- `assets/` → Diagrams, images, and supporting material  
+CrashLense/
+│
+├── docs/                      # All reports & documentation
+│   ├── proposal/
+│   ├── sprint0
+│   ├── sprint1
+│   └── sprint2
+│
+├── mobile_app/                # Flutter frontend
+│
+├── backend_api/               # Backend services (FastAPI / Flask)
+│   ├── routes/
+│   ├── models/
+│   └── services/
+│
+├── ml_model/
+│   ├── training/              # Notebooks & training scripts
+│   ├── inference/             # Prediction scripts
+│   └── weights/               # Saved models (.pt, .keras, etc.)
+│   
+│
+├── assets/                    # Images for README, diagrams
+│
+├── AUTHORS.md
+├── README.md
+
 
 ---
 
@@ -78,6 +99,7 @@ developed.
 - **Sprint 1+:** Core implementation of mobile app and AI assessment pipeline  
 
 ---
+
 
 
 
