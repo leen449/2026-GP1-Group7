@@ -50,7 +50,7 @@ The project will be developed using the following technologies:
 This repository is organized as follows:
 
 ```text
-CrashLense/
+2026-GP1-Group7/
 ├── docs/                   # All reports & documentation
 │   ├── proposal/
 │   ├── sprint0/
@@ -92,6 +92,7 @@ developed.
 - **Sprint 1+:** Core implementation of mobile app and AI assessment pipeline  
 
 ---
+
 
 
 
