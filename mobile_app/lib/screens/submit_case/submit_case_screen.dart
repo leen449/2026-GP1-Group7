@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'package:file_picker/file_picker.dart';
 
 class VehicleItem {
   final String name;
@@ -20,6 +21,22 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   ];
 
   VehicleItem? selectedVehicle;
+  String? najmFileName;
+  String? najmFilePath;
+
+  Future<void> pickNajmPdf() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+
+    if (result == null) return; // user cancelled
+
+    setState(() {
+      najmFileName = result.files.single.name;
+      najmFilePath = result.files.single.path; // useful later for upload
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -114,34 +131,48 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                       const Text('Upload najm report'),
                       const SizedBox(height: 8),
 
-                      DottedBorder(
-                        color: const Color(0xFF2F6FED),
-                        dashPattern: const [6, 4],
-                        strokeWidth: 1.5,
-                        borderType: BorderType.RRect,
-                        radius: const Radius.circular(12),
-                        child: SizedBox(
-                          height: 110,
-                          width: double.infinity,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(
-                                Icons.upload_file,
-                                size: 36,
-                                color: Colors.black54,
-                              ),
-                              SizedBox(height: 6),
-                              Text(
-                                'upload file',
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'supported format: PDF',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ],
+                      InkWell(
+                        onTap: pickNajmPdf,
+                        borderRadius: BorderRadius.circular(12),
+                        child: DottedBorder(
+                          color: const Color(0xFF2F6FED),
+                          dashPattern: const [6, 4],
+                          strokeWidth: 1.5,
+                          borderType: BorderType.RRect,
+                          radius: const Radius.circular(12),
+                          child: SizedBox(
+                            height: 110,
+                            width: double.infinity,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.upload_file,
+                                  size: 36,
+                                  color: Colors.black54,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  najmFileName == null
+                                      ? 'upload file'
+                                      : 'Change file',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  najmFileName == null
+                                      ? 'supported format: PDF'
+                                      : najmFileName!,
+                                  style: TextStyle(
+                                    color: najmFileName == null
+                                        ? Colors.grey
+                                        : Colors.green,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
