@@ -165,7 +165,7 @@ class _CameraFrameOverlay extends StatelessWidget {
             child: const Text(
               "Place the registration card inside the frame.",
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white, fontSize: 14),
+              style: TextStyle(color: Colors.white, fontSize: 15),
             ),
           ),
         ),
