@@ -1,5 +1,6 @@
 import 'dart:io'; // Used to display image from local file path
 import 'package:flutter/material.dart';
+import 'Verify_Details_Screen.dart';
 
 /// This page displays the captured image
 /// and allows the user to either retake the photo
@@ -12,7 +13,7 @@ class PhotoPreviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Light background 
+      // Light background
       backgroundColor: const Color(0xFFF6F7FB),
 
       // Transparent AppBar with centered title
@@ -22,10 +23,7 @@ class PhotoPreviewScreen extends StatelessWidget {
         centerTitle: true,
         title: const Text(
           "Preview Photo",
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
         ),
         iconTheme: const IconThemeData(color: Colors.black),
       ),
@@ -105,8 +103,16 @@ class PhotoPreviewScreen extends StatelessWidget {
                               label: "Use photo",
                               icon: Icons.check_box_outlined,
                               onTap: () {
-                                Navigator.pop(context, imagePath);
-                              },),
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => VerifyDetailsScreen(
+                                      imagePath: imagePath,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ],
                       ),
@@ -143,10 +149,7 @@ class _PrimaryActionButton extends StatelessWidget {
       child: ElevatedButton.icon(
         onPressed: onTap,
         icon: Icon(icon, size: 20),
-        label: Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
+        label: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF0D4B8C),
           foregroundColor: Colors.white,
