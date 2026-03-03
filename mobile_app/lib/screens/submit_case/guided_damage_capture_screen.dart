@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'dart:io';
+import 'guided_camera_screen.dart';
 
-class GuidedDamageCaptureScreen extends StatelessWidget {
+class GuidedDamageCaptureScreen extends StatefulWidget {
   const GuidedDamageCaptureScreen({super.key});
 
+  @override
+  State<GuidedDamageCaptureScreen> createState() =>
+      _GuidedDamageCaptureScreenState();
+}
+
+class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
+  List<File> capturedPhotos = [];
   @override
   Widget build(BuildContext context) {
     final sw = MediaQuery.of(context).size.width;
@@ -183,7 +192,20 @@ class GuidedDamageCaptureScreen extends StatelessWidget {
                   child: SizedBox(
                     width: sw * 0.50,
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const GuidedCameraScreen(),
+                          ),
+                        );
+
+                        if (result != null && result is List<File>) {
+                          setState(() {
+                            capturedPhotos = result;
+                          });
+                        }
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0B4A7D),
                         foregroundColor: Colors.white,

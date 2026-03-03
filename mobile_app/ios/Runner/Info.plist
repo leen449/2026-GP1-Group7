@@ -67,4 +67,6 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 </dict>
+<key>NSCameraUsageDescription</key>
+<string>This app needs camera access to capture damage photos.</string>
 </plist>
