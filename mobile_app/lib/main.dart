@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/ocr_page.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: .fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const OcrPage(),
+      home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
