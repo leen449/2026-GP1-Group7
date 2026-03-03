@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import 'guided_damage_capture_screen.dart';
 
 class VehicleItem {
   final String name;
@@ -300,7 +301,15 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
                           Center(
                             child: ElevatedButton.icon(
-                              onPressed: () {},
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const GuidedDamageCaptureScreen(),
+                                  ),
+                                );
+                              },
                               icon: const Icon(
                                 Icons.camera_alt,
                                 color: Colors.white,
