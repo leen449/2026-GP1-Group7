@@ -3,6 +3,7 @@ import '../ocr/Ocr_Screen.dart';
 import '../submit_case/submit_case_screen.dart';
 //import '';
 import 'dart:ui';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -22,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const Color _navActiveIcon = Color(0xFF2F5D8C);
   static const Color _navInactiveIcon = Color(0xFF8E8E8E);
 
-  static const Color _bannerBlue = Color(0xFF6F8FA7); 
+  static const Color _bannerBlue = Color(0xFF6F8FA7);
 
   void _showAddOptions() {
     showModalBottomSheet(
@@ -68,9 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Add Manually'),
-                      ),
+                      const SnackBar(content: Text('Add Manually')),
                     );
                   },
                 ),
@@ -115,7 +114,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Modify personal information (Placeholder)'),
+                        content: Text(
+                          'Modify personal information (Placeholder)',
+                        ),
                       ),
                     );
                   },
@@ -151,26 +152,33 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openHistory() {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => _historyPlaceholder()));
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => _historyPlaceholder()),
+    );
   }
 
   void _onNavTap(int index) {
-  setState(() => _currentIndex = index);
+    if (index == 0) {
+      setState(() => _currentIndex = 0);
+      return;
+    }
 
-  if (index == 0) return; // Home
+    if (index == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const SubmitCaseScreen()),
+      ).then((_) {
+        // ✅ Reset back to home tab when returning from SubmitCaseScreen
+        setState(() => _currentIndex = 0);
+      });
+      return;
+    }
 
-  if (index == 1) {
-    Navigator.push(
+    ScaffoldMessenger.of(
       context,
-      MaterialPageRoute(builder: (_) => const SubmitCaseScreen()),
-    );
-    return;
+    ).showSnackBar(SnackBar(content: Text('Tab ${index + 1} (Placeholder)')));
   }
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text('Tab ${index + 1} (Placeholder)')),
-  );
-}
 
   @override
   Widget build(BuildContext context) {
@@ -208,12 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: _bottomNav(),
-          ),
+          Positioned(bottom: 0, left: 0, right: 0, child: _bottomNav()),
         ],
       ),
     );
@@ -251,7 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
       height: 220,
       width: double.infinity,
       decoration: BoxDecoration(
-       // color: _cardGrey,
+        // color: _cardGrey,
         borderRadius: BorderRadius.circular(22),
       ),
       child: Stack(
@@ -301,10 +304,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Container(
             width: 34,
             height: 34,
-            decoration: BoxDecoration(
-              color: _cardGrey,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: _cardGrey, shape: BoxShape.circle),
             child: const Icon(Icons.add, size: 20, color: _textDark),
           ),
         ),
@@ -359,7 +359,7 @@ class _HomeScreenState extends State<HomeScreen> {
               width: 145,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               decoration: BoxDecoration(
-                color: _cardGrey, 
+                color: _cardGrey,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -367,7 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Image.asset(
                     'assets/images/white_car.png',
                     width: 67,
-                    
+
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 6),
@@ -472,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.only(bottom: 12),
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
-            onTap: _openHistory, 
+            onTap: _openHistory,
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -482,7 +482,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Row(
                 children: [
-                 
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,104 +526,126 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-Widget _bottomNav() {
-  return SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(40),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            height: 72,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.35),
-              borderRadius: BorderRadius.circular(40),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.50),
-                width: 1.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
+  Widget _bottomNav() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(40),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              height: 72,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.35),
+                borderRadius: BorderRadius.circular(40),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.50),
+                  width: 1.2,
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _navItem(index: 0, label: 'home',     icon: Icons.home_rounded),
-                _navItem(index: 1, label: 'accident', icon: Icons.directions_car),
-                _navItem(index: 2, label: 'history',  icon: Icons.description_outlined),
-                _navItem(index: 3, label: 'claim',    icon: Icons.assignment_outlined),
-              ],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _navItem(index: 0, label: 'home', icon: Icons.home_rounded),
+                  _navItem(
+                    index: 1,
+                    label: 'accident',
+                    icon: Icons.directions_car,
+                  ),
+                  _navItem(
+                    index: 2,
+                    label: 'history',
+                    icon: Icons.description_outlined,
+                  ),
+                  _navItem(
+                    index: 3,
+                    label: 'claim',
+                    icon: Icons.assignment_outlined,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
+  Widget _navItem({
+    required int index,
+    required String label,
+    required IconData icon,
+  }) {
+    final bool active = _currentIndex == index;
+    const Color activeBlue = Color(0xFF2A5BD7);
+    const Color inactiveGrey = Color(0xFF8A8A8A);
 
-Widget _navItem({
-  required int index,
-  required String label,
-  required IconData icon,
-}) {
-  final bool active = _currentIndex == index;
-  const Color activeBlue   = Color(0xFF2A5BD7);
-  const Color inactiveGrey = Color(0xFF8A8A8A);
-
-  return GestureDetector(
-    onTap: () => _onNavTap(index),
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeInOut,
-      width: 74,
-      height: 50,
-      decoration: BoxDecoration(
-        color: active ? Colors.white : Colors.transparent,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: active
-            ? [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))]
-            : [],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          TweenAnimationBuilder<double>(
-            key: ValueKey(index == _currentIndex), 
-            tween: Tween(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.elasticOut,
-            builder: (context, value, child) {
-              final shake = active
-                  ? (value < 0.5
-                      ? value * 2 * 6  
-                      : (1 - value) * 2 * 6)  
-                  : 0.0;
-              return Transform.translate(
-                offset: Offset(shake * (value < 0.25 || value > 0.75 ? -1 : 1), 0),
-                child: Icon(icon, size: 22, color: active ? activeBlue : inactiveGrey),
-              );
-            },
-          ),
-          const SizedBox(height: 3),
-          AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 200),
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-              color: active ? activeBlue : inactiveGrey,
+    return GestureDetector(
+      onTap: () => _onNavTap(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        width: 74,
+        height: 50,
+        decoration: BoxDecoration(
+          color: active ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TweenAnimationBuilder<double>(
+              key: ValueKey(index == _currentIndex),
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.elasticOut,
+              builder: (context, value, child) {
+                final shake = active
+                    ? (value < 0.5 ? value * 2 * 6 : (1 - value) * 2 * 6)
+                    : 0.0;
+                return Transform.translate(
+                  offset: Offset(
+                    shake * (value < 0.25 || value > 0.75 ? -1 : 1),
+                    0,
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 22,
+                    color: active ? activeBlue : inactiveGrey,
+                  ),
+                );
+              },
             ),
-            child: Text(label),
-          ),
-        ],
+            const SizedBox(height: 3),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                color: active ? activeBlue : inactiveGrey,
+              ),
+              child: Text(label),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
