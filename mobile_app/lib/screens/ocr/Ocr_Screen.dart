@@ -1,6 +1,8 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-
+import 'Preview_Photo_Screen.dart';
+import 'dart:io';
+import 'package:image/image.dart' as img;
 class OcrScreen extends StatefulWidget {
   const OcrScreen({super.key});
 
@@ -49,16 +51,33 @@ class _OcrScreenState extends State<OcrScreen> {
       await _initFuture;
       final XFile file = await _controller!.takePicture();
 
-      // نرجّع مسار الصورة للصفحة اللي بعدها
-      if (!mounted) return;
-      Navigator.pop(context, file.path);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to capture photo: $e")),
-      );
+
+    if (!mounted) return;
+
+    // Navigate to preview page
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PhotoPreviewScreen(imagePath: file.path),
+      ),
+    );
+
+    // If user pressed "Retake" (result == null)
+    if (result == null) {
+      return; // stay in camera
     }
+
+    // If user pressed "Use Photo"
+    Navigator.pop(context, result);
+
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Failed to capture photo: $e")),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {
