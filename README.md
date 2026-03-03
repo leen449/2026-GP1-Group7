@@ -57,6 +57,8 @@ This repository is organized as follows:
 │   ├── sprint1/
 │   └── sprint2/
 ├── mobile_app/             # Flutter frontend
+│   ├── lib/                # Flutter source code (screens, widgets, etc.)
+│   └── assets/             # App assets used by Flutter (icons, images)
 ├── backend_api/            # Backend services (FastAPI / Flask)
 │   ├── routes/
 │   ├── models/
@@ -65,7 +67,7 @@ This repository is organized as follows:
 │   ├── training/           # Notebooks & training scripts
 │   ├── inference/          # Prediction scripts
 │   └── weights/            # Saved models (.pt, .keras, etc.)
-├── assets/                 # Images for README, diagrams
+├── assets/                 # Images for README, diagrams (NOT used by Flutter)
 ├── AUTHORS.md
 └── README.md
 ```
@@ -92,6 +94,7 @@ developed.
 - **Sprint 1+:** Core implementation of mobile app and AI assessment pipeline  
 
 ---
+
 
 
 
