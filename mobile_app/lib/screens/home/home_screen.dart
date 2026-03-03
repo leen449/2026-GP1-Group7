@@ -226,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onTap: _showProfileOptions,
           child: ClipOval(
             child: Image.asset(
-              'images/profile.png',
+              'assets/icons/profile.png',
               width: 34,
               height: 34,
               fit: BoxFit.cover,
@@ -274,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
             left: 40,
             top: 20,
             child: Image.asset(
-              'images/orange_car.png',
+              'assets/images/orange_car.png',
               width: 300,
               fit: BoxFit.contain,
             ),
@@ -365,7 +365,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 children: [
                   Image.asset(
-                    'images/white_car.png',
+                    'assets/images/white_car.png',
                     width: 67,
                     
                     fit: BoxFit.contain,

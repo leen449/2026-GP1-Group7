@@ -210,7 +210,7 @@ class _AuthScreenState extends State<AuthScreen> {
             style: _textStyle(fontSize: 34, color: Colors.black),
           )
         : Image.asset(
-            'images/logo.png',
+            'assets/icons/logo.png',
             height: 120,
             fit: BoxFit.contain,
           ),
