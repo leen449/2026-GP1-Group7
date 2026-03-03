@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import 'guided_damage_capture_screen.dart';
+import 'photo_preview_screen.dart';
 
 class VehicleItem {
   final String name;
@@ -16,6 +18,7 @@ class SubmitCaseScreen extends StatefulWidget {
 }
 
 class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
+  List<File> capturedPhotos = [];
   final List<VehicleItem> vehicles = const [
     VehicleItem('Toyota Camry', 'A S F R 3456'),
     VehicleItem('Ford Explorer', 'A D W R 3456'),
@@ -39,7 +42,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       allowedExtensions: ['pdf'],
     );
 
-    if (result == null) return; // user cancelled
+    if (result == null) return;
 
     final picked = result.files.single;
 
@@ -47,14 +50,14 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       najmFileName = picked.name;
       najmFilePath = picked.path;
       najmPickedAt = DateTime.now();
-      najmFileBytes = picked.size; // FilePicker gives size in bytes
+      najmFileBytes = picked.size;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+      backgroundColor: const Color(0xFFFFFFFF),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -70,21 +73,16 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                 const SizedBox(height: 30),
                 Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 500,
-                    ), // adjust 340–380
-                    // Card container
+                    constraints: const BoxConstraints(maxWidth: 500),
                     child: Container(
-                      width: double.infinity, // ✅ important for layout
+                      width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF5F5F5),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(
-                              0.2,
-                            ), // ✅ softer shadow
+                            color: Colors.black.withOpacity(0.2),
                             blurRadius: 12,
                             offset: const Offset(0, 6),
                           ),
@@ -93,12 +91,12 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // ── Vehicle selector ──────────────────────
                           const Text('Select vehicle'),
                           const SizedBox(height: 8),
-
                           DropdownButtonFormField<VehicleItem>(
                             value: selectedVehicle,
-                            isExpanded: true, // ✅ prevents weird shrinking
+                            isExpanded: true,
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: Colors.white,
@@ -109,9 +107,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(
-                                  color: Color(
-                                    0xFF2F6FED,
-                                  ), // your blue (or use grey if you prefer)
+                                  color: Color(0xFF2F6FED),
                                   width: 1.5,
                                 ),
                               ),
@@ -158,11 +154,11 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                 setState(() => selectedVehicle = value),
                           ),
 
+                          // ── Najm report upload ────────────────────
                           const SizedBox(height: 40),
                           const Text('Upload najm report'),
                           const SizedBox(height: 8),
                           if (najmFileName == null) ...[
-                            // keep your dotted upload box here
                             InkWell(
                               onTap: pickNajmPdf,
                               borderRadius: BorderRadius.circular(12),
@@ -172,12 +168,12 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                 strokeWidth: 1.5,
                                 borderType: BorderType.RRect,
                                 radius: const Radius.circular(12),
-                                child: SizedBox(
+                                child: const SizedBox(
                                   height: 130,
                                   width: double.infinity,
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
-                                    children: const [
+                                    children: [
                                       Icon(
                                         Icons.upload_file,
                                         size: 36,
@@ -201,20 +197,18 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                               ),
                             ),
                           ] else ...[
-                            // ✅ Figma-like file row
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 12,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color.fromARGB(255, 245, 245, 245),
+                                color: const Color(0xFFF5F5F5),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: Colors.grey.shade200),
                               ),
                               child: Row(
                                 children: [
-                                  // left icon
                                   Container(
                                     width: 36,
                                     height: 36,
@@ -228,8 +222,6 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-
-                                  // filename + time
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -254,8 +246,6 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                       ],
                                     ),
                                   ),
-
-                                  // file size chip
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 10,
@@ -273,8 +263,6 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 10),
-
-                                  // action icon (remove)
                                   InkWell(
                                     onTap: () {
                                       setState(() {
@@ -290,6 +278,8 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                               ),
                             ),
                           ],
+
+                          // ── Take Damage Photos ────────────────────
                           const SizedBox(height: 70),
                           const Text('Take Damage Photos'),
                           const Text(
@@ -298,9 +288,24 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                           ),
                           const SizedBox(height: 12),
 
+                          // Button
                           Center(
                             child: ElevatedButton.icon(
-                              onPressed: () {},
+                              onPressed: () async {
+                                final result = await Navigator.push<List<File>>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const GuidedDamageCaptureScreen(),
+                                  ),
+                                );
+
+                                if (result == null || result.isEmpty) return;
+
+                                setState(() {
+                                  capturedPhotos = result;
+                                });
+                              },
                               icon: const Icon(
                                 Icons.camera_alt,
                                 color: Colors.white,
@@ -323,13 +328,81 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                               ),
                             ),
                           ),
+
+                          // ✅ Only renders when there are photos — no empty gap
+                          if (capturedPhotos.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              height: 80,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: capturedPhotos.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(width: 10),
+                                itemBuilder: (context, index) {
+                                  return Stack(
+                                    children: [
+                                      InkWell(
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  PhotoPreviewScreen(
+                                                    imageFile:
+                                                        capturedPhotos[index],
+                                                  ),
+                                            ),
+                                          );
+                                        },
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          child: Image.file(
+                                            capturedPhotos[index],
+                                            width: 70,
+                                            height: 70,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 4,
+                                        right: 4,
+                                        child: InkWell(
+                                          onTap: () {
+                                            setState(() {
+                                              capturedPhotos.removeAt(index);
+                                            });
+                                          },
+                                          child: Container(
+                                            width: 18,
+                                            height: 18,
+                                            decoration: const BoxDecoration(
+                                              color: Colors.white,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.close,
+                                              size: 14,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+
                           const SizedBox(height: 40),
                         ],
                       ),
                     ),
                   ),
                 ),
-                // ✅ extra space at bottom for scroll
               ],
             ),
           ),
