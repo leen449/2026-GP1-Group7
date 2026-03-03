@@ -1,14 +1,14 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
-class OcrPage extends StatefulWidget {
-  const OcrPage({super.key});
+class OcrScreen extends StatefulWidget {
+  const OcrScreen({super.key});
 
   @override
-  State<OcrPage> createState() => _OcrPageState();
+  State<OcrScreen> createState() => _OcrScreenState();
 }
 
-class _OcrPageState extends State<OcrPage> {
+class _OcrScreenState extends State<OcrScreen> {
   CameraController? _controller;
   Future<void>? _initFuture;
 
@@ -165,7 +165,7 @@ class _CameraFrameOverlay extends StatelessWidget {
             child: const Text(
               "Place the registration card inside the frame.",
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white, fontSize: 14),
+              style: TextStyle(color: Colors.white, fontSize: 15),
             ),
           ),
         ),
