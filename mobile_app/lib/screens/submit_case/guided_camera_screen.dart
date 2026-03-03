@@ -172,10 +172,12 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                     right: 60,
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.pop(context, shots);
+                        final files = shots.map((x) => File(x.path)).toList();
+                        Navigator.pop(context, files);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0B4A7D),
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),

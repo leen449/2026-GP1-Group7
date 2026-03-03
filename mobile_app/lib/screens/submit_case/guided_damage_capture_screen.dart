@@ -203,6 +203,7 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                         if (result != null && result is List<File>) {
                           setState(() {
                             capturedPhotos = result;
+                            Navigator.pop(context, result);
                           });
                         }
                       },

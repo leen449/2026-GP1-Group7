@@ -3,6 +3,7 @@ import 'package:dotted_border/dotted_border.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'guided_damage_capture_screen.dart';
+import 'photo_preview_screen.dart';
 
 class VehicleItem {
   final String name;
@@ -17,6 +18,7 @@ class SubmitCaseScreen extends StatefulWidget {
 }
 
 class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
+  List<File> capturedPhotos = [];
   final List<VehicleItem> vehicles = const [
     VehicleItem('Toyota Camry', 'A S F R 3456'),
     VehicleItem('Ford Explorer', 'A D W R 3456'),
@@ -299,38 +301,62 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          Center(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const GuidedDamageCaptureScreen(),
+                          Column(
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  final result =
+                                      await Navigator.push<List<File>>(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const GuidedDamageCaptureScreen(),
+                                        ),
+                                      );
+
+                                  if (result == null || result.isEmpty) return;
+
+                                  setState(() {
+                                    capturedPhotos = result;
+                                  });
+                                },
+                                icon: const Icon(
+                                  Icons.camera_alt,
+                                  color: Colors.white,
+                                ),
+                                label: const Text(
+                                  'Take Photos',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0B4A7D),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 18,
+                                    vertical: 12,
                                   ),
-                                );
-                              },
-                              icon: const Icon(
-                                Icons.camera_alt,
-                                color: Colors.white,
-                              ),
-                              label: const Text(
-                                'Take Photos',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0B4A7D),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 18,
-                                  vertical: 12,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  elevation: 6,
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                                elevation: 6,
                               ),
-                            ),
+                              const SizedBox(height: 14),
+                              SizedBox(
+                                height: 80,
+                                child: capturedPhotos.isEmpty
+                                    ? const SizedBox()
+                                    : ListView.separated(
+                                        scrollDirection: Axis.horizontal,
+                                        itemCount: capturedPhotos.length,
+                                        separatorBuilder: (_, __) =>
+                                            const SizedBox(width: 10),
+                                        itemBuilder: (context, index) {
+                                          // (your thumbnail Stack stays the same)
+                                        },
+                                      ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 40),
                         ],
