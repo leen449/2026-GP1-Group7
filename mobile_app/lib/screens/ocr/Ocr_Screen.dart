@@ -1,6 +1,8 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'Preview_Photo_Screen.dart';
+import 'dart:io';
+import 'package:image/image.dart' as img;
 class OcrScreen extends StatefulWidget {
   const OcrScreen({super.key});
 
