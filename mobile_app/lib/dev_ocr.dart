@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'screens/ocr/Ocr_Screen.dart';
+import 'screens/ocr/scan_screen.dart';
 
 void main() {
   runApp(
     const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: OcrScreen(),
+      home:ScanScreen(),
     ),
   );
 }

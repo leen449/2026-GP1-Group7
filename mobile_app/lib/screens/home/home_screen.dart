@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../ocr/Ocr_Screen.dart';
 import '../submit_case/submit_case_screen.dart';
+import '../ocr/scan_screen.dart';
 //import '';
 import 'dart:ui';
 
@@ -57,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const OcrScreen()),
+                      MaterialPageRoute(builder: (_) => const ScanScreen()),
                     );
                   },
                 ),
