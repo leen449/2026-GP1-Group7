@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'photo_preview_screen.dart';
 
 class GuidedCameraScreen extends StatefulWidget {
   const GuidedCameraScreen({super.key});
@@ -118,19 +119,52 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                 ),
 
                 // Thumbnail preview
+                // Thumbnail preview — tap to preview
                 if (shots.isNotEmpty)
                   Positioned(
                     top: 120,
                     right: 20,
-                    child: Container(
-                      width: 70,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white, width: 2),
-                        image: DecorationImage(
-                          image: FileImage(File(shots.last.path)),
-                          fit: BoxFit.cover,
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PhotoPreviewScreen(
+                              imageFile: File(shots.last.path),
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 70,
+                        height: 90,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white, width: 2),
+                          image: DecorationImage(
+                            image: FileImage(File(shots.last.path)),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        // Small preview icon hint
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.4),
+                              borderRadius: const BorderRadius.only(
+                                bottomLeft: Radius.circular(8),
+                                bottomRight: Radius.circular(8),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.zoom_in,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
                         ),
                       ),
                     ),

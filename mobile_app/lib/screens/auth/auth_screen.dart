@@ -50,7 +50,10 @@ class _AuthScreenState extends State<AuthScreen> {
         hintText: hint,
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -161,19 +164,16 @@ class _AuthScreenState extends State<AuthScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label('Name'),
-        _inputField(
-          controller: _nameController,
-          hint: 'Name',
-        ),
+        _inputField(controller: _nameController, hint: 'Name'),
         const SizedBox(height: 14),
-        _label('National ID'),
+        _label('National / Residence ID'),
         _inputField(
           controller: _nationalIdController,
           hint: 'ID',
           keyboardType: TextInputType.number,
         ),
         const SizedBox(height: 14),
-        _label('phone Number'),
+        _label('Phone Number'),
         _inputField(
           controller: _signupPhoneController,
           hint: 'Your phone number',
@@ -202,20 +202,20 @@ class _AuthScreenState extends State<AuthScreen> {
               const SizedBox(height: 18),
 
               SizedBox(
-  height: 140, 
-  child: Center(
-    child: isLogin
-        ? Text(
-            'Welcome Back',
-            style: _textStyle(fontSize: 34, color: Colors.black),
-          )
-        : Image.asset(
-            'assets/icons/logo.png',
-            height: 120,
-            fit: BoxFit.contain,
-          ),
-  ),
-),
+                height: 140,
+                child: Center(
+                  child: isLogin
+                      ? Text(
+                          'Welcome Back',
+                          style: _textStyle(fontSize: 34, color: Colors.black),
+                        )
+                      : Image.asset(
+                          'assets/icons/logo.png',
+                          height: 120,
+                          fit: BoxFit.contain,
+                        ),
+                ),
+              ),
 
               const SizedBox(height: 18),
               _toggleBar(),
@@ -223,9 +223,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
-                child: isLogin
-                    ? _loginContent()
-                    : _signupContent(),
+                child: isLogin ? _loginContent() : _signupContent(),
               ),
             ],
           ),

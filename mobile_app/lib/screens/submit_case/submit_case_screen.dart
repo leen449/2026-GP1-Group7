@@ -148,6 +148,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   }
 
   void _onNavTap(int index) {
+    // add later the other pages navigation logic here
     if (index == _currentIndex) return;
 
     if (index == 0) {
