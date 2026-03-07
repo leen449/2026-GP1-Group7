@@ -5,7 +5,6 @@ import 'dart:io';
 import 'guided_damage_capture_screen.dart';
 import 'photo_preview_screen.dart';
 import 'CaseSubmittedScreen.dart';
-import '../ocr/Ocr_Screen.dart';
 import '../home/home_screen.dart';
 import 'dart:ui';
 
