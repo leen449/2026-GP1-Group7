@@ -366,9 +366,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 children: [
                   Image.asset(
-                    'assets/images/white_car.png',
-                    width: 67,
-
+                    'assets/images/car2.png',
+                    width: 76,
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 6),
