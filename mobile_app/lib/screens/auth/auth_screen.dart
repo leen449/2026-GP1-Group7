@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+
+import 'package:http/http.dart' as http;
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -8,6 +14,8 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
+
+
   bool isLogin = true; // true = Login , false = Sign up
 
   // Controllers (Login)
@@ -17,6 +25,32 @@ class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _nationalIdController = TextEditingController();
   final TextEditingController _signupPhoneController = TextEditingController();
+
+Future<void> _testBackendConnection() async {
+  try {
+    final response = await http.get(
+      Uri.parse('http://10.0.2.2:8000/'),
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Backend response: ${response.body}'),
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Connection failed: $e'),
+      ),
+    );
+  }
+}
+
+
 
   @override
   void dispose() {
@@ -192,6 +226,11 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    
+
+
+
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F6F6),
       body: SafeArea(
@@ -225,7 +264,20 @@ class _AuthScreenState extends State<AuthScreen> {
                 duration: const Duration(milliseconds: 200),
                 child: isLogin ? _loginContent() : _signupContent(),
               ),
+              const SizedBox(height: 20),
+              _primaryButton(
+  text: 'Test Backend',
+  onTap: () async {
+  await FirebaseFirestore.instance.collection('test').add({
+    'created_at': FieldValue.serverTimestamp(),
+    'status': 'connected',
+  });
+
+  print("Document added");
+}
+),
             ],
+            
           ),
         ),
       ),

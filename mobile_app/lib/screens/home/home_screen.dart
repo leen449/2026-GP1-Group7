@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../ocr/Ocr_Screen.dart';
 import '../submit_case/submit_case_screen.dart';
 import '../ocr/scan_screen.dart';
 //import '';
