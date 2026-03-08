@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File
 from services.ocr_services import process_ocr
 
+
 router = APIRouter()
 
 
