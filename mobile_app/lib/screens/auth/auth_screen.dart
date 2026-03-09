@@ -176,10 +176,10 @@ Future<void> _testBackendConnection() async {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('phone Number'),
+        _label('Phone Number'),
         _inputField(
           controller: _loginPhoneController,
-          hint: 'Your phone number',
+          hint: 'Your Phone Number',
           keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 90),
@@ -210,7 +210,7 @@ Future<void> _testBackendConnection() async {
         _label('Phone Number'),
         _inputField(
           controller: _signupPhoneController,
-          hint: 'Your phone number',
+          hint: 'Your Phone Number',
           keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 40),
