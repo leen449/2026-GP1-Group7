@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to capture damage photos.</string>
+	<key>io.flutter.embedded_views_preview</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -67,6 +71,4 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 </dict>
-<key>NSCameraUsageDescription</key>
-<string>This app needs camera access to capture damage photos.</string>
 </plist>

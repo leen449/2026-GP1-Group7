@@ -75,14 +75,14 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                         height: 44,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.20), // lighter fill
+                          color: Colors.white.withOpacity(0.20),
                           border: Border.all(
                             color: const Color.fromARGB(
                               255,
                               0,
                               0,
                               0,
-                            ).withOpacity(0.6), // subtle stroke
+                            ).withOpacity(0.6),
                             width: 1.2,
                           ),
                         ),
@@ -105,10 +105,10 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                       children: [
                         // White oval platform
                         Positioned(
-                          top: sw * 0.53, // move it DOWN (tweak 0.16–0.22)
+                          top: sw * 0.53,
                           child: Container(
-                            width: sw * 0.99, // wider
-                            height: sw * 0.35, // flatter (try 0.32–0.38)
+                            width: sw * 0.99,
+                            height: sw * 0.35,
                             decoration: const ShapeDecoration(
                               shape: OvalBorder(),
                               shadows: [
@@ -131,12 +131,12 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                             ),
                           ),
                         ),
-                        // Cars illustration — overflows the oval on top
+                        // Cars illustration
                         Positioned(
-                          top: sw * 0.1, // lift image slightly upward
+                          top: sw * 0.1,
                           child: Image.asset(
                             'assets/images/ChatGPT Image Mar 2, 2026, 01_20_39 AM.png',
-                            width: sw * 1.1, // bigger
+                            width: sw * 1.1,
                             fit: BoxFit.contain,
                           ),
                         ),
@@ -168,8 +168,8 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                       ),
                       const SizedBox(height: 110),
                       Transform.translate(
-                        offset: const Offset(0, -90), // move up (try -6 to -14)
-                        child: Text(
+                        offset: const Offset(0, -90),
+                        child: const Text(
                           'Capture Photos Of The Damage , Make Sure\n'
                           'To Take One Image Per Damage For Accurate\n'
                           'Assessment',
@@ -201,10 +201,9 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                         );
 
                         if (result != null && result is List<File>) {
-                          setState(() {
-                            capturedPhotos = result;
-                            Navigator.pop(context, result);
-                          });
+                          // ✅ FIXED: Navigator.pop is now outside setState
+                          setState(() => capturedPhotos = result);
+                          Navigator.pop(context, result);
                         }
                       },
                       style: ElevatedButton.styleFrom(

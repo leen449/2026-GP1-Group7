@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'dart:io';
 import 'photo_preview_screen.dart';
+import 'quality_controller.dart';
 
 class GuidedCameraScreen extends StatefulWidget {
   const GuidedCameraScreen({super.key});
@@ -12,69 +13,143 @@ class GuidedCameraScreen extends StatefulWidget {
 }
 
 class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
+  // ── Camera ────────────────────────────────────────────────────────
   CameraController? _controller;
-  List<XFile> shots = [];
-  bool isGuidanceOk = false;
-  String guidanceText = "move closer";
   bool isCameraReady = false;
+  int _sensorOrientation = 0;
+
+  // ── Shots ─────────────────────────────────────────────────────────
+  List<XFile> shots = [];
+
+  // ── Quality controller ────────────────────────────────────────────
+  late final QualityController _qualityController;
+  QualityResult _currentResult = QualityResult.initial();
+  StreamSubscription<QualityResult>? _qualitySubscription;
+
+  // ── Auto-capture countdown ────────────────────────────────────────
+  // When allOk == true we start a 1-second timer before auto-capturing
+  Timer? _autoCaptureTimer;
+  bool _autoCaptureArmed = false;
+
+  // ── Flash overlay (green flash after capture) ─────────────────────
+  bool _showFlash = false;
 
   @override
   void initState() {
     super.initState();
+    _qualityController = QualityController();
+    _listenToQuality();
     _initCamera();
-    _startFakeGuidance();
   }
 
+  // ── Listen to quality stream and update UI ─────────────────────────
+  void _listenToQuality() {
+    _qualitySubscription = _qualityController.stream.listen((result) {
+      if (!mounted) return;
+      setState(() => _currentResult = result);
+
+      // Auto-capture logic
+      if (result.allOk && !_autoCaptureArmed) {
+        _armAutoCapture();
+      } else if (!result.allOk && _autoCaptureArmed) {
+        _disarmAutoCapture();
+      }
+    });
+  }
+
+  // ── Init camera and start image stream ────────────────────────────
   Future<void> _initCamera() async {
     final cameras = await availableCameras();
     final camera = cameras.first;
+    _sensorOrientation = camera.sensorOrientation;
 
     _controller = CameraController(
       camera,
       ResolutionPreset.medium,
       enableAudio: false,
+      imageFormatGroup: ImageFormatGroup.yuv420, // ✅ needed for Y-plane
     );
 
     await _controller!.initialize();
 
-    setState(() {
-      isCameraReady = true;
+    // ✅ Start streaming frames to QualityController
+    await _controller!.startImageStream((CameraImage frame) {
+      _qualityController.processFrame(frame, _sensorOrientation);
+    });
+
+    if (mounted) {
+      setState(() => isCameraReady = true);
+    }
+  }
+
+  // ── Auto-capture: arm a 1-second timer ────────────────────────────
+  void _armAutoCapture() {
+    _autoCaptureArmed = true;
+    _autoCaptureTimer = Timer(const Duration(seconds: 1), () {
+      if (_currentResult.allOk && mounted) {
+        _takePicture();
+      }
     });
   }
 
-  void _startFakeGuidance() {
-    // MVP FAKE LOGIC
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      setState(() {
-        guidanceText = "align properly";
-      });
-    });
-
-    Future.delayed(const Duration(seconds: 4), () {
-      if (!mounted) return;
-      setState(() {
-        guidanceText = "capture";
-        isGuidanceOk = true;
-      });
-    });
+  void _disarmAutoCapture() {
+    _autoCaptureArmed = false;
+    _autoCaptureTimer?.cancel();
+    _autoCaptureTimer = null;
   }
 
+  // ── Take picture ──────────────────────────────────────────────────
   Future<void> _takePicture() async {
     if (_controller == null || !_controller!.value.isInitialized) return;
     if (shots.length >= 10) return;
 
+    // Stop stream briefly to take picture
+    await _controller!.stopImageStream();
+
     final image = await _controller!.takePicture();
 
-    setState(() {
-      shots.add(image);
+    // Show green flash
+    if (mounted) setState(() => _showFlash = true);
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) setState(() => _showFlash = false);
     });
+
+    // Resume stream
+    await _controller!.startImageStream((CameraImage frame) {
+      _qualityController.processFrame(frame, _sensorOrientation);
+    });
+
+    if (mounted) {
+      setState(() {
+        shots.add(image);
+        _autoCaptureArmed = false;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _autoCaptureTimer?.cancel();
+    _qualitySubscription?.cancel();
+    _qualityController.dispose();
+    _controller?.stopImageStream();
     _controller?.dispose();
     super.dispose();
+  }
+
+  // ── Guidance banner color ─────────────────────────────────────────
+  Color get _bannerColor {
+    if (_currentResult.allOk) return const Color(0xFF2EAB5F); // green
+    if (!_currentResult.brightnessOk) return const Color(0xFFE65100); // orange
+    if (!_currentResult.sharpnessOk) return const Color(0xFF1565C0); // blue
+    return const Color(0xFFE65100); // orange for distance
+  }
+
+  IconData get _bannerIcon {
+    if (_currentResult.allOk) return Icons.check_circle;
+    if (!_currentResult.brightnessOk) return Icons.wb_sunny_outlined;
+    if (!_currentResult.sharpnessOk) return Icons.blur_on;
+    return Icons.social_distance;
   }
 
   @override
@@ -83,43 +158,74 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
       body: isCameraReady
           ? Stack(
               children: [
-                // Camera preview
+                // ── Camera preview ───────────────────────────────────
                 SizedBox.expand(child: CameraPreview(_controller!)),
 
-                // Guidance banner
+                // ── Green flash overlay on capture ───────────────────
+                if (_showFlash)
+                  Container(color: Colors.green.withOpacity(0.35)),
+
+                // ── Guidance banner ──────────────────────────────────
                 Positioned(
                   top: 60,
                   left: 0,
                   right: 0,
                   child: Center(
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: _bannerColor,
                         borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            isGuidanceOk
-                                ? Icons.check_circle
-                                : Icons.warning_amber_rounded,
-                            color: isGuidanceOk ? Colors.green : Colors.orange,
-                          ),
+                          Icon(_bannerIcon, color: Colors.white, size: 20),
                           const SizedBox(width: 8),
-                          Text(guidanceText),
+                          Text(
+                            _currentResult.guidance,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
                 ),
 
-                // Thumbnail preview
-                // Thumbnail preview — tap to preview
+                // ── Auto-capture indicator ───────────────────────────
+                if (_autoCaptureArmed)
+                  Positioned(
+                    top: 115,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Text(
+                        'Auto-capturing...',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.85),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // ── Thumbnail preview (tap to preview) ───────────────
                 if (shots.isNotEmpty)
                   Positioned(
                     top: 120,
@@ -146,7 +252,6 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                             fit: BoxFit.cover,
                           ),
                         ),
-                        // Small preview icon hint
                         child: Align(
                           alignment: Alignment.bottomCenter,
                           child: Container(
@@ -170,20 +275,46 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                     ),
                   ),
 
-                // Capture button
+                // ── Shot counter ─────────────────────────────────────
+                if (shots.isNotEmpty)
+                  Positioned(
+                    top: 120,
+                    left: 20,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${shots.length}/10',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // ── Manual capture button ────────────────────────────
                 Positioned(
                   bottom: 120,
                   left: 0,
                   right: 0,
                   child: Center(
                     child: GestureDetector(
-                      onTap: isGuidanceOk ? _takePicture : null,
-                      child: Container(
+                      onTap: _currentResult.allOk ? _takePicture : null,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isGuidanceOk
+                          color: _currentResult.allOk
                               ? Colors.white
                               : Colors.white.withOpacity(0.4),
                           border: Border.all(color: Colors.white, width: 3),
@@ -198,7 +329,7 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                   ),
                 ),
 
-                // Next button
+                // ── Next button (shown after at least 1 shot) ────────
                 if (shots.isNotEmpty)
                   Positioned(
                     bottom: 40,
@@ -217,7 +348,7 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                           borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                      child: const Text("next"),
+                      child: const Text('next'),
                     ),
                   ),
               ],
