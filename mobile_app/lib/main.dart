@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/auth/verification_screen.dart';
+
 import 'screens/home/home_screen.dart';
 import 'screens/auth/auth_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -27,7 +27,6 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       initialRoute: '/auth',
       routes: {
-        '/verification': (context) => const VerificationScreen(),
         '/home': (context) => const HomeScreen(),
         '/auth': (context) => const AuthScreen(),
       },
