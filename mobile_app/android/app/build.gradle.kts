@@ -46,5 +46,5 @@ flutter {
     source = "../.."
 }
 dependencies {
-    implementation 'com.google.mlkit:object-detection:17.0.1'
+    implementation ("com.google.mlkit:object-detection:17.0.1")
 }

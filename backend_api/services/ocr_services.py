@@ -221,12 +221,12 @@ async def process_ocr(file):
         
         print("2. Extracting and Translating Data...")
         structured_data = {
-            "plate_number": _extract_plate_english(normalized_texts),
-            "vehicle_brand": _extract_brand(normalized_texts),
-            "vehicle_model": _extract_model(normalized_texts),
-            "manufacturing_year": _extract_year(normalized_texts),
+            "plate number": _extract_plate_english(normalized_texts),
+            "make": _extract_brand(normalized_texts),
+            "model": _extract_model(normalized_texts),
+            "manufacturing year": _extract_year(normalized_texts),
             "color": _extract_color(normalized_texts),
-            "chassis_number": _extract_chassis_number(normalized_texts),
+            "chassis number": _extract_chassis_number(normalized_texts),
         }
         
         print("3. Data Processed Successfully!")
