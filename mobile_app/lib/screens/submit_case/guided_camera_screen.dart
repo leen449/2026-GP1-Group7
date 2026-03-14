@@ -26,6 +26,11 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
   QualityResult _currentResult = QualityResult.initial();
   StreamSubscription<QualityResult>? _qualitySubscription;
 
+  // ── Guards ────────────────────────────────────────────────────────
+  // ✅ Prevents frames arriving after camera starts closing
+  bool _isTakingPicture = false;
+  bool _isDisposed = false;
+
   // ── Flash overlay ─────────────────────────────────────────────────
   bool _showFlash = false;
 
@@ -37,11 +42,10 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
     _initCamera();
   }
 
-  // ── Listen to quality stream ───────────────────────────────────────
-  // ✅ No auto-capture — only updates UI
+  // ── Listen to quality stream — only updates UI, no auto-capture ───
   void _listenToQuality() {
     _qualitySubscription = _qualityController.stream.listen((result) {
-      if (!mounted) return;
+      if (!mounted || _isDisposed) return;
       setState(() => _currentResult = result);
     });
   }
@@ -60,48 +64,75 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
     );
 
     await _controller!.initialize();
+    await _startImageStream();
 
-    await _controller!.startImageStream((CameraImage frame) {
-      _qualityController.processFrame(frame, _sensorOrientation);
-    });
-
-    if (mounted) {
+    if (mounted && !_isDisposed) {
       setState(() => isCameraReady = true);
     }
+  }
+
+  // ── Start image stream safely ─────────────────────────────────────
+  Future<void> _startImageStream() async {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+    if (_controller!.value.isStreamingImages) return;
+    await _controller!.startImageStream((CameraImage frame) {
+      // ✅ Guard: don't process frames while taking picture or after dispose
+      if (_isTakingPicture || _isDisposed) return;
+      _qualityController.processFrame(frame, _sensorOrientation);
+    });
   }
 
   // ── Take picture ──────────────────────────────────────────────────
   Future<void> _takePicture() async {
     if (_controller == null || !_controller!.value.isInitialized) return;
     if (shots.length >= 10) return;
+    if (_isTakingPicture) return; // ✅ Prevent double-tap
 
-    // Stop stream to take picture
-    await _controller!.stopImageStream();
+    setState(() => _isTakingPicture = true);
 
-    final image = await _controller!.takePicture();
+    try {
+      // Stop stream before taking picture
+      if (_controller!.value.isStreamingImages) {
+        await _controller!.stopImageStream();
+      }
 
-    // Green flash feedback
-    if (mounted) setState(() => _showFlash = true);
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) setState(() => _showFlash = false);
-    });
+      final image = await _controller!.takePicture();
 
-    // Resume stream
-    await _controller!.startImageStream((CameraImage frame) {
-      _qualityController.processFrame(frame, _sensorOrientation);
-    });
+      // Green flash feedback
+      if (mounted && !_isDisposed) {
+        setState(() => _showFlash = true);
+      }
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted && !_isDisposed) {
+        setState(() => _showFlash = false);
+      }
 
-    if (mounted) {
-      setState(() => shots.add(image));
+      // Restart stream
+      await _startImageStream();
+
+      if (mounted && !_isDisposed) {
+        setState(() => shots.add(image));
+      }
+    } catch (e) {
+      print('❌ Error taking picture: $e');
+    } finally {
+      if (mounted && !_isDisposed) {
+        setState(() => _isTakingPicture = false);
+      }
     }
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     _qualitySubscription?.cancel();
     _qualityController.dispose();
-    _controller?.stopImageStream();
-    _controller?.dispose();
+    if (_controller != null) {
+      if (_controller!.value.isStreamingImages) {
+        _controller!.stopImageStream();
+      }
+      _controller!.dispose();
+    }
     super.dispose();
   }
 
@@ -175,10 +206,10 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                   ),
                 ),
 
-                // ── Thumbnail preview (tap to preview) ─────────────
+                // ── Thumbnail preview ──────────────────────────────
                 if (shots.isNotEmpty)
                   Positioned(
-                    top: 120,
+                    top: 145,
                     right: 20,
                     child: GestureDetector(
                       onTap: () {
@@ -228,7 +259,7 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                 // ── Shot counter ───────────────────────────────────
                 if (shots.isNotEmpty)
                   Positioned(
-                    top: 120,
+                    top: 145,
                     left: 20,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -250,31 +281,41 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                     ),
                   ),
 
-                // ── Manual capture button ──────────────────────────
-                // ✅ No auto-capture — user always taps manually
+                // ── Capture button ─────────────────────────────────
                 Positioned(
                   bottom: 120,
                   left: 0,
                   right: 0,
                   child: Center(
                     child: GestureDetector(
-                      onTap: _currentResult.allOk ? _takePicture : null,
+                      // ✅ Disabled while taking picture to prevent double-tap
+                      onTap: (_currentResult.allOk && !_isTakingPicture)
+                          ? _takePicture
+                          : null,
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 250),
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _currentResult.allOk
+                          color: (_currentResult.allOk && !_isTakingPicture)
                               ? Colors.white
                               : Colors.white.withOpacity(0.4),
                           border: Border.all(color: Colors.white, width: 3),
                         ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          size: 32,
-                          color: Colors.black,
-                        ),
+                        child: _isTakingPicture
+                            ? const Padding(
+                                padding: EdgeInsets.all(22),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.black,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.camera_alt,
+                                size: 32,
+                                color: Colors.black,
+                              ),
                       ),
                     ),
                   ),
@@ -287,10 +328,14 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                     left: 60,
                     right: 60,
                     child: ElevatedButton(
-                      onPressed: () {
-                        final files = shots.map((x) => File(x.path)).toList();
-                        Navigator.pop(context, files);
-                      },
+                      onPressed: _isTakingPicture
+                          ? null
+                          : () {
+                              final files = shots
+                                  .map((x) => File(x.path))
+                                  .toList();
+                              Navigator.pop(context, files);
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0B4A7D),
                         foregroundColor: Colors.white,
