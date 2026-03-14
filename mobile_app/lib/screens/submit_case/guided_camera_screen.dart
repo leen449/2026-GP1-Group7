@@ -26,12 +26,7 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
   QualityResult _currentResult = QualityResult.initial();
   StreamSubscription<QualityResult>? _qualitySubscription;
 
-  // ── Auto-capture countdown ────────────────────────────────────────
-  // When allOk == true we start a 1-second timer before auto-capturing
-  Timer? _autoCaptureTimer;
-  bool _autoCaptureArmed = false;
-
-  // ── Flash overlay (green flash after capture) ─────────────────────
+  // ── Flash overlay ─────────────────────────────────────────────────
   bool _showFlash = false;
 
   @override
@@ -42,22 +37,16 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
     _initCamera();
   }
 
-  // ── Listen to quality stream and update UI ─────────────────────────
+  // ── Listen to quality stream ───────────────────────────────────────
+  // ✅ No auto-capture — only updates UI
   void _listenToQuality() {
     _qualitySubscription = _qualityController.stream.listen((result) {
       if (!mounted) return;
       setState(() => _currentResult = result);
-
-      // Auto-capture logic
-      if (result.allOk && !_autoCaptureArmed) {
-        _armAutoCapture();
-      } else if (!result.allOk && _autoCaptureArmed) {
-        _disarmAutoCapture();
-      }
     });
   }
 
-  // ── Init camera and start image stream ────────────────────────────
+  // ── Init camera ───────────────────────────────────────────────────
   Future<void> _initCamera() async {
     final cameras = await availableCameras();
     final camera = cameras.first;
@@ -67,12 +56,11 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
       camera,
       ResolutionPreset.medium,
       enableAudio: false,
-      imageFormatGroup: ImageFormatGroup.yuv420, // ✅ needed for Y-plane
+      imageFormatGroup: ImageFormatGroup.yuv420,
     );
 
     await _controller!.initialize();
 
-    // ✅ Start streaming frames to QualityController
     await _controller!.startImageStream((CameraImage frame) {
       _qualityController.processFrame(frame, _sensorOrientation);
     });
@@ -82,33 +70,17 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
     }
   }
 
-  // ── Auto-capture: arm a 1-second timer ────────────────────────────
-  void _armAutoCapture() {
-    _autoCaptureArmed = true;
-    _autoCaptureTimer = Timer(const Duration(seconds: 1), () {
-      if (_currentResult.allOk && mounted) {
-        _takePicture();
-      }
-    });
-  }
-
-  void _disarmAutoCapture() {
-    _autoCaptureArmed = false;
-    _autoCaptureTimer?.cancel();
-    _autoCaptureTimer = null;
-  }
-
   // ── Take picture ──────────────────────────────────────────────────
   Future<void> _takePicture() async {
     if (_controller == null || !_controller!.value.isInitialized) return;
     if (shots.length >= 10) return;
 
-    // Stop stream briefly to take picture
+    // Stop stream to take picture
     await _controller!.stopImageStream();
 
     final image = await _controller!.takePicture();
 
-    // Show green flash
+    // Green flash feedback
     if (mounted) setState(() => _showFlash = true);
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) setState(() => _showFlash = false);
@@ -120,16 +92,12 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
     });
 
     if (mounted) {
-      setState(() {
-        shots.add(image);
-        _autoCaptureArmed = false;
-      });
+      setState(() => shots.add(image));
     }
   }
 
   @override
   void dispose() {
-    _autoCaptureTimer?.cancel();
     _qualitySubscription?.cancel();
     _qualityController.dispose();
     _controller?.stopImageStream();
@@ -137,12 +105,12 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
     super.dispose();
   }
 
-  // ── Guidance banner color ─────────────────────────────────────────
+  // ── Banner color ──────────────────────────────────────────────────
   Color get _bannerColor {
-    if (_currentResult.allOk) return const Color(0xFF2EAB5F); // green
-    if (!_currentResult.brightnessOk) return const Color(0xFFE65100); // orange
-    if (!_currentResult.sharpnessOk) return const Color(0xFF1565C0); // blue
-    return const Color(0xFFE65100); // orange for distance
+    if (_currentResult.allOk) return const Color(0xFF2EAB5F);
+    if (!_currentResult.brightnessOk) return const Color(0xFFE65100);
+    if (!_currentResult.sharpnessOk) return const Color(0xFF1565C0);
+    return const Color(0xFFE65100);
   }
 
   IconData get _bannerIcon {
@@ -158,14 +126,14 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
       body: isCameraReady
           ? Stack(
               children: [
-                // ── Camera preview ───────────────────────────────────
+                // ── Camera preview ─────────────────────────────────
                 SizedBox.expand(child: CameraPreview(_controller!)),
 
-                // ── Green flash overlay on capture ───────────────────
+                // ── Green flash on capture ─────────────────────────
                 if (_showFlash)
                   Container(color: Colors.green.withOpacity(0.35)),
 
-                // ── Guidance banner ──────────────────────────────────
+                // ── Guidance banner ────────────────────────────────
                 Positioned(
                   top: 60,
                   left: 0,
@@ -207,25 +175,7 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                   ),
                 ),
 
-                // ── Auto-capture indicator ───────────────────────────
-                if (_autoCaptureArmed)
-                  Positioned(
-                    top: 115,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Text(
-                        'Auto-capturing...',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.85),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // ── Thumbnail preview (tap to preview) ───────────────
+                // ── Thumbnail preview (tap to preview) ─────────────
                 if (shots.isNotEmpty)
                   Positioned(
                     top: 120,
@@ -275,7 +225,7 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                     ),
                   ),
 
-                // ── Shot counter ─────────────────────────────────────
+                // ── Shot counter ───────────────────────────────────
                 if (shots.isNotEmpty)
                   Positioned(
                     top: 120,
@@ -300,7 +250,8 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                     ),
                   ),
 
-                // ── Manual capture button ────────────────────────────
+                // ── Manual capture button ──────────────────────────
+                // ✅ No auto-capture — user always taps manually
                 Positioned(
                   bottom: 120,
                   left: 0,
@@ -329,7 +280,7 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                   ),
                 ),
 
-                // ── Next button (shown after at least 1 shot) ────────
+                // ── Next button ────────────────────────────────────
                 if (shots.isNotEmpty)
                   Positioned(
                     bottom: 40,

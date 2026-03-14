@@ -13,8 +13,8 @@ class QualityResult {
   final bool sharpnessOk;
   final bool distanceOk;
   final String guidance;
-  final double brightnessValue; // for debugging / display
-  final double sharpnessValue; // for debugging / display
+  final double brightnessValue;
+  final double sharpnessValue;
 
   const QualityResult({
     required this.brightnessOk,
@@ -25,10 +25,8 @@ class QualityResult {
     required this.sharpnessValue,
   });
 
-  // ✅ All checks passed
   bool get allOk => brightnessOk && sharpnessOk && distanceOk;
 
-  // Default "not ready" state shown before first frame is analysed
   factory QualityResult.initial() => const QualityResult(
     brightnessOk: false,
     sharpnessOk: false,
@@ -40,63 +38,61 @@ class QualityResult {
 }
 
 // ─────────────────────────────────────────────
-// 2. Thresholds — tweak these for your needs
+// 2. Thresholds — tightened for better quality
 // ─────────────────────────────────────────────
 class _Thresholds {
-  // Brightness: Y-plane average (0–255)
-  static const double minBrightness = 60.0; // below = too dark
-  static const double maxBrightness = 210.0; // above = too bright
+  // ✅ Tighter brightness range for better exposure
+  static const double minBrightness = 80.0; // was 60
+  static const double maxBrightness = 190.0; // was 210
 
-  // Sharpness: Laplacian variance on downscaled image
-  // Higher = sharper. Tune this based on testing.
-  static const double minSharpness = 80.0;
+  // ✅ Higher sharpness requirement
+  static const double minSharpness = 120.0; // was 80
 
-  // Distance: bounding box width as fraction of frame width
-  // 0.35 = object must cover at least 35% of the frame width
-  static const double minObjectFraction = 0.35;
+  // Distance fraction (ML Kit fallback handles this)
+  static const double minObjectFraction = 0.02;
 }
 
 // ─────────────────────────────────────────────
-// 3. QualityController — the main class
+// 3. QualityController
 // ─────────────────────────────────────────────
 class QualityController {
-  // Throttle: minimum gap between analyses
+  // Throttle
   DateTime? _lastAnalysisTime;
   static const int _throttleMs = 250;
 
-  // ML Kit object detector (used every 5th frame only)
+  // ML Kit
   late final ObjectDetector _objectDetector;
-
-  // Frame counter — used to skip ML Kit on most frames
   int _frameCount = 0;
-
-  // Whether ML Kit is currently running (prevent overlap)
   bool _isDetecting = false;
-
-  // Last known distance result (reused between ML Kit frames)
   bool _lastDistanceOk = false;
 
-  // Stream controller — UI listens to this
+  // ✅ Fallback counter — 20 frames × 250ms = 5 seconds before fallback
+  int _framesWithNoDetection = 0;
+  static const int _noDetectionFallbackFrames =
+      20; // was 12 (~3s), now 20 (~5s)
+
+  // Tracks whether ML Kit detected something (vs nothing at all)
+  bool _mlKitDetectedSomething = false;
+
+  // Stream
   final _resultController = StreamController<QualityResult>.broadcast();
   Stream<QualityResult> get stream => _resultController.stream;
 
-  // ── Init ──────────────────────────────────────────────────────────
   QualityController() {
     _initObjectDetector();
   }
 
   void _initObjectDetector() {
     final options = ObjectDetectorOptions(
-      mode: DetectionMode.stream, // optimised for live frames
-      classifyObjects: false, // we don't need labels, just bbox
-      multipleObjects: false, // we only care about the main object
+      mode: DetectionMode.stream,
+      classifyObjects: false,
+      multipleObjects: false,
     );
     _objectDetector = ObjectDetector(options: options);
   }
 
-  // ── Main entry point — call this from CameraController.startImageStream ──
+  // ── Main entry point ──────────────────────────────────────────────
   Future<void> processFrame(CameraImage frame, int sensorOrientation) async {
-    // ✅ Throttle — skip frame if less than 250ms since last analysis
     final now = DateTime.now();
     if (_lastAnalysisTime != null &&
         now.difference(_lastAnalysisTime!).inMilliseconds < _throttleMs) {
@@ -106,21 +102,36 @@ class QualityController {
 
     _frameCount++;
 
-    // ── A. Brightness (every frame, very cheap) ──────────────────────
+    // ── A. Brightness ────────────────────────────────────────────────
     final brightness = _calculateBrightness(frame);
     final brightnessOk =
         brightness >= _Thresholds.minBrightness &&
         brightness <= _Thresholds.maxBrightness;
 
-    // ── B. Sharpness (every frame on downscaled image) ───────────────
+    // ── B. Sharpness ─────────────────────────────────────────────────
     final sharpness = await _calculateSharpness(frame);
     final sharpnessOk = sharpness >= _Thresholds.minSharpness;
 
     // ── C. Distance via ML Kit (every 5th frame only) ────────────────
     if (_frameCount % 5 == 0 && !_isDetecting) {
       _isDetecting = true;
-      _runObjectDetection(frame, sensorOrientation).then((distanceOk) {
-        _lastDistanceOk = distanceOk;
+      _runObjectDetection(frame, sensorOrientation).then((result) {
+        final detected = result['detected'] as bool;
+        final distanceOk = result['distanceOk'] as bool;
+
+        if (detected) {
+          _mlKitDetectedSomething = true;
+          _lastDistanceOk = distanceOk;
+          _framesWithNoDetection = 0;
+        } else {
+          _mlKitDetectedSomething = false;
+          _framesWithNoDetection++;
+          // ✅ After 5 seconds of no detection, assume close enough
+          if (_framesWithNoDetection >= _noDetectionFallbackFrames) {
+            _lastDistanceOk = true;
+          }
+        }
+
         _isDetecting = false;
       });
     }
@@ -146,29 +157,23 @@ class QualityController {
   }
 
   // ─────────────────────────────────────────────
-  // A. Brightness — reads Y-plane average
+  // A. Brightness
   // ─────────────────────────────────────────────
   double _calculateBrightness(CameraImage frame) {
-    // The Y-plane is the first plane in YUV420 format
-    // Each byte = brightness of one pixel (0 = black, 255 = white)
     final yPlane = frame.planes[0].bytes;
-
-    // Sample every 10th pixel for speed (still accurate enough)
     int total = 0;
     int count = 0;
     for (int i = 0; i < yPlane.length; i += 10) {
       total += yPlane[i];
       count++;
     }
-
     return count > 0 ? total / count : 0.0;
   }
 
   // ─────────────────────────────────────────────
-  // B. Sharpness — Laplacian variance in Dart
+  // B. Sharpness
   // ─────────────────────────────────────────────
   Future<double> _calculateSharpness(CameraImage frame) async {
-    // Run in an isolate so it doesn't block the UI thread
     return await Isolate.run(() => _laplacianVariance(frame));
   }
 
@@ -177,13 +182,10 @@ class QualityController {
     final width = frame.width;
     final height = frame.height;
 
-    // Step 1: Downsample to 100x100 for speed
-    // We manually pick pixels at even intervals
     const targetSize = 100;
     final xStep = width ~/ targetSize;
     final yStep = height ~/ targetSize;
 
-    // Step 2: Build a small greyscale image from sampled pixels
     final pixels = img.Image(width: targetSize, height: targetSize);
     for (int y = 0; y < targetSize; y++) {
       for (int x = 0; x < targetSize; x++) {
@@ -197,13 +199,7 @@ class QualityController {
       }
     }
 
-    // Step 3: Apply Laplacian kernel:
-    // [ 0,  1,  0]
-    // [ 1, -4,  1]
-    // [ 0,  1,  0]
-    // This highlights edges — high values = sharp edges
     final List<double> laplacianValues = [];
-
     for (int y = 1; y < targetSize - 1; y++) {
       for (int x = 1; x < targetSize - 1; x++) {
         final center = pixels.getPixel(x, y).r.toDouble();
@@ -211,14 +207,11 @@ class QualityController {
         final bottom = pixels.getPixel(x, y + 1).r.toDouble();
         final left = pixels.getPixel(x - 1, y).r.toDouble();
         final right = pixels.getPixel(x + 1, y).r.toDouble();
-
         final laplacian = (top + bottom + left + right) - (4 * center);
         laplacianValues.add(laplacian);
       }
     }
 
-    // Step 4: Calculate variance of Laplacian values
-    // High variance = sharp image, low variance = blurry
     if (laplacianValues.isEmpty) return 0.0;
 
     final mean =
@@ -233,31 +226,35 @@ class QualityController {
   }
 
   // ─────────────────────────────────────────────
-  // C. Distance — ML Kit Object Detection
+  // C. Distance — ML Kit
+  // Returns Map with 'detected' and 'distanceOk'
   // ─────────────────────────────────────────────
-  Future<bool> _runObjectDetection(
+  Future<Map<String, bool>> _runObjectDetection(
     CameraImage frame,
     int sensorOrientation,
   ) async {
     try {
-      // Convert CameraImage to InputImage for ML Kit
       final inputImage = _cameraImageToInputImage(frame, sensorOrientation);
-      if (inputImage == null) return _lastDistanceOk;
+      if (inputImage == null) {
+        return {'detected': false, 'distanceOk': false};
+      }
 
       final objects = await _objectDetector.processImage(inputImage);
-      if (objects.isEmpty) return false;
 
-      // Find the largest detected object
+      if (objects.isEmpty) {
+        return {'detected': false, 'distanceOk': false};
+      }
+
       final frameWidth = frame.width.toDouble();
       final largestObject = objects.reduce(
         (a, b) => a.boundingBox.width > b.boundingBox.width ? a : b,
       );
-
-      // Check if it covers enough of the frame
       final fraction = largestObject.boundingBox.width / frameWidth;
-      return fraction >= _Thresholds.minObjectFraction;
+      final distanceOk = fraction >= _Thresholds.minObjectFraction;
+
+      return {'detected': true, 'distanceOk': distanceOk};
     } catch (e) {
-      return _lastDistanceOk; // keep last known value on error
+      return {'detected': false, 'distanceOk': false};
     }
   }
 
@@ -265,7 +262,6 @@ class QualityController {
     CameraImage frame,
     int sensorOrientation,
   ) {
-    // Map sensor orientation to ML Kit rotation
     final rotation = _rotationFromSensorOrientation(sensorOrientation);
     if (rotation == null) return null;
 
@@ -299,7 +295,7 @@ class QualityController {
   }
 
   // ─────────────────────────────────────────────
-  // D. Guidance message — priority order
+  // D. Guidance message
   // ─────────────────────────────────────────────
   String _buildGuidance(
     bool brightnessOk,
@@ -313,7 +309,11 @@ class QualityController {
           : 'Too bright — avoid direct light';
     }
     if (!sharpnessOk) return 'Hold still — image is blurry';
-    if (!distanceOk) return 'Move closer to the vehicle';
+    // Only show "move closer" when ML Kit detected something too small
+    // not when it detected nothing (= user is already very close)
+    if (!distanceOk && _mlKitDetectedSomething) {
+      return 'Move closer to the vehicle';
+    }
     return 'Good — hold still...';
   }
 
