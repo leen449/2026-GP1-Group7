@@ -590,7 +590,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                           ),
                                           SizedBox(height: 2),
                                           Text(
-                                            'supported format: PDF',
+                                            'supported format: PDF \n max size: 999kB',
                                             style: TextStyle(
                                               color: Colors.grey,
                                             ),

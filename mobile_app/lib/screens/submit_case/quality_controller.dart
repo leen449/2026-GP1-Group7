@@ -1,13 +1,13 @@
 import 'dart:async';
-import 'dart:isolate';
+import 'dart:math';
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:camera/camera.dart';
-import 'package:image/image.dart' as img;
 import 'package:google_mlkit_object_detection/google_mlkit_object_detection.dart';
 
-// ─────────────────────────────────────────────
-// 1. QualityResult — what the UI reads
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// QualityResult
+// ─────────────────────────────────────────────────────────────────────
 class QualityResult {
   final bool brightnessOk;
   final bool sharpnessOk;
@@ -15,6 +15,8 @@ class QualityResult {
   final String guidance;
   final double brightnessValue;
   final double sharpnessValue;
+  final double overexposedPercentage;
+  final double adaptiveThreshold;
 
   const QualityResult({
     required this.brightnessOk,
@@ -23,6 +25,8 @@ class QualityResult {
     required this.guidance,
     required this.brightnessValue,
     required this.sharpnessValue,
+    required this.overexposedPercentage,
+    required this.adaptiveThreshold,
   });
 
   bool get allOk => brightnessOk && sharpnessOk && distanceOk;
@@ -34,45 +38,70 @@ class QualityResult {
     guidance: 'Point camera at the damage',
     brightnessValue: 0,
     sharpnessValue: 0,
+    overexposedPercentage: 0,
+    adaptiveThreshold: 0,
   );
 }
 
-// ─────────────────────────────────────────────
-// 2. Thresholds — tightened for better quality
-// ─────────────────────────────────────────────
-class _Thresholds {
-  // ✅ Tighter brightness range for better exposure
-  static const double minBrightness = 80.0; // was 60
-  static const double maxBrightness = 190.0; // was 210
-
-  // ✅ Higher sharpness requirement
-  static const double minSharpness = 120.0; // was 80
-
-  // Distance fraction (ML Kit fallback handles this)
-  static const double minObjectFraction = 0.02;
+// ─────────────────────────────────────────────────────────────────────
+// BrightnessMetrics
+// ─────────────────────────────────────────────────────────────────────
+class _BrightnessMetrics {
+  final double average;
+  final double overexposedPercentage;
+  const _BrightnessMetrics(this.average, this.overexposedPercentage);
 }
 
-// ─────────────────────────────────────────────
-// 3. QualityController
-// ─────────────────────────────────────────────
-class QualityController {
-  // Throttle
-  DateTime? _lastAnalysisTime;
-  static const int _throttleMs = 250;
+// ─────────────────────────────────────────────────────────────────────
+// Thresholds
+// ─────────────────────────────────────────────────────────────────────
+class _Thresholds {
+  // Brightness
+  static const double minBrightness = 80.0;
+  static const double maxBrightness = 190.0;
+  static const int overexposedPixelValue = 240;
+  static const double maxOverexposedPixelPercentage = 0.05;
 
-  // ML Kit
+  // FFT sharpness ratio (0.0–1.0)
+  static const double minFftSharpness = 0.08;
+
+  // Distance: vehicle must cover at least 50% of frame width
+  // This ensures user is close to the damage, not just near the car
+  static const double minVehicleFraction = 0.50;
+
+  // Brightness change that indicates camera has moved significantly
+  // Used to reset distance fallback
+  static const double brightnessMovementDelta = 15.0;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// QualityController
+// ─────────────────────────────────────────────────────────────────────
+class QualityController {
+  // Throttle — main analysis
+  DateTime? _lastAnalysisTime;
+  static const int _throttleMs = 350;
+
+  // ML Kit — separate throttle so it never blocks brightness/sharpness
+  DateTime? _lastMlKitTime;
+  static const int _mlKitThrottleMs = 1500; // run ML Kit every 1.5 seconds
   late final ObjectDetector _objectDetector;
-  int _frameCount = 0;
   bool _isDetecting = false;
   bool _lastDistanceOk = false;
-
-  // ✅ Fallback counter — 20 frames × 250ms = 5 seconds before fallback
   int _framesWithNoDetection = 0;
-  static const int _noDetectionFallbackFrames =
-      20; // was 12 (~3s), now 20 (~5s)
+  // Fallback: after 5 seconds of no vehicle detected → assume close enough
+  static const int _noDetectionFallbackFrames = 4; // 4 × 1.5s = 6s
+  bool _mlKitDetectedVehicle = false;
 
-  // Tracks whether ML Kit detected something (vs nothing at all)
-  bool _mlKitDetectedSomething = false;
+  // Heavy analysis (FFT) every 3rd throttled frame
+  int _heavyCounter = 0;
+  double _lastSharpness = 0;
+
+  // Track brightness to detect camera movement → reset distance
+  double _lastBrightness = 0;
+
+  // Frame counter
+  int _frameCount = 0;
 
   // Stream
   final _resultController = StreamController<QualityResult>.broadcast();
@@ -83,10 +112,13 @@ class QualityController {
   }
 
   void _initObjectDetector() {
+    // ✅ DetectionMode.single — for per-frame analysis, no tracking overhead
+    // ✅ classifyObjects: true — enables vehicle/car/transport labels
+    // ✅ multipleObjects: true — detect all, then filter for vehicle
     final options = ObjectDetectorOptions(
-      mode: DetectionMode.stream,
-      classifyObjects: false,
-      multipleObjects: false,
+      mode: DetectionMode.single,
+      classifyObjects: true,
+      multipleObjects: true,
     );
     _objectDetector = ObjectDetector(options: options);
   }
@@ -99,44 +131,73 @@ class QualityController {
       return;
     }
     _lastAnalysisTime = now;
-
     _frameCount++;
+    _heavyCounter++;
 
-    // ── A. Brightness ────────────────────────────────────────────────
-    final brightness = _calculateBrightness(frame);
+    // ── A. Brightness (~0.5ms) ────────────────────────────────────────
+    final metrics = _calculateBrightnessMetrics(frame.planes[0].bytes);
     final brightnessOk =
-        brightness >= _Thresholds.minBrightness &&
-        brightness <= _Thresholds.maxBrightness;
+        metrics.average >= _Thresholds.minBrightness &&
+        metrics.average <= _Thresholds.maxBrightness &&
+        metrics.overexposedPercentage <=
+            _Thresholds.maxOverexposedPixelPercentage;
 
-    // ── B. Sharpness ─────────────────────────────────────────────────
-    final sharpness = await _calculateSharpness(frame);
-    final sharpnessOk = sharpness >= _Thresholds.minSharpness;
+    // ✅ Detect significant camera movement via brightness change
+    // If brightness changed a lot → user moved → reset distance fallback
+    if (_lastBrightness != 0 &&
+        (metrics.average - _lastBrightness).abs() >
+            _Thresholds.brightnessMovementDelta) {
+      _framesWithNoDetection = 0;
+      _lastDistanceOk = false;
+      _mlKitDetectedVehicle = false;
+    }
+    _lastBrightness = metrics.average;
 
-    // ── C. Distance via ML Kit (every 5th frame only) ────────────────
-    if (_frameCount % 5 == 0 && !_isDetecting) {
+    // ── B. FFT Sharpness (every 3rd frame, ~5ms) ──────────────────────
+    if (_heavyCounter % 3 == 0) {
+      try {
+        _lastSharpness = _computeFftSharpness(
+          frame.planes[0].bytes,
+          frame.width,
+          frame.height,
+        );
+      } catch (e) {
+        // Keep last known value on error
+      }
+    }
+    final sharpnessOk = _lastSharpness >= _Thresholds.minFftSharpness;
+
+    // ── C. ML Kit Distance (every 1.5 seconds, non-blocking) ──────────
+    // Runs completely independently — doesn't delay brightness/sharpness
+    final nowMlKit = DateTime.now();
+    if (!_isDetecting &&
+        (_lastMlKitTime == null ||
+            nowMlKit.difference(_lastMlKitTime!).inMilliseconds >=
+                _mlKitThrottleMs)) {
+      _lastMlKitTime = nowMlKit;
       _isDetecting = true;
-      _runObjectDetection(frame, sensorOrientation).then((result) {
-        final detected = result['detected'] as bool;
+      // Fire and forget — result updates on next frame
+      _runVehicleDetection(frame, sensorOrientation).then((result) {
+        final vehicleFound = result['vehicleFound'] as bool;
         final distanceOk = result['distanceOk'] as bool;
 
-        if (detected) {
-          _mlKitDetectedSomething = true;
+        if (vehicleFound) {
+          _mlKitDetectedVehicle = true;
           _lastDistanceOk = distanceOk;
           _framesWithNoDetection = 0;
         } else {
-          _mlKitDetectedSomething = false;
+          _mlKitDetectedVehicle = false;
           _framesWithNoDetection++;
-          // ✅ After 5 seconds of no detection, assume close enough
+          // Fallback after ~6 seconds of no vehicle detected
           if (_framesWithNoDetection >= _noDetectionFallbackFrames) {
             _lastDistanceOk = true;
           }
         }
-
         _isDetecting = false;
       });
     }
 
-    // ── D. Build result and emit ─────────────────────────────────────
+    // ── D. Emit result ────────────────────────────────────────────────
     final result = QualityResult(
       brightnessOk: brightnessOk,
       sharpnessOk: sharpnessOk,
@@ -145,10 +206,14 @@ class QualityController {
         brightnessOk,
         sharpnessOk,
         _lastDistanceOk,
-        brightness,
+        _mlKitDetectedVehicle,
+        metrics.average,
+        metrics.overexposedPercentage,
       ),
-      brightnessValue: brightness,
-      sharpnessValue: sharpness,
+      brightnessValue: metrics.average,
+      sharpnessValue: _lastSharpness,
+      overexposedPercentage: metrics.overexposedPercentage,
+      adaptiveThreshold: _Thresholds.minFftSharpness,
     );
 
     if (!_resultController.isClosed) {
@@ -156,105 +221,196 @@ class QualityController {
     }
   }
 
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────
   // A. Brightness
-  // ─────────────────────────────────────────────
-  double _calculateBrightness(CameraImage frame) {
-    final yPlane = frame.planes[0].bytes;
+  // ─────────────────────────────────────────────────────────────────
+  _BrightnessMetrics _calculateBrightnessMetrics(Uint8List yPlane) {
     int total = 0;
     int count = 0;
-    for (int i = 0; i < yPlane.length; i += 10) {
-      total += yPlane[i];
+    int overexposedCount = 0;
+    for (int i = 0; i < yPlane.length; i += 20) {
+      final pixel = yPlane[i];
+      total += pixel;
       count++;
+      if (pixel >= _Thresholds.overexposedPixelValue) overexposedCount++;
     }
-    return count > 0 ? total / count : 0.0;
+    return _BrightnessMetrics(
+      count > 0 ? total / count : 0.0,
+      count > 0 ? overexposedCount / count : 0.0,
+    );
   }
 
-  // ─────────────────────────────────────────────
-  // B. Sharpness
-  // ─────────────────────────────────────────────
-  Future<double> _calculateSharpness(CameraImage frame) async {
-    return await Isolate.run(() => _laplacianVariance(frame));
-  }
+  // ─────────────────────────────────────────────────────────────────
+  // B. FFT Sharpness
+  // High-frequency energy ratio — higher = sharper
+  // ─────────────────────────────────────────────────────────────────
+  double _computeFftSharpness(Uint8List yBytes, int width, int height) {
+    const n = 64;
+    final xStep = width ~/ n;
+    final yStep = height ~/ n;
 
-  static double _laplacianVariance(CameraImage frame) {
-    final yPlane = frame.planes[0].bytes;
-    final width = frame.width;
-    final height = frame.height;
+    final real = List<double>.filled(n * n, 0.0);
+    final imag = List<double>.filled(n * n, 0.0);
 
-    const targetSize = 100;
-    final xStep = width ~/ targetSize;
-    final yStep = height ~/ targetSize;
-
-    final pixels = img.Image(width: targetSize, height: targetSize);
-    for (int y = 0; y < targetSize; y++) {
-      for (int x = 0; x < targetSize; x++) {
-        final srcX = x * xStep;
-        final srcY = y * yStep;
-        final pixelIndex = srcY * width + srcX;
-        if (pixelIndex < yPlane.length) {
-          final grey = yPlane[pixelIndex];
-          pixels.setPixelRgb(x, y, grey, grey, grey);
+    for (int row = 0; row < n; row++) {
+      for (int col = 0; col < n; col++) {
+        final idx = (row * yStep) * width + (col * xStep);
+        if (idx < yBytes.length) {
+          real[row * n + col] = yBytes[idx] / 255.0;
         }
       }
     }
 
-    final List<double> laplacianValues = [];
-    for (int y = 1; y < targetSize - 1; y++) {
-      for (int x = 1; x < targetSize - 1; x++) {
-        final center = pixels.getPixel(x, y).r.toDouble();
-        final top = pixels.getPixel(x, y - 1).r.toDouble();
-        final bottom = pixels.getPixel(x, y + 1).r.toDouble();
-        final left = pixels.getPixel(x - 1, y).r.toDouble();
-        final right = pixels.getPixel(x + 1, y).r.toDouble();
-        final laplacian = (top + bottom + left + right) - (4 * center);
-        laplacianValues.add(laplacian);
+    for (int row = 0; row < n; row++) {
+      final rRow = real.sublist(row * n, row * n + n);
+      final iRow = imag.sublist(row * n, row * n + n);
+      _fft1d(rRow, iRow);
+      for (int col = 0; col < n; col++) {
+        real[row * n + col] = rRow[col];
+        imag[row * n + col] = iRow[col];
       }
     }
 
-    if (laplacianValues.isEmpty) return 0.0;
+    for (int col = 0; col < n; col++) {
+      final rCol = List<double>.generate(n, (r) => real[r * n + col]);
+      final iCol = List<double>.generate(n, (r) => imag[r * n + col]);
+      _fft1d(rCol, iCol);
+      for (int row = 0; row < n; row++) {
+        real[row * n + col] = rCol[row];
+        imag[row * n + col] = iCol[row];
+      }
+    }
 
-    final mean =
-        laplacianValues.reduce((a, b) => a + b) / laplacianValues.length;
-    final variance =
-        laplacianValues
-            .map((v) => (v - mean) * (v - mean))
-            .reduce((a, b) => a + b) /
-        laplacianValues.length;
+    double totalEnergy = 0.0;
+    double highFreqEnergy = 0.0;
+    final halfN = n ~/ 2;
+    final highFreqCut = n ~/ 4;
 
-    return variance;
+    for (int row = 0; row < n; row++) {
+      for (int col = 0; col < n; col++) {
+        final r = real[row * n + col];
+        final im = imag[row * n + col];
+        final mag = r * r + im * im;
+        totalEnergy += mag;
+        final fr = (row < halfN ? row : n - row).toDouble();
+        final fc = (col < halfN ? col : n - col).toDouble();
+        if (sqrt(fr * fr + fc * fc) > highFreqCut) {
+          highFreqEnergy += mag;
+        }
+      }
+    }
+
+    return totalEnergy == 0 ? 0.0 : highFreqEnergy / totalEnergy;
   }
 
-  // ─────────────────────────────────────────────
-  // C. Distance — ML Kit
-  // Returns Map with 'detected' and 'distanceOk'
-  // ─────────────────────────────────────────────
-  Future<Map<String, bool>> _runObjectDetection(
+  void _fft1d(List<double> real, List<double> imag) {
+    final n = real.length;
+    if (n <= 1) return;
+    int j = 0;
+    for (int i = 1; i < n; i++) {
+      int bit = n >> 1;
+      for (; j & bit != 0; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) {
+        final tr = real[i];
+        real[i] = real[j];
+        real[j] = tr;
+        final ti = imag[i];
+        imag[i] = imag[j];
+        imag[j] = ti;
+      }
+    }
+    for (int len = 2; len <= n; len <<= 1) {
+      final ang = -2 * pi / len;
+      final wRe = cos(ang);
+      final wIm = sin(ang);
+      for (int i = 0; i < n; i += len) {
+        double curRe = 1.0, curIm = 0.0;
+        for (int k = 0; k < len ~/ 2; k++) {
+          final uRe = real[i + k];
+          final uIm = imag[i + k];
+          final vRe =
+              real[i + k + len ~/ 2] * curRe - imag[i + k + len ~/ 2] * curIm;
+          final vIm =
+              real[i + k + len ~/ 2] * curIm + imag[i + k + len ~/ 2] * curRe;
+          real[i + k] = uRe + vRe;
+          imag[i + k] = uIm + vIm;
+          real[i + k + len ~/ 2] = uRe - vRe;
+          imag[i + k + len ~/ 2] = uIm - vIm;
+          final newRe = curRe * wRe - curIm * wIm;
+          curIm = curRe * wIm + curIm * wRe;
+          curRe = newRe;
+        }
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // C. Vehicle Detection via ML Kit
+  // ✅ Uses classification to filter for vehicle-related objects only
+  // ✅ Checks if vehicle covers 50%+ of frame width
+  // ─────────────────────────────────────────────────────────────────
+  Future<Map<String, bool>> _runVehicleDetection(
     CameraImage frame,
     int sensorOrientation,
   ) async {
     try {
       final inputImage = _cameraImageToInputImage(frame, sensorOrientation);
       if (inputImage == null) {
-        return {'detected': false, 'distanceOk': false};
+        return {'vehicleFound': false, 'distanceOk': false};
       }
 
       final objects = await _objectDetector.processImage(inputImage);
-
       if (objects.isEmpty) {
-        return {'detected': false, 'distanceOk': false};
+        return {'vehicleFound': false, 'distanceOk': false};
       }
 
+      // ✅ Filter for vehicle-related objects using classification labels
+      final vehicleKeywords = [
+        'vehicle',
+        'car',
+        'automobile',
+        'transport',
+        'truck',
+        'van',
+        'suv',
+        'sedan',
+        'wheel',
+        'tire',
+      ];
+
+      final vehicleObjects = objects.where((obj) {
+        if (obj.labels.isEmpty) return false;
+        return obj.labels.any((label) {
+          final text = label.text.toLowerCase();
+          return vehicleKeywords.any((kw) => text.contains(kw));
+        });
+      }).toList();
+
+      // If no vehicle label found, fall back to largest object
+      // (covers cases where ML Kit doesn't classify but detects something)
+      final candidates = vehicleObjects.isNotEmpty ? vehicleObjects : objects;
+
       final frameWidth = frame.width.toDouble();
-      final largestObject = objects.reduce(
+      final largest = candidates.reduce(
         (a, b) => a.boundingBox.width > b.boundingBox.width ? a : b,
       );
-      final fraction = largestObject.boundingBox.width / frameWidth;
-      final distanceOk = fraction >= _Thresholds.minObjectFraction;
 
-      return {'detected': true, 'distanceOk': distanceOk};
+      final fraction = largest.boundingBox.width / frameWidth;
+
+      print(
+        '🔍 ML Kit: ${candidates.length} object(s), '
+        'largest=${(fraction * 100).toStringAsFixed(0)}% of frame'
+        '${vehicleObjects.isNotEmpty ? " (vehicle label)" : " (no label)"}',
+      );
+
+      return {
+        'vehicleFound': true,
+        'distanceOk': fraction >= _Thresholds.minVehicleFraction,
+      };
     } catch (e) {
-      return {'detected': false, 'distanceOk': false};
+      print('❌ ML Kit error: $e');
+      return {'vehicleFound': false, 'distanceOk': false};
     }
   }
 
@@ -264,10 +420,8 @@ class QualityController {
   ) {
     final rotation = _rotationFromSensorOrientation(sensorOrientation);
     if (rotation == null) return null;
-
     final format = InputImageFormatValue.fromRawValue(frame.format.raw);
     if (format == null) return null;
-
     return InputImage.fromBytes(
       bytes: frame.planes[0].bytes,
       metadata: InputImageMetadata(
@@ -294,32 +448,44 @@ class QualityController {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // D. Guidance message
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────
+  // D. Guidance
+  // ─────────────────────────────────────────────────────────────────
   String _buildGuidance(
     bool brightnessOk,
     bool sharpnessOk,
     bool distanceOk,
+    bool vehicleDetected,
     double brightness,
+    double overexposedPct,
   ) {
     if (!brightnessOk) {
-      return brightness < _Thresholds.minBrightness
-          ? 'Too dark — move to better lighting'
-          : 'Too bright — avoid direct light';
+      if (brightness < _Thresholds.minBrightness) {
+        return 'Too dark — move to better lighting';
+      } else if (overexposedPct > _Thresholds.maxOverexposedPixelPercentage) {
+        return 'Too bright — reduce direct light or adjust angle';
+      } else {
+        return 'Too bright — avoid direct light';
+      }
     }
+
     if (!sharpnessOk) return 'Hold still — image is blurry';
-    // Only show "move closer" when ML Kit detected something too small
-    // not when it detected nothing (= user is already very close)
-    if (!distanceOk && _mlKitDetectedSomething) {
-      return 'Move closer to the vehicle';
+
+    if (!distanceOk) {
+      // ✅ Specific message based on whether vehicle was detected
+      if (vehicleDetected) {
+        return 'Move closer to the damage area';
+      } else {
+        return 'Point camera at the vehicle damage';
+      }
     }
-    return 'Good — hold still...';
+
+    return 'Good — tap to capture';
   }
 
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────
   // E. Cleanup
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────
   void dispose() {
     _objectDetector.close();
     _resultController.close();
