@@ -28,8 +28,10 @@ class VerificationScreen extends StatefulWidget {
 }
 
 class _VerificationScreenState extends State<VerificationScreen> {
-  final List<TextEditingController> _controllers =
-      List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _controllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
   late String _verificationId;
@@ -45,11 +47,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
     super.initState();
     _verificationId = widget.verificationId;
     _resendToken = widget.resendToken;
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNodes[0].requestFocus();
     });
-
     _startTimer();
   }
 
@@ -88,23 +88,19 @@ class _VerificationScreenState extends State<VerificationScreen> {
       );
       return;
     }
-
     setState(() => _isLoading = true);
-
     try {
       final credential = PhoneAuthProvider.credential(
         verificationId: _verificationId,
         smsCode: _otpCode,
       );
-
       await FirebaseAuth.instance.signInWithCredential(credential);
-
-      if (widget.isSignUp) {
-        await _saveUserToFirestore();
-      }
-
+      if (widget.isSignUp) await _saveUserToFirestore();
       if (!mounted) return;
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
     } on FirebaseAuthException catch (e) {
       setState(() => _isLoading = false);
       String msg = 'Incorrect code. Please try again.';
@@ -112,16 +108,15 @@ class _VerificationScreenState extends State<VerificationScreen> {
         msg = 'Code expired. Please request a new one.';
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.red),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
     }
   }
 
   Future<void> _saveUserToFirestore() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
     await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
       'userID': user.uid,
       'name': widget.name,
@@ -136,7 +131,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   Future<void> _resendOTP() async {
     if (!_canResend) return;
-
     await FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: widget.phone,
       forceResendingToken: _resendToken,
@@ -144,7 +138,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
         await FirebaseAuth.instance.signInWithCredential(credential);
         if (widget.isSignUp) await _saveUserToFirestore();
         if (!mounted) return;
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
       },
       verificationFailed: (e) {
         if (!mounted) return;
@@ -155,10 +152,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
           ),
         );
       },
-      codeSent: (newVerificationId, newResendToken) {
+      codeSent: (newId, newToken) {
         setState(() {
-          _verificationId = newVerificationId;
-          _resendToken = newResendToken;
+          _verificationId = newId;
+          _resendToken = newToken;
         });
         _startTimer();
         if (!mounted) return;
@@ -173,130 +170,191 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final sw = MediaQuery.of(context).size.width;
+    final sh = MediaQuery.of(context).size.height;
+    // ✅ When keyboard opens viewInsets.bottom > 0 — shrink content
+    final keyboardH = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboard = keyboardH > 0;
+
+    // ✅ OTP box size scales with screen width
+    // 6 boxes + 5 gaps must fit within sw - 44 (horizontal padding)
+    final boxSize = ((sw - 44 - 50) / 6).clamp(40.0, 56.0);
+    final boxGap = (boxSize * 0.2).clamp(6.0, 12.0);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
+      // ✅ resizeToAvoidBottomInset: true (default) — content shifts up
+      // with keyboard. We handle this via SingleChildScrollView.
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 22),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 6),
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back_ios_new_rounded),
-              ),
-              const SizedBox(height: 18),
-              const Center(
-                child: Text(
-                  'Verify your phone\nnumber',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
-                    height: 1.1,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Center(
-                child: Text(
-                  "We've sent an SMS with an activation\ncode to your phone  ${widget.phone}",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.35,
-                    color: Colors.black.withOpacity(0.55),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 28),
-              Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(6, (i) => _otpBox(i)),
-                ),
-              ),
-              const SizedBox(height: 26),
-              Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+        child: SingleChildScrollView(
+          // ✅ Wrap in scroll so keyboard never causes overflow
+          physics: const ClampingScrollPhysics(),
+          child: ConstrainedBox(
+            // Minimum height = screen height so Spacer works
+            // Maximum = unconstrained so scroll works with keyboard
+            constraints: BoxConstraints(
+              minHeight:
+                  sh -
+                  MediaQuery.of(context).padding.top -
+                  MediaQuery.of(context).padding.bottom,
+            ),
+            child: IntrinsicHeight(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: sw * 0.06),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      "I didn't receive a code",
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.black.withOpacity(0.55),
-                        fontWeight: FontWeight.w500,
-                      ),
+                    SizedBox(height: isKeyboard ? 6 : 12),
+
+                    // Back button
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                      padding: EdgeInsets.zero,
                     ),
-                    const SizedBox(width: 14),
-                    GestureDetector(
-                      onTap: _canResend ? _resendOTP : null,
+
+                    SizedBox(height: isKeyboard ? 10 : 18),
+
+                    // Title
+                    Center(
                       child: Text(
-                        _canResend
-                            ? 'Resend'
-                            : 'Resend (00:${_seconds.toString().padLeft(2, '0')})',
+                        'Verify your phone\nnumber',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: _canResend ? Colors.black87 : Colors.black38,
+                          // ✅ Responsive font size
+                          fontSize: (sw * 0.082).clamp(26.0, 38.0),
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                          height: 1.1,
                         ),
                       ),
                     ),
+
+                    SizedBox(height: isKeyboard ? 8 : 14),
+
+                    // Subtitle
+                    Center(
+                      child: Text(
+                        "We've sent an SMS with an activation\n"
+                        "code to your phone  ${widget.phone}",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: (sw * 0.036).clamp(12.0, 16.0),
+                          height: 1.35,
+                          color: Colors.black.withOpacity(0.55),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: isKeyboard ? 16 : 28),
+
+                    // ✅ OTP boxes — responsive size and gap
+                    Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          6,
+                          (i) => _otpBox(i, boxSize, boxGap),
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: isKeyboard ? 14 : 26),
+
+                    // Resend row
+                    Center(
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        children: [
+                          Text(
+                            "I didn't receive a code",
+                            style: TextStyle(
+                              fontSize: (sw * 0.036).clamp(12.0, 15.0),
+                              color: Colors.black.withOpacity(0.55),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: _canResend ? _resendOTP : null,
+                            child: Text(
+                              _canResend
+                                  ? 'Resend'
+                                  : 'Resend (00:${_seconds.toString().padLeft(2, '0')})',
+                              style: TextStyle(
+                                fontSize: (sw * 0.036).clamp(12.0, 15.0),
+                                fontWeight: FontWeight.w700,
+                                color: _canResend
+                                    ? Colors.black87
+                                    : Colors.black38,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: isKeyboard ? 14 : 26),
+
+                    // Verify button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _verifyOtp,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0A3D62),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : const Text(
+                                'Verify',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+
+                    const Spacer(),
+                    const SizedBox(height: 10),
                   ],
                 ),
               ),
-              const SizedBox(height: 26),
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _verifyOtp,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0A3D62),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text(
-                    'Verify',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              const SizedBox(height: 10),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _otpBox(int index) {
+  Widget _otpBox(int index, double size, double gap) {
     return Container(
-      width: 48,
-      height: 56,
-      margin: EdgeInsets.only(right: index == 5 ? 0 : 10),
+      width: size,
+      height: size * 1.15, // slightly taller than wide
+      margin: EdgeInsets.only(right: index == 5 ? 0 : gap),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.55),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.black.withOpacity(0.08)),
       ),
       child: TextField(
         controller: _controllers[index],
         focusNode: _focusNodes[index],
         textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 22,
+        style: TextStyle(
+          fontSize: size * 0.44,
           fontWeight: FontWeight.w600,
           color: Colors.black87,
         ),

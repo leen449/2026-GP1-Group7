@@ -6,6 +6,7 @@ import '../ocr/scan_screen.dart';
 import '../auth/auth_screen.dart';
 import 'modify_screen.dart';
 import 'dart:ui';
+import '../NavBar/nav_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,7 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
   static const Color _textMuted = Color(0xFF6B6B6B);
   static const Color _bannerBlue = Color(0xFF6F8FA7);
 
-  // ── بيانات المستخدم ──
   String _userName = '';
 
   @override
@@ -35,13 +35,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadUserName() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
     if (doc.exists && mounted) {
       setState(() => _userName = doc.data()?['name'] ?? '');
     }
   }
 
-  // ── Logout ──
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
@@ -59,41 +61,51 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      builder: (_) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 42, height: 4,
-                  decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(10)),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(height: 10),
-                ListTile(
-                  title: const Text('Scan Registration', style: TextStyle(fontWeight: FontWeight.w600)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ScanScreen()));
-                  },
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                title: const Text(
+                  'Scan Registration',
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
-                ListTile(
-                  title: const Text('Add Manually', style: TextStyle(fontWeight: FontWeight.w600)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // TODO: Navigate to Add Manually screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Add Manually')),
-                    );
-                  },
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ScanScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                title: const Text(
+                  'Add Manually',
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 8),
-              ],
-            ),
+                onTap: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('Add Manually')));
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -104,176 +116,233 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      builder: (_) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 42, height: 4,
-                  decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(10)),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(height: 10),
-                ListTile(
-                  leading: const Icon(Icons.edit_outlined),
-                  title: const Text('Modify personal information', style: TextStyle(fontWeight: FontWeight.w600)),
-                  onTap: () {
-  Navigator.pop(context);
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const ModifyScreen()),
-  );
-},
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text(
+                  'Modify personal information',
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.logout, color: Colors.red),
-                  title: const Text('Log out', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _logout();
-                  },
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ModifyScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text(
+                  'Log out',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.red,
+                  ),
                 ),
-                const SizedBox(height: 8),
-              ],
-            ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _logout();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
   void _openHistory() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
           backgroundColor: Colors.white,
-          elevation: 0,
-          title: const Text('History', style: TextStyle(color: _textDark, fontWeight: FontWeight.w700)),
-          iconTheme: const IconThemeData(color: _textDark),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            title: const Text(
+              'History',
+              style: TextStyle(color: _textDark, fontWeight: FontWeight.w700),
+            ),
+            iconTheme: const IconThemeData(color: _textDark),
+          ),
+          body: const Center(child: Text('History Page')),
         ),
-        body: const Center(child: Text('History Page')),
-      )),
+      ),
     );
   }
 
- void _onNavTap(int index) {
-  // add later the other pages navigation logic here
-  if (index == _currentIndex) return;
-
-  if (index == 1) {
-    Navigator.push(
+  void _onNavTap(int index) {
+    if (index == _currentIndex) return;
+    if (index == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const SubmitCaseScreen()),
+      ).then((_) => setState(() => _currentIndex = 0));
+      return;
+    }
+    setState(() => _currentIndex = index);
+    ScaffoldMessenger.of(
       context,
-      MaterialPageRoute(builder: (_) => const SubmitCaseScreen()),
-    ).then((_) => setState(() => _currentIndex = 0));
-    return;
+    ).showSnackBar(SnackBar(content: Text('Tab ${index + 1} coming soon')));
   }
 
-  setState(() => _currentIndex = index);
-
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text("Tab ${index + 1} coming soon")));
-}
-
   @override
-  @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: _pageBg,
-    body: Column(
-      children: [
-        Expanded(
-          child: SafeArea(
-            bottom: false,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _topGreeting(),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Manage Your Vehicles And Reports Easily !',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _textDark),
-                  ),
-                  const SizedBox(height: 14),
-                  _bannerCard(),
-                  const SizedBox(height: 18),
-                  _myVehiclesHeader(),
-                  const SizedBox(height: 10),
-                  _vehiclesHorizontalList(),
-                  const SizedBox(height: 18),
-                  _reportHistoryHeader(),
-                  const SizedBox(height: 10),
-                  _reportList(),
-                ],
+  Widget build(BuildContext context) {
+    // ✅ Read bottom padding ONCE here so all widgets can use it
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
+    return Scaffold(
+      backgroundColor: _pageBg,
+      body: Column(
+        children: [
+          Expanded(
+            child: SafeArea(
+              bottom: false,
+              child: SingleChildScrollView(
+                // ✅ Dynamic bottom padding — accounts for nav bar height
+                padding: EdgeInsets.fromLTRB(18, 14, 18, bottomPad + 90),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _topGreeting(),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Manage Your Vehicles And Reports Easily !',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: _textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _bannerCard(),
+                    const SizedBox(height: 18),
+                    _myVehiclesHeader(),
+                    const SizedBox(height: 10),
+                    _vehiclesHorizontalList(),
+                    const SizedBox(height: 18),
+                    _reportHistoryHeader(),
+                    const SizedBox(height: 10),
+                    _reportList(),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        _bottomNav(),
-      ],
-    ),
-  );
-}
+          _bottomNav(),
+        ],
+      ),
+    );
+  }
 
-  // ── Top Greeting ──
   Widget _topGreeting() {
     return Row(
       children: [
         GestureDetector(
           onTap: _showProfileOptions,
           child: ClipOval(
-            child: Image.asset('assets/icons/profile.png', width: 34, height: 34, fit: BoxFit.cover),
+            child: Image.asset(
+              'assets/icons/profile.png',
+              width: 34,
+              height: 34,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
         const SizedBox(width: 10),
         Text(
           'Hello $_userName!',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _textDark),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: _textDark,
+          ),
         ),
       ],
     );
   }
 
-  // ── Banner ──
   Widget _bannerCard() {
-    return Container(
-      height: 220,
-      width: double.infinity,
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(22)),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: 12, right: 12, top: 12, bottom: 22,
-            child: Container(
-              decoration: BoxDecoration(color: _bannerBlue, borderRadius: BorderRadius.circular(22)),
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final cardHeight = w * 0.50;
+
+        // ✅ Stack with Clip.none so car overflows outside the blue box
+        // matching the original Figma design
+        return SizedBox(
+          height: cardHeight + 30, // extra space for car overflow at bottom
+          width: double.infinity,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Blue background card
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 30, // card stops 30px before bottom
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _bannerBlue,
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                ),
+              ),
+
+              // Car image — positioned to overflow bottom of card
+              Positioned(
+                left: w * 0.04,
+                right: 0,
+                top: w * 0.02,
+                bottom: 0, // extends 30px below the card
+                child: Image.asset(
+                  'assets/images/orange_car.png',
+                  fit: BoxFit.contain,
+                  alignment: Alignment.bottomCenter,
+                ),
+              ),
+            ],
           ),
-          Positioned(
-            left: 40, top: 20,
-            child: Image.asset('assets/images/orange_car.png', width: 300, fit: BoxFit.contain),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  // ── My Vehicles Header ──
   Widget _myVehiclesHeader() {
     return Row(
       children: [
-        const Text('My Vehicles', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: _textDark)),
+        const Text(
+          'My Vehicles',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: _textDark,
+          ),
+        ),
         const Spacer(),
         GestureDetector(
           onTap: _showAddOptions,
           child: Container(
-            width: 34, height: 34,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(color: _cardGrey, shape: BoxShape.circle),
             child: const Icon(Icons.add, size: 20, color: _textDark),
           ),
@@ -282,7 +351,6 @@ Widget build(BuildContext context) {
     );
   }
 
-  // ── Vehicles List من Firestore ──
   Widget _vehiclesHorizontalList() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return const SizedBox();
@@ -295,7 +363,10 @@ Widget build(BuildContext context) {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(height: 112, child: Center(child: CircularProgressIndicator()));
+          return const SizedBox(
+            height: 120,
+            child: Center(child: CircularProgressIndicator()),
+          );
         }
 
         final vehicles = snapshot.data?.docs ?? [];
@@ -304,63 +375,106 @@ Widget build(BuildContext context) {
           return Container(
             height: 90,
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: _cardGrey, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+              color: _cardGrey,
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: const Text(
               'No vehicles registered yet.',
-              style: TextStyle(color: _textMuted, fontSize: 14, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                color: _textMuted,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           );
         }
 
-        return SizedBox(
-          height: 112,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: vehicles.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, i) {
-              final v = vehicles[i].data() as Map<String, dynamic>;
-              final name = '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim();
-              final plate = v['plateNumber'] ?? '';
+        // ✅ Use LayoutBuilder so card height scales with screen width
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            // Card is 145px wide — height proportional to avoid overflow
+            // image(76) + padding(20) + text(12) + spacing(8) + plate(11+2) = ~130
+            const cardHeight = 130.0;
 
-              return Container(
-                width: 145,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                decoration: BoxDecoration(color: _cardGrey, borderRadius: BorderRadius.circular(16)),
-                child: Column(
-                  children: [
-                    Image.asset('assets/images/car2.png', width: 76, fit: BoxFit.contain),
-                    const SizedBox(height: 6),
-                    Text(
-                      name,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _textDark),
+            return SizedBox(
+              height: cardHeight,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: vehicles.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, i) {
+                  final v = vehicles[i].data() as Map<String, dynamic>;
+                  final name = '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim();
+                  final plate = v['plateNumber'] ?? '';
+
+                  return Container(
+                    width: 145,
+                    // ✅ No fixed height on the card itself — let content breathe
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      plate,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, color: _textMuted, fontWeight: FontWeight.w500),
+                    decoration: BoxDecoration(
+                      color: _cardGrey,
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                  ],
-                ),
-              );
-            },
-          ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset(
+                          'assets/images/car2.png',
+                          width: 76,
+                          height: 52, // ✅ fixed image height
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          name,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          plate,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: _textMuted,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         );
       },
     );
   }
 
-  // ── Recent Report Header ──
   Widget _reportHistoryHeader() {
     return Row(
       children: [
-        const Text('Recent Report', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _textDark)),
+        const Text(
+          'Recent Report',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: _textDark,
+          ),
+        ),
         const Spacer(),
         GestureDetector(
           onTap: _openHistory,
@@ -389,7 +503,6 @@ Widget build(BuildContext context) {
     );
   }
 
-  // ── Report List من Firestore ──
   Widget _reportList() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return const SizedBox();
@@ -411,11 +524,18 @@ Widget build(BuildContext context) {
         if (reports.isEmpty) {
           return Container(
             padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(color: _cardGrey, borderRadius: BorderRadius.circular(18)),
+            decoration: BoxDecoration(
+              color: _cardGrey,
+              borderRadius: BorderRadius.circular(18),
+            ),
             child: const Center(
               child: Text(
                 'No reports yet.',
-                style: TextStyle(color: _textMuted, fontSize: 14, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  color: _textMuted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           );
@@ -432,7 +552,6 @@ Widget build(BuildContext context) {
                 ? '${date.day}/${date.month}/${date.year}'
                 : '';
 
-            // جلب اسم السيارة من vehicleId
             return FutureBuilder<DocumentSnapshot>(
               future: FirebaseFirestore.instance
                   .collection('vehicles')
@@ -443,7 +562,8 @@ Widget build(BuildContext context) {
                 String plate = '';
                 if (vSnap.hasData && vSnap.data!.exists) {
                   final vData = vSnap.data!.data() as Map<String, dynamic>;
-                  carName = '${vData['make'] ?? ''} ${vData['model'] ?? ''}'.trim();
+                  carName = '${vData['make'] ?? ''} ${vData['model'] ?? ''}'
+                      .trim();
                   plate = vData['plateNumber'] ?? '';
                 }
 
@@ -454,19 +574,46 @@ Widget build(BuildContext context) {
                     onTap: _openHistory,
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(color: _cardGrey, borderRadius: BorderRadius.circular(18)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _cardGrey,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
                       child: Row(
                         children: [
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(carName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _textDark)),
+                                Text(
+                                  carName,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: _textDark,
+                                  ),
+                                ),
                                 const SizedBox(height: 4),
-                                Text(plate, style: const TextStyle(fontSize: 12, color: _textMuted, fontWeight: FontWeight.w600)),
+                                Text(
+                                  plate,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: _textMuted,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                                 const SizedBox(height: 6),
-                                Text(dateStr, style: const TextStyle(fontSize: 12, color: _textDark, fontWeight: FontWeight.w600)),
+                                Text(
+                                  dateStr,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: _textDark,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -484,80 +631,7 @@ Widget build(BuildContext context) {
     );
   }
 
-  // ── Bottom Nav (نفس الكود الأصلي بدون تغيير) ──
   Widget _bottomNav() {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(40),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Container(
-              height: 72,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.35),
-                borderRadius: BorderRadius.circular(40),
-                border: Border.all(color: Colors.white.withOpacity(0.50), width: 1.2),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 4))],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _navItem(index: 0, label: 'home', icon: Icons.home_rounded),
-                  _navItem(index: 1, label: 'accident', icon: Icons.directions_car),
-                  _navItem(index: 2, label: 'history', icon: Icons.description_outlined),
-                  _navItem(index: 3, label: 'claim', icon: Icons.assignment_outlined),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem({required int index, required String label, required IconData icon}) {
-    final bool active = _currentIndex == index;
-    const Color activeBlue = Color(0xFF2A5BD7);
-    const Color inactiveGrey = Color(0xFF8A8A8A);
-
-    return GestureDetector(
-      onTap: () => _onNavTap(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeInOut,
-        width: 74, height: 50,
-        decoration: BoxDecoration(
-          color: active ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: active ? [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))] : [],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TweenAnimationBuilder<double>(
-              key: ValueKey(index == _currentIndex),
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.elasticOut,
-              builder: (context, value, child) {
-                final shake = active ? (value < 0.5 ? value * 2 * 6 : (1 - value) * 2 * 6) : 0.0;
-                return Transform.translate(
-                  offset: Offset(shake * (value < 0.25 || value > 0.75 ? -1 : 1), 0),
-                  child: Icon(icon, size: 22, color: active ? activeBlue : inactiveGrey),
-                );
-              },
-            ),
-            const SizedBox(height: 3),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: TextStyle(fontSize: 11, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? activeBlue : inactiveGrey),
-              child: Text(label),
-            ),
-          ],
-        ),
-      ),
-    );
+    return AppBottomNav(currentIndex: _currentIndex, onTap: _onNavTap);
   }
 }

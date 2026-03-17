@@ -12,6 +12,7 @@ import '../home/home_screen.dart';
 import 'cloudinary_service.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../NavBar/nav_bar.dart';
 import 'dart:ui';
 
 // ─────────────────────────────────────────────
@@ -590,7 +591,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                           ),
                                           SizedBox(height: 2),
                                           Text(
-                                            'supported format: PDF \n max size: 999kB',
+                                            'supported format: PDF',
                                             style: TextStyle(
                                               color: Colors.grey,
                                             ),
@@ -893,125 +894,6 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // Bottom Nav
   // ─────────────────────────────────────────────────────────────────
   Widget _bottomNav() {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(40),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Container(
-              height: 72,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.35),
-                borderRadius: BorderRadius.circular(40),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.50),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _navItem(index: 0, label: 'home', icon: Icons.home_rounded),
-                  _navItem(
-                    index: 1,
-                    label: 'accident',
-                    icon: Icons.directions_car,
-                  ),
-                  _navItem(
-                    index: 2,
-                    label: 'history',
-                    icon: Icons.description_outlined,
-                  ),
-                  _navItem(
-                    index: 3,
-                    label: 'claim',
-                    icon: Icons.assignment_outlined,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem({
-    required int index,
-    required String label,
-    required IconData icon,
-  }) {
-    final bool active = _currentIndex == index;
-    const Color activeBlue = Color(0xFF2A5BD7);
-    const Color inactiveGrey = Color(0xFF8A8A8A);
-
-    return GestureDetector(
-      onTap: () => _onNavTap(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeInOut,
-        width: 74,
-        height: 50,
-        decoration: BoxDecoration(
-          color: active ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : [],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TweenAnimationBuilder<double>(
-              key: ValueKey(index == _currentIndex),
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.elasticOut,
-              builder: (context, value, child) {
-                final shake = active
-                    ? (value < 0.5 ? value * 2 * 6 : (1 - value) * 2 * 6)
-                    : 0.0;
-                return Transform.translate(
-                  offset: Offset(
-                    shake * (value < 0.25 || value > 0.75 ? -1 : 1),
-                    0,
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 22,
-                    color: active ? activeBlue : inactiveGrey,
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 3),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                color: active ? activeBlue : inactiveGrey,
-              ),
-              child: Text(label),
-            ),
-          ],
-        ),
-      ),
-    );
+    return AppBottomNav(currentIndex: _currentIndex, onTap: _onNavTap);
   }
 }
