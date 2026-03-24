@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../home/home_screen.dart';
+import '../NavBar/nav_bar.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String verificationId;
@@ -99,7 +100,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => const AppBottomNav()),
       );
     } on FirebaseAuthException catch (e) {
       setState(() => _isLoading = false);
@@ -140,7 +141,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const AppBottomNav()),
         );
       },
       verificationFailed: (e) {

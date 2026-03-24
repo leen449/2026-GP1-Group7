@@ -5,7 +5,7 @@ import 'screens/auth/auth_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:flutter/services.dart';
-
+import 'screens/NavBar/nav_bar.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -33,7 +33,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       initialRoute: '/auth',
       routes: {
-        '/home': (context) => const HomeScreen(),
+        '/home': (context) => const AppBottomNav(),
         '/auth': (context) => const AuthScreen(),
       },
     );

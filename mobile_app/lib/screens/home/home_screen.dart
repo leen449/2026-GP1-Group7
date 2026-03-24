@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../submit_case/submit_case_screen.dart';
+
 import '../ocr/scan_screen.dart';
 import '../auth/auth_screen.dart';
 import 'modify_screen.dart';
 import 'dart:ui';
 import '../NavBar/nav_bar.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,7 +17,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
+  
 
   static const Color _pageBg = Colors.white;
   static const Color _cardGrey = Color(0xFFF2F3F5);
@@ -188,69 +189,43 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _onNavTap(int index) {
-    if (index == _currentIndex) return;
-    if (index == 1) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const SubmitCaseScreen()),
-      ).then((_) => setState(() => _currentIndex = 0));
-      return;
-    }
-    setState(() => _currentIndex = index);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Tab ${index + 1} coming soon')));
-  }
+  
 
   @override
-  Widget build(BuildContext context) {
-    // ✅ Read bottom padding ONCE here so all widgets can use it
-    final bottomPad = MediaQuery.of(context).padding.bottom;
-
-    return Scaffold(
-      backgroundColor: _pageBg,
-      body: Column(
-        children: [
-          Expanded(
-            child: SafeArea(
-              bottom: false,
-              child: SingleChildScrollView(
-                // ✅ Dynamic bottom padding — accounts for nav bar height
-                padding: EdgeInsets.fromLTRB(18, 14, 18, bottomPad + 90),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _topGreeting(),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Manage Your Vehicles And Reports Easily !',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: _textDark,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _bannerCard(),
-                    const SizedBox(height: 18),
-                    _myVehiclesHeader(),
-                    const SizedBox(height: 10),
-                    _vehiclesHorizontalList(),
-                    const SizedBox(height: 18),
-                    _reportHistoryHeader(),
-                    const SizedBox(height: 10),
-                    _reportList(),
-                  ],
-                ),
-              ),
+  @override
+Widget build(BuildContext context) {
+  final bottomPad = MediaQuery.of(context).padding.bottom;
+  return Scaffold(
+    backgroundColor: _pageBg,
+    body: SafeArea(
+      bottom: false,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(18, 14, 18, bottomPad + 90),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _topGreeting(),
+            const SizedBox(height: 12),
+            const Text(
+              'Manage Your Vehicles And Reports Easily !',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _textDark),
             ),
-          ),
-          _bottomNav(),
-        ],
+            const SizedBox(height: 14),
+            _bannerCard(),
+            const SizedBox(height: 18),
+            _myVehiclesHeader(),
+            const SizedBox(height: 10),
+            _vehiclesHorizontalList(),
+            const SizedBox(height: 18),
+            _reportHistoryHeader(),
+            const SizedBox(height: 10),
+            _reportList(),
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _topGreeting() {
     return Row(
@@ -631,7 +606,5 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _bottomNav() {
-    return AppBottomNav(currentIndex: _currentIndex, onTap: _onNavTap);
-  }
+
 }
