@@ -44,7 +44,10 @@ class _ModifyScreenState extends State<ModifyScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
     if (!doc.exists || !mounted) return;
 
     final data = doc.data()!;
@@ -68,7 +71,8 @@ class _ModifyScreenState extends State<ModifyScreen> {
   String? _validateNationalId(String val) {
     if (val.trim().isEmpty) return 'Please enter your National/Residence ID';
     if (val.length != 10) return 'ID must be exactly 10 digits';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'ID must contain digits only';
+    if (!RegExp(r'^[0-9]+$').hasMatch(val))
+      return 'ID must contain digits only';
     if (!val.startsWith('1') && !val.startsWith('2')) {
       return 'ID must start with 1 (Saudi) or 2 (Resident)';
     }
@@ -77,7 +81,8 @@ class _ModifyScreenState extends State<ModifyScreen> {
 
   String? _validatePhone(String val) {
     if (val.trim().isEmpty) return 'Please enter your phone number';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Phone must contain digits only';
+    if (!RegExp(r'^[0-9]+$').hasMatch(val))
+      return 'Phone must contain digits only';
     if (val.length != 9) return 'Phone number must be 9 digits';
     if (!val.startsWith('5')) return 'Phone number must start with 5';
     return null;
@@ -85,7 +90,9 @@ class _ModifyScreenState extends State<ModifyScreen> {
 
   bool _validate() {
     final nameErr = _validateName(_nameController.text);
-    final idErr = _nationalIdLocked ? null : _validateNationalId(_nationalIdController.text);
+    final idErr = _nationalIdLocked
+        ? null
+        : _validateNationalId(_nationalIdController.text);
     final phoneErr = _validatePhone(_phoneController.text);
 
     setState(() {
@@ -135,7 +142,10 @@ class _ModifyScreenState extends State<ModifyScreen> {
         updates['nationalID'] = _nationalIdController.text.trim();
       }
 
-      await FirebaseFirestore.instance.collection('users').doc(uid).update(updates);
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .update(updates);
 
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -257,19 +267,27 @@ class _ModifyScreenState extends State<ModifyScreen> {
                         padding: const EdgeInsets.only(top: 6),
                         child: Row(
                           children: [
-                            Icon(Icons.lock_outline, size: 14, color: Colors.grey.shade500),
+                            Icon(
+                              Icons.lock_outline,
+                              size: 14,
+                              color: Colors.grey.shade500,
+                            ),
                             const SizedBox(width: 4),
-                            Text(
-                              'Cannot be changed after submitting a case',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade500,
+                            // Wrap the Text widget with Expanded here
+                            Expanded(
+                              child: Text(
+                                'Cannot be changed after submitting a case',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade500,
+                                ),
+                                // Optional: adds a safety net for very small screens
+                                softWrap: true,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    const SizedBox(height: 18),
 
                     _fieldLabel('Phone Number'),
                     _inputField(
@@ -354,7 +372,10 @@ class _ModifyScreenState extends State<ModifyScreen> {
             filled: true,
             fillColor: enabled ? const Color(0xFFF6F6F6) : Colors.grey.shade100,
             counterText: '',
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -367,7 +388,10 @@ class _ModifyScreenState extends State<ModifyScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF0B3B66), width: 1.5),
+              borderSide: const BorderSide(
+                color: Color(0xFF0B3B66),
+                width: 1.5,
+              ),
             ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
