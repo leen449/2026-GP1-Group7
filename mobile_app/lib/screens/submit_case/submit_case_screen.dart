@@ -107,7 +107,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // Pick Najm PDF
+  // Pick Najm PDF — checks size before accepting
   // ─────────────────────────────────────────────────────────────────
   Future<void> pickNajmPdf() async {
     final result = await FilePicker.platform.pickFiles(
@@ -116,11 +116,111 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
     );
     if (result == null) return;
     final picked = result.files.single;
+
+    // ✅ Reject files over 900KB — same limit as Firestore check in _submitCase
+    if (picked.size > 900 * 1024) {
+      if (!mounted) return;
+      await _showFileSizeDialog(picked.size);
+      return;
+    }
+
     setState(() {
       najmFileName = picked.name;
       najmFilePath = picked.path;
       najmFileBytes = picked.size;
     });
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // File size warning dialog
+  // Same visual style as the National ID confirmation dialog
+  // ─────────────────────────────────────────────────────────────────
+  Future<void> _showFileSizeDialog(int fileSize) async {
+    final sizeKB = (fileSize / 1024).toStringAsFixed(0);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Header ────────────────────────────────────────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.red,
+                    size: 28,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'File Too Large',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      softWrap: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // ── Body ──────────────────────────────────────────
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'The selected PDF is $sizeKB KB, which exceeds the 900 KB limit.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      color: Colors.black87,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Please compress the file before uploading ',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      color: Colors.black87,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // ── Button — same style as confirm button ──────────
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0B4A7D),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    elevation: 4,
+                  ),
+                  child: const Text('Got it'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ─────────────────────────────────────────────────────────────────

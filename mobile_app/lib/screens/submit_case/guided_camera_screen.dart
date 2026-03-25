@@ -13,25 +13,18 @@ class GuidedCameraScreen extends StatefulWidget {
 }
 
 class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
-  // ── Camera ────────────────────────────────────────────────────────
   CameraController? _controller;
   bool isCameraReady = false;
   int _sensorOrientation = 0;
 
-  // ── Shots ─────────────────────────────────────────────────────────
   List<XFile> shots = [];
 
-  // ── Quality controller ────────────────────────────────────────────
   late final QualityController _qualityController;
   QualityResult _currentResult = QualityResult.initial();
   StreamSubscription<QualityResult>? _qualitySubscription;
 
-  // ── Guards ────────────────────────────────────────────────────────
-  // ✅ Prevents frames arriving after camera starts closing
   bool _isTakingPicture = false;
   bool _isDisposed = false;
-
-  // ── Flash overlay ─────────────────────────────────────────────────
   bool _showFlash = false;
 
   @override
@@ -42,7 +35,6 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
     _initCamera();
   }
 
-  // ── Listen to quality stream — only updates UI, no auto-capture ───
   void _listenToQuality() {
     _qualitySubscription = _qualityController.stream.listen((result) {
       if (!mounted || _isDisposed) return;
@@ -50,7 +42,6 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
     });
   }
 
-  // ── Init camera ───────────────────────────────────────────────────
   Future<void> _initCamera() async {
     final cameras = await availableCameras();
     final camera = cameras.first;
@@ -71,54 +62,40 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
     }
   }
 
-  // ── Start image stream safely ─────────────────────────────────────
   Future<void> _startImageStream() async {
     if (_controller == null || !_controller!.value.isInitialized) return;
     if (_controller!.value.isStreamingImages) return;
     await _controller!.startImageStream((CameraImage frame) {
-      // ✅ Guard: don't process frames while taking picture or after dispose
       if (_isTakingPicture || _isDisposed) return;
       _qualityController.processFrame(frame, _sensorOrientation);
     });
   }
 
-  // ── Take picture ──────────────────────────────────────────────────
   Future<void> _takePicture() async {
     if (_controller == null || !_controller!.value.isInitialized) return;
     if (shots.length >= 10) return;
-    if (_isTakingPicture) return; // ✅ Prevent double-tap
+    if (_isTakingPicture) return;
 
     setState(() => _isTakingPicture = true);
 
     try {
-      // Stop stream before taking picture
       if (_controller!.value.isStreamingImages) {
         await _controller!.stopImageStream();
       }
 
       final image = await _controller!.takePicture();
 
-      // Green flash feedback
-      if (mounted && !_isDisposed) {
-        setState(() => _showFlash = true);
-      }
+      if (mounted && !_isDisposed) setState(() => _showFlash = true);
       await Future.delayed(const Duration(milliseconds: 300));
-      if (mounted && !_isDisposed) {
-        setState(() => _showFlash = false);
-      }
+      if (mounted && !_isDisposed) setState(() => _showFlash = false);
 
-      // Restart stream
       await _startImageStream();
 
-      if (mounted && !_isDisposed) {
-        setState(() => shots.add(image));
-      }
+      if (mounted && !_isDisposed) setState(() => shots.add(image));
     } catch (e) {
       print('❌ Error taking picture: $e');
     } finally {
-      if (mounted && !_isDisposed) {
-        setState(() => _isTakingPicture = false);
-      }
+      if (mounted && !_isDisposed) setState(() => _isTakingPicture = false);
     }
   }
 
@@ -136,7 +113,6 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
     super.dispose();
   }
 
-  // ── Banner color ──────────────────────────────────────────────────
   Color get _bannerColor {
     if (_currentResult.allOk) return const Color(0xFF2EAB5F);
     if (!_currentResult.brightnessOk) return const Color(0xFFE65100);
@@ -153,6 +129,10 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ Read screen width once for responsive sizing
+    final sw = MediaQuery.of(context).size.width;
+    final topPad = MediaQuery.of(context).padding.top;
+
     return Scaffold(
       body: isCameraReady
           ? Stack(
@@ -160,20 +140,21 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                 // ── Camera preview ─────────────────────────────────
                 SizedBox.expand(child: CameraPreview(_controller!)),
 
-                // ── Green flash on capture ─────────────────────────
+                // ── Green flash ─────────────────────────────────────
                 if (_showFlash)
                   Container(color: Colors.green.withOpacity(0.35)),
 
-                // ── Guidance banner ────────────────────────────────
+                // ── Guidance banner ─────────────────────────────────
+                // ✅ left/right margins prevent edge overflow on any device
                 Positioned(
-                  top: 60,
-                  left: 0,
-                  right: 0,
+                  top: topPad + 16,
+                  left: sw * 0.06,
+                  right: sw * 0.06,
                   child: Center(
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
+                        horizontal: 16,
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
@@ -192,12 +173,19 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                         children: [
                           Icon(_bannerIcon, color: Colors.white, size: 20),
                           const SizedBox(width: 8),
-                          Text(
-                            _currentResult.guidance,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                          // ✅ Flexible allows text to wrap on long messages
+                          // instead of overflowing — fixes the 4px & 82px overflow
+                          Flexible(
+                            child: Text(
+                              _currentResult.guidance,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                // ✅ Responsive font size
+                                fontSize: (sw * 0.035).clamp(12.0, 15.0),
+                              ),
+                              softWrap: true,
+                              textAlign: TextAlign.center,
                             ),
                           ),
                         ],
@@ -206,10 +194,10 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                   ),
                 ),
 
-                // ── Thumbnail preview ──────────────────────────────
+                // ── Thumbnail preview ───────────────────────────────
                 if (shots.isNotEmpty)
                   Positioned(
-                    top: 145,
+                    top: topPad + 70,
                     right: 20,
                     child: GestureDetector(
                       onTap: () {
@@ -256,10 +244,10 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                     ),
                   ),
 
-                // ── Shot counter ───────────────────────────────────
+                // ── Shot counter ────────────────────────────────────
                 if (shots.isNotEmpty)
                   Positioned(
-                    top: 145,
+                    top: topPad + 70,
                     left: 20,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -281,14 +269,13 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                     ),
                   ),
 
-                // ── Capture button ─────────────────────────────────
+                // ── Capture button ──────────────────────────────────
                 Positioned(
                   bottom: 120,
                   left: 0,
                   right: 0,
                   child: Center(
                     child: GestureDetector(
-                      // ✅ Disabled while taking picture to prevent double-tap
                       onTap: (_currentResult.allOk && !_isTakingPicture)
                           ? _takePicture
                           : null,
@@ -321,7 +308,7 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                   ),
                 ),
 
-                // ── Next button ────────────────────────────────────
+                // ── Next button ─────────────────────────────────────
                 if (shots.isNotEmpty)
                   Positioned(
                     bottom: 40,
