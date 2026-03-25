@@ -8,7 +8,7 @@ import 'guided_damage_capture_screen.dart';
 import 'photo_preview_screen.dart';
 import 'CaseSubmittedScreen.dart';
 import 'CaseFailureScreen.dart';
-import '../home/home_screen.dart';
+
 import 'cloudinary_service.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -39,7 +39,7 @@ class SubmitCaseScreen extends StatefulWidget {
 class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // ── State ─────────────────────────────────────────────────────────
   List<File> capturedPhotos = [];
-  int _currentIndex = 1;
+  
 
   // ── Vehicle ───────────────────────────────────────────────────────
   List<VehicleItem> _vehicles = [];
@@ -499,24 +499,14 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-  void _onNavTap(int index) {
-    if (index == _currentIndex) return;
-    if (index == 0) {
-      Navigator.pop(context);
-      return;
-    }
-    setState(() => _currentIndex = index);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Tab ${index + 1} coming soon')));
-  }
+  
 
   // ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFFFF),
-      bottomNavigationBar: _bottomNav(),
+      
       body: Stack(
         children: [
           // ── Main scrollable content ───────────────────────────────
@@ -993,7 +983,5 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // ─────────────────────────────────────────────────────────────────
   // Bottom Nav
   // ─────────────────────────────────────────────────────────────────
-  Widget _bottomNav() {
-    return AppBottomNav(currentIndex: _currentIndex, onTap: _onNavTap);
-  }
+ 
 }
