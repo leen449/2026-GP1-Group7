@@ -1,10 +1,11 @@
 from fastapi import APIRouter
 from services.najm_services import process_najm_ocr
+from models.ocr_models import NajmOCRResponse, NajmStructuredData
 
 router = APIRouter()
 
 
-@router.post("/{case_id}")
+@router.post("/{case_id}", response_model=NajmOCRResponse)
 async def run_najm_ocr(case_id: str):
     """
     POST /ocr/najm/{case_id}
@@ -15,4 +16,21 @@ async def run_najm_ocr(case_id: str):
 
     Called by Flutter after a successful case submission.
     """
-    return await process_najm_ocr(case_id)
+    result = await process_najm_ocr(case_id)
+
+    if result['status'] == 'success':
+        return NajmOCRResponse(
+            status='success',
+            data=NajmStructuredData(
+                accident_number=result['data']['accidentNumber'],
+                accident_date=result['data']['accidentDate'],
+                damage_location=result['data']['damageLocation'],
+            ),
+            message=None,
+        )
+    else:
+        return NajmOCRResponse(
+            status='error',
+            data=None,
+            message=result.get('message', 'Unknown error'),
+        )

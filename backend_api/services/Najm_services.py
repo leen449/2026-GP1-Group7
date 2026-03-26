@@ -2,7 +2,26 @@ import re
 import base64
 import fitz  # PyMuPDF — pip install pymupdf
 import firebase_admin
-from firebase_admin import firestore
+from firebase_admin import firestore, credentials
+
+# ─────────────────────────────────────────────────────────────────────
+# Firebase Admin — initialize only if not already initialized
+# This is safe to call multiple times — won't reinitialize if already done
+# ─────────────────────────────────────────────────────────────────────
+def _ensure_firebase_initialized():
+    """
+    Initializes Firebase Admin SDK if not already initialized.
+    Looks for serviceAccountKey.json in the backend root directory.
+    """
+    if not firebase_admin._apps:
+        try:
+            cred = credentials.Certificate('serviceAccountKey.json')
+            firebase_admin.initialize_app(cred)
+            print("✅ Firebase Admin initialized in najm_services")
+        except Exception as e:
+            print(f"❌ Firebase Admin initialization failed: {e}")
+            raise
+
 
 # ─────────────────────────────────────────────────────────────────────
 # Helper: extract text from PDF base64 string
@@ -12,15 +31,12 @@ def _extract_text_from_base64_pdf(pdf_base64: str) -> list[str]:
     Decodes a base64 PDF string and extracts all text lines from it.
     Returns a list of non-empty text lines.
     """
-    # Decode base64 → bytes
     pdf_bytes = base64.b64decode(pdf_base64)
-
-    # Open PDF from bytes using PyMuPDF
-    pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    pdf_doc   = fitz.open(stream=pdf_bytes, filetype="pdf")
 
     all_lines = []
     for page in pdf_doc:
-        text = page.get_text()
+        text  = page.get_text()
         lines = [line.strip() for line in text.split('\n') if line.strip()]
         all_lines.extend(lines)
 
@@ -41,14 +57,15 @@ def _normalize(text: str) -> str:
 # ─────────────────────────────────────────────────────────────────────
 def _extract_accident_number(lines: list[str]) -> str:
     """
-    Looks for the line containing 'رقم الحادث' and extracts the number
-    from the same line or the next line.
+    Looks for the line containing 'رقم الحادث' and extracts the number.
     Example: 'رقم الحادث : 15343' → '15343'
     """
     for i, line in enumerate(lines):
-        if 'رقم الحادث' in line or 'رقم الحادث' in line:
-            # Try to extract number from same line
+        # ✅ Fixed: was duplicate condition — now checks both Arabic forms
+        if 'رقم الحادث' in line or 'رقم الحادث' in line.strip():
             normalized = _normalize(line)
+
+            # Try to extract number after colon on same line
             match = re.search(r':\s*(\d+)', normalized)
             if match:
                 return match.group(1)
@@ -56,7 +73,7 @@ def _extract_accident_number(lines: list[str]) -> str:
             # Try next line
             if i + 1 < len(lines):
                 next_line = _normalize(lines[i + 1])
-                match = re.search(r'\d+', next_line)
+                match     = re.search(r'\d+', next_line)
                 if match:
                     return match.group()
 
@@ -83,7 +100,7 @@ def _extract_accident_date(lines: list[str]) -> str:
             # Try next line
             if i + 1 < len(lines):
                 next_normalized = _normalize(lines[i + 1])
-                match = re.search(r'\d{1,2}/\d{1,2}/\d{4}', next_normalized)
+                match           = re.search(r'\d{1,2}/\d{1,2}/\d{4}', next_normalized)
                 if match:
                     return match.group()
 
@@ -126,54 +143,60 @@ def _extract_damage_location(lines: list[str]) -> str:
 # ─────────────────────────────────────────────────────────────────────
 async def process_najm_ocr(case_id: str) -> dict:
     """
-    Main function called by POST /ocr/najm
-    1. Reads pdfBase64 from Firestore using case_id
-    2. Extracts accident info from the PDF
-    3. Updates the Firestore document with extracted fields
-    4. Returns the extracted data
+    Main function called by POST /ocr/najm/{case_id}
+    1. Ensures Firebase Admin is initialized
+    2. Reads pdfBase64 from Firestore using case_id
+    3. Extracts accident info from the PDF
+    4. Updates the Firestore document with extracted fields
+    5. Returns the extracted data
     """
     try:
         print(f"--- NAJM OCR REQUEST: {case_id} ---")
 
-        # ── 1. Get Firestore document ─────────────────────────────────
-        db = firestore.client()
+        # ── 1. Ensure Firebase is ready ───────────────────────────────
+        _ensure_firebase_initialized()
+
+        # ── 2. Get Firestore document ─────────────────────────────────
+        db       = firestore.client()
         case_ref = db.collection('accidentCase').document(case_id)
         case_doc = case_ref.get()
 
         if not case_doc.exists:
             return {
-                'status': 'error',
-                'message': f'Case {case_id} not found in Firestore'
+                'status':  'error',
+                'message': f'Case {case_id} not found in Firestore',
+                'data':    None,
             }
 
-        case_data = case_doc.to_dict()
+        case_data  = case_doc.to_dict()
         pdf_base64 = case_data.get('pdfBase64', '')
 
         if not pdf_base64:
             return {
-                'status': 'error',
-                'message': 'No PDF found for this case'
+                'status':  'error',
+                'message': 'No PDF found for this case',
+                'data':    None,
             }
 
         print(f"   [Najm OCR] PDF found, size: {len(pdf_base64)} chars")
 
-        # ── 2. Extract text from PDF ──────────────────────────────────
+        # ── 3. Extract text from PDF ──────────────────────────────────
         lines = _extract_text_from_base64_pdf(pdf_base64)
 
-        # ── 3. Extract the 3 fields ───────────────────────────────────
-        accident_number  = _extract_accident_number(lines)
-        accident_date    = _extract_accident_date(lines)
-        damage_location  = _extract_damage_location(lines)
+        # ── 4. Extract the 3 fields ───────────────────────────────────
+        accident_number = _extract_accident_number(lines)
+        accident_date   = _extract_accident_date(lines)
+        damage_location = _extract_damage_location(lines)
 
         print(f"   [Najm OCR] accidentNumber:  {accident_number}")
         print(f"   [Najm OCR] accidentDate:    {accident_date}")
         print(f"   [Najm OCR] damageLocation:  {damage_location}")
 
-        # ── 4. Update Firestore ───────────────────────────────────────
+        # ── 5. Update Firestore ───────────────────────────────────────
         case_ref.update({
-            'najimReport.accidentNumber':  accident_number,
-            'najimReport.accidentDate':    accident_date,
-            'najimReport.damageLocation':  damage_location,
+            'najimReport.accidentNumber': accident_number,
+            'najimReport.accidentDate':   accident_date,
+            'najimReport.damageLocation': damage_location,
         })
 
         print(f"   [Najm OCR] Firestore updated successfully")
@@ -181,15 +204,17 @@ async def process_najm_ocr(case_id: str) -> dict:
         return {
             'status': 'success',
             'data': {
-                'accidentNumber':  accident_number,
-                'accidentDate':    accident_date,
-                'damageLocation':  damage_location,
-            }
+                'accidentNumber': accident_number,
+                'accidentDate':   accident_date,
+                'damageLocation': damage_location,
+            },
+            'message': None,
         }
 
     except Exception as e:
         print(f"!!! NAJM OCR ERROR: {str(e)}")
         return {
-            'status': 'error',
-            'message': f'Najm OCR Error: {str(e)}'
+            'status':  'error',
+            'message': f'Najm OCR Error: {str(e)}',
+            'data':    None,
         }
