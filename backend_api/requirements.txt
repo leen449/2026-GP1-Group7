@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+firebase-admin
+python-multipart
+opencv-python
+numpy
+easyocr
+deep-translator
+pymupdf
