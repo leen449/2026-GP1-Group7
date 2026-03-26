@@ -120,3 +120,8 @@ app.*.symbols
 
 #firebase related
 serviceAccountKey.json
+
+#env related 
+venv/
+__pycache__/
+*.pyc

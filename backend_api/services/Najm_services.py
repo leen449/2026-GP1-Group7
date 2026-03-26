@@ -1,21 +1,21 @@
 import re
 import base64
-import fitz  # PyMuPDF — pip install pymupdf
+import fitz
 import firebase_admin
 from firebase_admin import firestore, credentials
+import cv2
+import numpy as np
+import easyocr
+import re
+import unicodedata
 
-# ─────────────────────────────────────────────────────────────────────
-# Firebase Admin — initialize only if not already initialized
-# This is safe to call multiple times — won't reinitialize if already done
-# ─────────────────────────────────────────────────────────────────────
+reader = easyocr.Reader(['ar', 'en'], gpu=False)
+
+
 def _ensure_firebase_initialized():
-    """
-    Initializes Firebase Admin SDK if not already initialized.
-    Looks for serviceAccountKey.json in the backend root directory.
-    """
     if not firebase_admin._apps:
         try:
-            cred = credentials.Certificate('serviceAccountKey.json')
+            cred = credentials.Certificate("serviceAccountKey.json")
             firebase_admin.initialize_app(cred)
             print("✅ Firebase Admin initialized in najm_services")
         except Exception as e:
@@ -23,198 +23,347 @@ def _ensure_firebase_initialized():
             raise
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Helper: extract text from PDF base64 string
-# ─────────────────────────────────────────────────────────────────────
+
+def _normalize(text: str) -> str:
+    if not text:
+        return ""
+
+    # Convert Arabic presentation forms to normal Unicode letters
+    text = unicodedata.normalize("NFKC", text)
+
+    # Arabic/Hindi digits -> English digits
+    text = text.translate(str.maketrans(
+        "٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹",
+        "01234567890123456789"
+    ))
+
+    replacements = {
+        "أ": "ا",
+        "إ": "ا",
+        "آ": "ا",
+        "ى": "ي",
+        "ة": "ه",
+        "ؤ": "و",
+        "ئ": "ي",
+        "ـ": "",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    text = text.replace("：", ":")
+    text = text.replace("،", ",")
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
 def _extract_text_from_base64_pdf(pdf_base64: str) -> list[str]:
-    """
-    Decodes a base64 PDF string and extracts all text lines from it.
-    Returns a list of non-empty text lines.
-    """
     pdf_bytes = base64.b64decode(pdf_base64)
-    pdf_doc   = fitz.open(stream=pdf_bytes, filetype="pdf")
+    pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
 
     all_lines = []
-    for page in pdf_doc:
-        text  = page.get_text()
-        lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    for page_index, page in enumerate(pdf_doc):
+        text = page.get_text("text")
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+
+        print(f"\n--- PAGE {page_index + 1} RAW LINES ---")
+        for line in lines:
+            print(line)
+
         all_lines.extend(lines)
 
-    print(f"   [Najm OCR] Extracted {len(all_lines)} lines from PDF")
+    print(f"\n   [Najm OCR] Extracted {len(all_lines)} lines from PDF")
     return all_lines
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Helper: normalize Arabic/Hindi digits to English
-# ─────────────────────────────────────────────────────────────────────
-def _normalize(text: str) -> str:
-    mapping = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
-    return text.translate(mapping).strip()
+def _joined_text(lines: list[str]) -> str:
+    return "\n".join(_normalize(line) for line in lines if line.strip())
+
+def _pdf_page_to_image(pdf_bytes: bytes, page_index: int) -> np.ndarray:
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    if page_index >= len(doc):
+        return None
+
+    page = doc[page_index]
+    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+
+    img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+
+    if pix.n == 4:
+        img = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+    else:
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+    return img
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Extract: Accident Number (رقم الحادث)
-# ─────────────────────────────────────────────────────────────────────
-def _extract_accident_number(lines: list[str]) -> str:
-    """
-    Looks for the line containing 'رقم الحادث' and extracts the number.
-    Example: 'رقم الحادث : 15343' → '15343'
-    """
-    for i, line in enumerate(lines):
-        # ✅ Fixed: was duplicate condition — now checks both Arabic forms
-        if 'رقم الحادث' in line or 'رقم الحادث' in line.strip():
-            normalized = _normalize(line)
+def _extract_accident_number_from_barcode_area(pdf_base64: str) -> str:
+    try:
+        pdf_bytes = base64.b64decode(pdf_base64)
 
-            # Try to extract number after colon on same line
-            match = re.search(r':\s*(\d+)', normalized)
+        # Usually the barcode is on page 2 in your Najm reports
+        img = _pdf_page_to_image(pdf_bytes, 1)
+        if img is None:
+            return ""
+
+        h, w = img.shape[:2]
+
+        # Crop top-center area where barcode usually appears
+        crop = img[0:int(h * 0.28), int(w * 0.15):int(w * 0.85)]
+
+        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+        gray = cv2.GaussianBlur(gray, (3, 3), 0)
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        results = reader.readtext(thresh, detail=0)
+        print(f"[BARCODE OCR RAW] {results}")
+
+        for text in results:
+            normalized = _normalize(text).replace(" ", "")
+            match = re.search(r"\b([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3})\b", normalized, re.IGNORECASE)
             if match:
-                return match.group(1)
+                candidate = match.group(1).strip()
 
-            # Try next line
-            if i + 1 < len(lines):
-                next_line = _normalize(lines[i + 1])
-                match     = re.search(r'\d+', next_line)
-                if match:
-                    return match.group()
+                # Reject obvious Najm hotline false positive
+                if candidate != "920000560":
+                    return candidate
 
-    return ''
+        return ""
+
+    except Exception as e:
+        print(f"[BARCODE OCR ERROR] {e}")
+        return ""
+def _extract_accident_number(lines: list[str], pdf_base64: str = "") -> str:
+    normalized_lines = [_normalize(line) for line in lines]
+
+    labels = [
+        "رقم الحاله",
+        "الحاله رقم",
+        "رقم الحادث",
+        "الحادث رقم",
+    ]
+
+    for i, line in enumerate(normalized_lines):
+        if any(label in line for label in labels):
+            print(f"[ACCIDENT NUMBER LABEL LINE] {line}")
+
+            # 1) merged label + value, e.g. "الحاله رقمRD2510241012"
+            m = re.search(
+                r"(?:رقم الحاله|الحاله رقم|رقم الحادث|الحادث رقم)([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3})",
+                line,
+                re.IGNORECASE,
+            )
+            if m:
+                candidate = m.group(1).strip()
+                if candidate != "920000560":
+                    print(f"[ACCIDENT NUMBER MATCH - MERGED] {candidate}")
+                    return candidate
+
+            # 2) same line with colon
+            m = re.search(
+                r"(?:رقم الحاله|الحاله رقم|رقم الحادث|الحادث رقم)\s*:\s*([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3}|[A-Z]*\d+[A-Z]*)",
+                line,
+                re.IGNORECASE,
+            )
+            if m:
+                candidate = m.group(1).strip()
+                if candidate != "920000560":
+                    print(f"[ACCIDENT NUMBER MATCH - SAME LINE COLON] {candidate}")
+                    return candidate
+
+            # 3) same line with space but no colon
+            m = re.search(
+                r"(?:رقم الحاله|الحاله رقم|رقم الحادث|الحادث رقم)\s+([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3}|[A-Z]*\d+[A-Z]*)",
+                line,
+                re.IGNORECASE,
+            )
+            if m:
+                candidate = m.group(1).strip()
+                if candidate != "920000560":
+                    print(f"[ACCIDENT NUMBER MATCH - SAME LINE SPACE] {candidate}")
+                    return candidate
+
+            # 4) look in nearby lines only
+            for j in range(max(0, i - 1), min(i + 3, len(normalized_lines))):
+                nearby = normalized_lines[j]
+                m = re.search(
+                    r"\b([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3})\b",
+                    nearby,
+                    re.IGNORECASE,
+                )
+                if m:
+                    candidate = m.group(1).strip()
+                    if candidate != "920000560":
+                        print(f"[ACCIDENT NUMBER MATCH - NEARBY] {candidate}")
+                        return candidate
+
+    # 5) fallback: OCR barcode area
+    if pdf_base64:
+        barcode_candidate = _extract_accident_number_from_barcode_area(pdf_base64)
+        if barcode_candidate and barcode_candidate != "920000560":
+            print(f"[ACCIDENT NUMBER MATCH - BARCODE OCR] {barcode_candidate}")
+            return barcode_candidate
+
+    return ""
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Extract: Accident Date (تاريخ الحادث)
-# ─────────────────────────────────────────────────────────────────────
 def _extract_accident_date(lines: list[str]) -> str:
-    """
-    Looks for the line containing 'تاريخ الحادث' and extracts the date.
-    Example: 'تاريخ الحادث : 12/08/2025 07:55:04 AM' → '12/08/2025'
-    """
-    for i, line in enumerate(lines):
-        if 'تاريخ الحادث' in line:
-            normalized = _normalize(line)
+    normalized_lines = [_normalize(line) for line in lines]
 
-            # Look for date pattern DD/MM/YYYY
-            match = re.search(r'\d{1,2}/\d{1,2}/\d{4}', normalized)
-            if match:
-                return match.group()
+    label_patterns = [
+        "تاريخ الحادث",
+        "الحادث تاريخ",
+    ]
 
-            # Try next line
-            if i + 1 < len(lines):
-                next_normalized = _normalize(lines[i + 1])
-                match           = re.search(r'\d{1,2}/\d{1,2}/\d{4}', next_normalized)
-                if match:
-                    return match.group()
+    date_patterns = [
+        # 09/07/2023 06:32:47 AM
+        r"(\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM))",
+        # AM 06:32:47 09/07/2023
+        r"((?:AM|PM)\s+\d{1,2}:\d{2}:\d{2}\s+\d{1,2}/\d{1,2}/\d{4})",
+        # just date
+        r"(\d{1,2}/\d{1,2}/\d{4})",
+    ]
 
-    return ''
+    for i, line in enumerate(normalized_lines):
+        if any(label in line for label in label_patterns):
+            # same line
+            for pattern in date_patterns:
+                m = re.search(pattern, line, re.IGNORECASE)
+                if m:
+                    return m.group(1).strip()
+
+            # nearby lines
+            for j in range(max(0, i - 2), min(len(normalized_lines), i + 3)):
+                nearby = normalized_lines[j]
+                for pattern in date_patterns:
+                    m = re.search(pattern, nearby, re.IGNORECASE)
+                    if m:
+                        return m.group(1).strip()
+
+    return ""
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Extract: Damage Location (مكان الضرر بالمركبة)
-# ─────────────────────────────────────────────────────────────────────
+
+def _clean_damage_value(value: str) -> str:
+    value = _normalize(value)
+
+    blocked = [
+        "الضرر القديم",
+        "الضرر الجديد",
+        "توقيع الطرف",
+        "الرسم التوضيحي",
+        "الرسم التقريبي",
+    ]
+
+    if not value:
+        return ""
+
+    for b in blocked:
+        if b in value:
+            return ""
+
+    return value.strip(" :.-")
+
+
 def _extract_damage_location(lines: list[str]) -> str:
-    """
-    Looks for 'مكان الضرر' and returns the Arabic description.
-    Example: 'مكان الضرر بالمركبة : الركن الأمامي الأيسر'
-    → 'الركن الأمامي الأيسر'
-    """
-    damage_keywords = ['مكان الضرر', 'الضرر بالمركبة', 'مكان الضرر بالمركبة']
+    normalized_lines = [_normalize(line) for line in lines]
 
-    for i, line in enumerate(lines):
-        for keyword in damage_keywords:
-            if keyword in line:
-                # Try to extract after colon on same line
-                if ':' in line:
-                    parts = line.split(':')
-                    if len(parts) > 1:
-                        value = parts[-1].strip()
-                        if value and len(value) > 2:
-                            return value
+    keywords = [
+        "مكان الضرر",
+        "الضرر مكان",
+        "مكان الضرر بالمركبه",
+        "الضرر بالمركبه",
+    ]
 
-                # Try next line
-                if i + 1 < len(lines):
-                    next_line = lines[i + 1].strip()
-                    if next_line and len(next_line) > 2:
-                        return next_line
+    for i, line in enumerate(normalized_lines):
+        if any(k in line for k in keywords):
+            # same line after colon
+            m = re.search(r"(?:مكان الضرر|الضرر مكان)\s*:\s*(.+)", line)
+            if m:
+                value = _clean_damage_value(m.group(1))
+                if value:
+                    return value
 
-    return ''
+            # next few lines
+            for j in range(i + 1, min(i + 5, len(normalized_lines))):
+                candidate = _clean_damage_value(normalized_lines[j])
+                if candidate:
+                    return candidate
+
+    return ""
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Main function — called by the FastAPI route
-# ─────────────────────────────────────────────────────────────────────
 async def process_najm_ocr(case_id: str) -> dict:
-    """
-    Main function called by POST /ocr/najm/{case_id}
-    1. Ensures Firebase Admin is initialized
-    2. Reads pdfBase64 from Firestore using case_id
-    3. Extracts accident info from the PDF
-    4. Updates the Firestore document with extracted fields
-    5. Returns the extracted data
-    """
     try:
         print(f"--- NAJM OCR REQUEST: {case_id} ---")
 
-        # ── 1. Ensure Firebase is ready ───────────────────────────────
         _ensure_firebase_initialized()
 
-        # ── 2. Get Firestore document ─────────────────────────────────
-        db       = firestore.client()
-        case_ref = db.collection('accidentCase').document(case_id)
+        db = firestore.client()
+        case_ref = db.collection("accidentCase").document(case_id)
         case_doc = case_ref.get()
 
         if not case_doc.exists:
             return {
-                'status':  'error',
-                'message': f'Case {case_id} not found in Firestore',
-                'data':    None,
+                "status": "error",
+                "message": f"Case {case_id} not found in Firestore",
+                "data": None,
             }
 
-        case_data  = case_doc.to_dict()
-        pdf_base64 = case_data.get('pdfBase64', '')
+        case_data = case_doc.to_dict()
+        pdf_base64 = case_data.get("pdfBase64", "")
 
         if not pdf_base64:
             return {
-                'status':  'error',
-                'message': 'No PDF found for this case',
-                'data':    None,
+                "status": "error",
+                "message": "No PDF found for this case",
+                "data": None,
             }
 
         print(f"   [Najm OCR] PDF found, size: {len(pdf_base64)} chars")
 
-        # ── 3. Extract text from PDF ──────────────────────────────────
         lines = _extract_text_from_base64_pdf(pdf_base64)
+       
 
-        # ── 4. Extract the 3 fields ───────────────────────────────────
-        accident_number = _extract_accident_number(lines)
-        accident_date   = _extract_accident_date(lines)
+        accident_number = _extract_accident_number(lines , pdf_base64)
+        accident_date = _extract_accident_date(lines)
         damage_location = _extract_damage_location(lines)
 
-        print(f"   [Najm OCR] accidentNumber:  {accident_number}")
-        print(f"   [Najm OCR] accidentDate:    {accident_date}")
-        print(f"   [Najm OCR] damageLocation:  {damage_location}")
+        print(f"   [Najm OCR] accidentNumber: {accident_number}")
+        print(f"   [Najm OCR] accidentDate: {accident_date}")
+        print(f"   [Najm OCR] damageLocation: {damage_location}")
 
-        # ── 5. Update Firestore ───────────────────────────────────────
+        found_count = sum(bool(x) for x in [accident_number, accident_date, damage_location])
+
         case_ref.update({
-            'najimReport.accidentNumber': accident_number,
-            'najimReport.accidentDate':   accident_date,
-            'najimReport.damageLocation': damage_location,
+            "najimReport.accidentNumber": accident_number,
+            "najimReport.accidentDate": accident_date,
+            "najimReport.damageLocation": damage_location,
         })
 
-        print(f"   [Najm OCR] Firestore updated successfully")
+        if found_count == 0:
+            return {
+                "status": "error",
+                "message": "PDF was processed, but no target Najm fields were extracted",
+                "data": None,
+            }
+
+        status = "success" if found_count == 3 else "partial_success"
 
         return {
-            'status': 'success',
-            'data': {
-                'accidentNumber': accident_number,
-                'accidentDate':   accident_date,
-                'damageLocation': damage_location,
+            "status": status,
+            "data": {
+                "accidentNumber": accident_number,
+                "accidentDate": accident_date,
+                "damageLocation": damage_location,
             },
-            'message': None,
+            "message": None if status == "success" else "Some Najm fields were extracted, but not all",
         }
 
     except Exception as e:
         print(f"!!! NAJM OCR ERROR: {str(e)}")
         return {
-            'status':  'error',
-            'message': f'Najm OCR Error: {str(e)}',
-            'data':    None,
+            "status": "error",
+            "message": f"Najm OCR Error: {str(e)}",
+            "data": None,
         }
