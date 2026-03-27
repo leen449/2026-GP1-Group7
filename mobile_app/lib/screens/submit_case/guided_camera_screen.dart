@@ -132,6 +132,8 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
     // ✅ Read screen width once for responsive sizing
     final sw = MediaQuery.of(context).size.width;
     final topPad = MediaQuery.of(context).padding.top;
+    final sh = MediaQuery.of(context).size.height;
+    final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       body: isCameraReady
@@ -269,71 +271,74 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                     ),
                   ),
 
-                // ── Capture button ──────────────────────────────────
                 Positioned(
-                  bottom: 120,
+                  bottom: bottomPad + 20,
                   left: 0,
                   right: 0,
-                  child: Center(
-                    child: GestureDetector(
-                      onTap: (_currentResult.allOk && !_isTakingPicture)
-                          ? _takePicture
-                          : null,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: (_currentResult.allOk && !_isTakingPicture)
-                              ? Colors.white
-                              : Colors.white.withOpacity(0.4),
-                          border: Border.all(color: Colors.white, width: 3),
-                        ),
-                        child: _isTakingPicture
-                            ? const Padding(
-                                padding: EdgeInsets.all(22),
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Capture button
+                      GestureDetector(
+                        onTap: (_currentResult.allOk && !_isTakingPicture)
+                            ? _takePicture
+                            : null,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: (_currentResult.allOk && !_isTakingPicture)
+                                ? Colors.white
+                                : Colors.white.withOpacity(0.4),
+                            border: Border.all(color: Colors.white, width: 3),
+                          ),
+                          child: _isTakingPicture
+                              ? const Padding(
+                                  padding: EdgeInsets.all(22),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.camera_alt,
+                                  size: 32,
                                   color: Colors.black,
                                 ),
-                              )
-                            : const Icon(
-                                Icons.camera_alt,
-                                size: 32,
-                                color: Colors.black,
-                              ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // ── Next button ─────────────────────────────────────
-                if (shots.isNotEmpty)
-                  Positioned(
-                    bottom: 40,
-                    left: 60,
-                    right: 60,
-                    child: ElevatedButton(
-                      onPressed: _isTakingPicture
-                          ? null
-                          : () {
-                              final files = shots
-                                  .map((x) => File(x.path))
-                                  .toList();
-                              Navigator.pop(context, files);
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0B4A7D),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                      child: const Text('next'),
-                    ),
+
+                      const SizedBox(height: 16),
+
+                      // Next button
+                      if (shots.isNotEmpty)
+                        SizedBox(
+                          width: MediaQuery.of(context).size.width * 0.5,
+                          child: ElevatedButton(
+                            onPressed: _isTakingPicture
+                                ? null
+                                : () {
+                                    final files = shots
+                                        .map((x) => File(x.path))
+                                        .toList();
+                                    Navigator.pop(context, files);
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0B4A7D),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
+                            child: const Text('next'),
+                          ),
+                        ),
+                    ],
                   ),
+                ),
               ],
             )
           : const Center(child: CircularProgressIndicator()),

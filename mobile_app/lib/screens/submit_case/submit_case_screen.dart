@@ -8,8 +8,8 @@ import 'guided_damage_capture_screen.dart';
 import 'photo_preview_screen.dart';
 import 'CaseSubmittedScreen.dart';
 import 'CaseFailureScreen.dart';
-
 import 'cloudinary_service.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../NavBar/nav_bar.dart';
@@ -39,7 +39,6 @@ class SubmitCaseScreen extends StatefulWidget {
 class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // ── State ─────────────────────────────────────────────────────────
   List<File> capturedPhotos = [];
-  
 
   // ── Vehicle ───────────────────────────────────────────────────────
   List<VehicleItem> _vehicles = [];
@@ -224,6 +223,53 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────────
+  // Upload Najm PDF to Firebase Storage and return the download URL
+  //-─────────────────────────────────────────────────────────────────
+  Future<Map<String, String>> _uploadNajmPdfToStorage({
+    required String caseId,
+    required String filePath,
+  }) async {
+    final file = File(filePath);
+    final ref = FirebaseStorage.instance
+        .ref()
+        .child('najm reports')
+        .child(caseId)
+        .child('report.pdf');
+
+    final task = await ref.putFile(file);
+    final downloadUrl = await task.ref.getDownloadURL();
+
+    return {'pdfPath': ref.fullPath, 'pdfUrl': downloadUrl};
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Upload damage photos to Firebase Storage and return list of download URLs
+  //───────────────────────────────────────────────────────────────────────────
+  Future<List<Map<String, String>>> _uploadImagesToStorage({
+    required String caseId,
+    required List<File> images,
+  }) async {
+    final List<Map<String, String>> uploaded = [];
+
+    for (int i = 0; i < images.length; i++) {
+      final file = images[i];
+      final extension = file.path.split('.').last.toLowerCase();
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('case images')
+          .child(caseId)
+          .child('image_$i.$extension');
+
+      final task = await ref.putFile(file);
+      final downloadUrl = await task.ref.getDownloadURL();
+
+      uploaded.add({'storagePath': ref.fullPath, 'downloadUrl': downloadUrl});
+    }
+
+    return uploaded;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
   // Full submit flow
   // ─────────────────────────────────────────────────────────────────
   Future<void> _submitCase() async {
@@ -242,68 +288,72 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
           .doc();
       final caseId = caseRef.id;
 
-      // ── Step 2: Read PDF as base64 and store in Firestore ───────
-      // Cloudinary blocks raw file delivery on free accounts,
-      // so we store the PDF as base64 directly in Firestore.
-      // Switch to Firebase Storage when billing is available.
-      String pdfBase64 = '';
+      // ── Step 2: Upload Najm PDF to Firebase Storage ──────────────
+      setState(() => _submitStatus = 'Uploading PDF...');
+
+      String pdfPath = '';
+      String pdfUrl = '';
+
       if (najmFilePath != null) {
         final pdfFile = File(najmFilePath!);
         final pdfBytes = await pdfFile.readAsBytes();
 
-        // ✅ Size check — Firestore document limit is 1MB
-        // A Najm PDF is typically 50–200KB, but we guard against large files
-        final sizeKB = pdfBytes.length / 1024;
-        print('📄 PDF size: ${sizeKB.toStringAsFixed(0)} KB');
+        final sizeMB = pdfBytes.length / (1024 * 1024);
+        print('📄 PDF size: ${sizeMB.toStringAsFixed(2)} MB');
 
-        if (pdfBytes.length > 900 * 1024) {
+        if (pdfBytes.length > 5 * 1024 * 1024) {
           throw Exception(
-            'PDF file is too large (${sizeKB.toStringAsFixed(0)} KB). '
-            'Maximum allowed size is 900 KB. Please use a smaller file.',
+            'PDF file is too large (${sizeMB.toStringAsFixed(2)} MB). '
+            'Maximum allowed size is 5 MB.',
           );
         }
 
-        pdfBase64 = base64Encode(pdfBytes);
-        print('📦 PDF encoded successfully');
+        final uploadedPdf = await _uploadNajmPdfToStorage(
+          caseId: caseId,
+          filePath: najmFilePath!,
+        );
+
+        pdfPath = uploadedPdf['pdfPath']!;
+        pdfUrl = uploadedPdf['pdfUrl']!;
+        print('✅ PDF uploaded to Firebase Storage');
       }
 
-      // ── Step 3: Upload all photos to Cloudinary ──────────────────
+      // ── Step 3: Upload all photos to Firebase Storage ────────────
       setState(() => _submitStatus = 'Uploading photos...');
-      final imageUrls = await CloudinaryService.uploadAllImages(
-        images: capturedPhotos,
+
+      final uploadedImages = await _uploadImagesToStorage(
         caseId: caseId,
+        images: capturedPhotos,
       );
 
-      // ✅ Fail early if all photo uploads failed
-      if (imageUrls.isEmpty) {
+      if (uploadedImages.isEmpty) {
         throw Exception('Photo upload failed — check your internet connection');
       }
 
       // ── Step 4: Write case document to Firestore ─────────────────
       setState(() => _submitStatus = 'Saving case...');
+
       await caseRef.set({
         'caseID': caseId,
         'ownerId': uid,
         'vehicleId': selectedVehicle!.docId,
         'status': 'submitted',
         'createdAt': FieldValue.serverTimestamp(),
-        // ✅ pdfBase64 stored at top level — Firestore rejects large
-        // strings inside nested maps
-        'pdfBase64': pdfBase64,
         'najimReport': {
-          'pdfUrl': '', // reserved for future Firebase Storage URL
-          'accidentDate': '', // filled later by Najm OCR
-          'accidentNumber': '', // filled later by Najm OCR
-          'damageLocation': '', // filled later by Najm OCR
+          'pdfPath': pdfPath,
+          'pdfUrl': pdfUrl,
+          'accidentDate': '',
+          'accidentNumber': '',
+          'damageLocation': '',
         },
       });
 
       // ── Step 5: Write each image as a subcollection document ─────
-      for (int i = 0; i < imageUrls.length; i++) {
+      for (int i = 0; i < uploadedImages.length; i++) {
         await caseRef.collection('images').add({
-          'downloadUrl': imageUrls[i],
+          'downloadUrl': uploadedImages[i]['downloadUrl'],
           'label': 'damage${i + 1}',
-          'storagePath': 'accident_cases/$caseId/image_$i',
+          'storagePath': uploadedImages[i]['storagePath'],
           'uploadedAt': FieldValue.serverTimestamp(),
         });
       }
@@ -352,16 +402,16 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // ─────────────────────────────────────────────────────────────────
   // Call Najm OCR backend — runs in background after submission
   // ─────────────────────────────────────────────────────────────────
-  void _callNajmOcr(String caseId) async {
-    // ⚠️ Replace with your deployed backend URL when available
+  Future<void> _callNajmOcr(String caseId) async {
+    // ⚠️ Replace with  deployed backend URL when available
     // For local testing use your machine's IP e.g. http://192.168.1.x:8000
-    const backendUrl = 'http://YOUR_BACKEND_URL:8000';
+    const backendUrl = 'http://192.168.100.35:8000';
 
     try {
       print('🔍 Calling Najm OCR for case: $caseId');
       final response = await http
           .post(Uri.parse('$backendUrl/ocr/najm/$caseId'))
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 45));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -499,14 +549,12 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-  
-
   // ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFFFF),
-      
+
       body: Stack(
         children: [
           // ── Main scrollable content ───────────────────────────────
@@ -937,7 +985,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                       ),
                     ],
 
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 120),
                   ],
                 ),
               ),
@@ -983,5 +1031,4 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // ─────────────────────────────────────────────────────────────────
   // Bottom Nav
   // ─────────────────────────────────────────────────────────────────
- 
 }

@@ -66,9 +66,10 @@ class CaseSubmittedScreen extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const HomeScreen()),
-                      (route) => false,
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/home',
+                      (_) => false,
                     );
                   },
                   style: ElevatedButton.styleFrom(

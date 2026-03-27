@@ -17,8 +17,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  
-
   static const Color _pageBg = Colors.white;
   static const Color _cardGrey = Color(0xFFF2F3F5);
   static const Color _textDark = Color(0xFF1E1E1E);
@@ -48,11 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const AuthScreen()),
-      (_) => false,
-    );
+    Navigator.pushNamedAndRemoveUntil(context, '/auth', (_) => false);
   }
 
   void _showAddOptions() {
@@ -189,43 +183,45 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  
-
   @override
   @override
-Widget build(BuildContext context) {
-  final bottomPad = MediaQuery.of(context).padding.bottom;
-  return Scaffold(
-    backgroundColor: _pageBg,
-    body: SafeArea(
-      bottom: false,
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(18, 14, 18, bottomPad + 90),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _topGreeting(),
-            const SizedBox(height: 12),
-            const Text(
-              'Manage Your Vehicles And Reports Easily !',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _textDark),
-            ),
-            const SizedBox(height: 14),
-            _bannerCard(),
-            const SizedBox(height: 18),
-            _myVehiclesHeader(),
-            const SizedBox(height: 10),
-            _vehiclesHorizontalList(),
-            const SizedBox(height: 18),
-            _reportHistoryHeader(),
-            const SizedBox(height: 10),
-            _reportList(),
-          ],
+  Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+    return Scaffold(
+      backgroundColor: _pageBg,
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(18, 14, 18, bottomPad + 90),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _topGreeting(),
+              const SizedBox(height: 12),
+              const Text(
+                'Manage Your Vehicles And Reports Easily !',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: _textDark,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _bannerCard(),
+              const SizedBox(height: 18),
+              _myVehiclesHeader(),
+              const SizedBox(height: 10),
+              _vehiclesHorizontalList(),
+              const SizedBox(height: 18),
+              _reportHistoryHeader(),
+              const SizedBox(height: 10),
+              _reportList(),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _topGreeting() {
     return Row(
@@ -605,6 +601,4 @@ Widget build(BuildContext context) {
       },
     );
   }
-
-
 }

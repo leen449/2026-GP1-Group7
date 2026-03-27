@@ -2,11 +2,10 @@ import re
 import base64
 import fitz
 import firebase_admin
-from firebase_admin import firestore, credentials
+from firebase_admin import firestore, credentials, storage
 import cv2
 import numpy as np
 import easyocr
-import re
 import unicodedata
 
 reader = easyocr.Reader(['ar', 'en'], gpu=False)
@@ -16,7 +15,9 @@ def _ensure_firebase_initialized():
     if not firebase_admin._apps:
         try:
             cred = credentials.Certificate("serviceAccountKey.json")
-            firebase_admin.initialize_app(cred)
+            firebase_admin.initialize_app(cred, {
+                'storageBucket': 'crashlens-233bf.firebasestorage.app'
+            })
             print("✅ Firebase Admin initialized in najm_services")
         except Exception as e:
             print(f"❌ Firebase Admin initialization failed: {e}")
@@ -75,6 +76,34 @@ def _extract_text_from_base64_pdf(pdf_base64: str) -> list[str]:
     print(f"\n   [Najm OCR] Extracted {len(all_lines)} lines from PDF")
     return all_lines
 
+    
+def _extract_text_from_pdf_bytes(pdf_bytes: bytes) -> list[str]:
+        pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+
+        all_lines = []
+
+        for page_index, page in enumerate(pdf_doc):
+         text = page.get_text("text")
+         lines = [line.strip() for line in text.split("\n") if line.strip()]
+         print(f"\n--- PAGE {page_index + 1} RAW LINES ---")
+         
+         for line in lines:
+            print(line)
+            all_lines.extend(lines)
+
+        print(f"\n   [Najm OCR] Extracted {len(all_lines)} lines from PDF")
+        return all_lines
+
+
+def _download_pdf_bytes_from_storage(pdf_path: str) -> bytes:
+    bucket = storage.bucket('crashlens-233bf.firebasestorage.app')
+    blob = bucket.blob(pdf_path)
+
+    if not blob.exists():
+        raise FileNotFoundError(f"Storage file not found: {pdf_path}")
+
+    return blob.download_as_bytes()
+
 
 def _joined_text(lines: list[str]) -> str:
     return "\n".join(_normalize(line) for line in lines if line.strip())
@@ -97,10 +126,8 @@ def _pdf_page_to_image(pdf_bytes: bytes, page_index: int) -> np.ndarray:
     return img
 
 
-def _extract_accident_number_from_barcode_area(pdf_base64: str) -> str:
+def _extract_accident_number_from_barcode_area(pdf_bytes: bytes) -> str:
     try:
-        pdf_bytes = base64.b64decode(pdf_base64)
-
         # Usually the barcode is on page 2 in your Najm reports
         img = _pdf_page_to_image(pdf_bytes, 1)
         if img is None:
@@ -120,7 +147,8 @@ def _extract_accident_number_from_barcode_area(pdf_base64: str) -> str:
 
         for text in results:
             normalized = _normalize(text).replace(" ", "")
-            match = re.search(r"\b([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3})\b", normalized, re.IGNORECASE)
+            # Added \d{7,10} to catch raw digits if the prefix is mangled
+            match = re.search(r"\b([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3}|\d{7,10})\b", normalized, re.IGNORECASE)
             if match:
                 candidate = match.group(1).strip()
 
@@ -133,7 +161,8 @@ def _extract_accident_number_from_barcode_area(pdf_base64: str) -> str:
     except Exception as e:
         print(f"[BARCODE OCR ERROR] {e}")
         return ""
-def _extract_accident_number(lines: list[str], pdf_base64: str = "") -> str:
+    
+def _extract_accident_number(lines: list[str], pdf_bytes: bytes | None = None) -> str:
     normalized_lines = [_normalize(line) for line in lines]
 
     labels = [
@@ -147,59 +176,36 @@ def _extract_accident_number(lines: list[str], pdf_base64: str = "") -> str:
         if any(label in line for label in labels):
             print(f"[ACCIDENT NUMBER LABEL LINE] {line}")
 
-            # 1) merged label + value, e.g. "الحاله رقمRD2510241012"
-            m = re.search(
-                r"(?:رقم الحاله|الحاله رقم|رقم الحادث|الحادث رقم)([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3})",
-                line,
-                re.IGNORECASE,
-            )
+            # 1) merged label + value
+            m = re.search(r"(?:رقم الحاله|الحاله رقم|رقم الحادث|الحادث رقم)([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3})", line, re.IGNORECASE)
             if m:
                 candidate = m.group(1).strip()
-                if candidate != "920000560":
-                    print(f"[ACCIDENT NUMBER MATCH - MERGED] {candidate}")
-                    return candidate
+                if candidate != "920000560": return candidate
 
             # 2) same line with colon
-            m = re.search(
-                r"(?:رقم الحاله|الحاله رقم|رقم الحادث|الحادث رقم)\s*:\s*([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3}|[A-Z]*\d+[A-Z]*)",
-                line,
-                re.IGNORECASE,
-            )
+            m = re.search(r"(?:رقم الحاله|الحاله رقم|رقم الحادث|الحادث رقم)\s*:\s*([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3}|[A-Z]*\d+[A-Z]*)", line, re.IGNORECASE)
             if m:
                 candidate = m.group(1).strip()
-                if candidate != "920000560":
-                    print(f"[ACCIDENT NUMBER MATCH - SAME LINE COLON] {candidate}")
-                    return candidate
+                if candidate != "920000560": return candidate
 
             # 3) same line with space but no colon
-            m = re.search(
-                r"(?:رقم الحاله|الحاله رقم|رقم الحادث|الحادث رقم)\s+([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3}|[A-Z]*\d+[A-Z]*)",
-                line,
-                re.IGNORECASE,
-            )
+            m = re.search(r"(?:رقم الحاله|الحاله رقم|رقم الحادث|الحادث رقم)\s+([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3}|[A-Z]*\d+[A-Z]*)", line, re.IGNORECASE)
             if m:
                 candidate = m.group(1).strip()
-                if candidate != "920000560":
-                    print(f"[ACCIDENT NUMBER MATCH - SAME LINE SPACE] {candidate}")
-                    return candidate
+                if candidate != "920000560": return candidate
 
             # 4) look in nearby lines only
             for j in range(max(0, i - 1), min(i + 3, len(normalized_lines))):
                 nearby = normalized_lines[j]
-                m = re.search(
-                    r"\b([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3})\b",
-                    nearby,
-                    re.IGNORECASE,
-                )
+                m = re.search(r"\b([A-Z]{1,3}\d{6,}[A-Z]{0,3}|\d{6,}[A-Z]{1,3})\b", nearby, re.IGNORECASE)
                 if m:
                     candidate = m.group(1).strip()
-                    if candidate != "920000560":
-                        print(f"[ACCIDENT NUMBER MATCH - NEARBY] {candidate}")
-                        return candidate
+                    if candidate != "920000560": return candidate
 
     # 5) fallback: OCR barcode area
-    if pdf_base64:
-        barcode_candidate = _extract_accident_number_from_barcode_area(pdf_base64)
+    # DEDENTED: This is now outside the loop so it only runs once!
+    if pdf_bytes:
+        barcode_candidate = _extract_accident_number_from_barcode_area(pdf_bytes)
         if barcode_candidate and barcode_candidate != "920000560":
             print(f"[ACCIDENT NUMBER MATCH - BARCODE OCR] {barcode_candidate}")
             return barcode_candidate
@@ -311,21 +317,42 @@ async def process_najm_ocr(case_id: str) -> dict:
             }
 
         case_data = case_doc.to_dict()
+        najm_report = case_data.get("najimReport", {}) or {}
+
+        pdf_path = najm_report.get("pdfPath", "")
         pdf_base64 = case_data.get("pdfBase64", "")
 
-        if not pdf_base64:
+        pdf_bytes = None
+
+        # 1) Prefer Firebase Storage
+        if pdf_path:
+            print(f"[Najm OCR] Trying Storage path: {pdf_path}")
+            try:
+                pdf_bytes = _download_pdf_bytes_from_storage(pdf_path)
+              
+                print(f"   [Najm OCR] PDF loaded from Storage, size: {len(pdf_bytes)} bytes")
+            except Exception as storage_error:
+                print(f"   [Najm OCR] Storage load failed: {storage_error}")
+
+        # 2) Fallback to old base64
+        if pdf_bytes is None and pdf_base64:
+            try:
+                pdf_bytes = base64.b64decode(pdf_base64)
+                pdf_source = "base64"
+                print(f"   [Najm OCR] PDF loaded from base64, size: {len(pdf_bytes)} bytes")
+            except Exception as decode_error:
+                print(f"   [Najm OCR] Base64 decode failed: {decode_error}")
+
+        if pdf_bytes is None:
             return {
                 "status": "error",
-                "message": "No PDF found for this case",
+                "message": "No PDF found for this case (neither Storage path nor base64)",
                 "data": None,
             }
 
-        print(f"   [Najm OCR] PDF found, size: {len(pdf_base64)} chars")
+        lines = _extract_text_from_pdf_bytes(pdf_bytes)
 
-        lines = _extract_text_from_base64_pdf(pdf_base64)
-       
-
-        accident_number = _extract_accident_number(lines , pdf_base64)
+        accident_number = _extract_accident_number(lines, pdf_bytes)
         accident_date = _extract_accident_date(lines)
         damage_location = _extract_damage_location(lines)
 

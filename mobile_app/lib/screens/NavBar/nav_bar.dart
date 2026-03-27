@@ -35,79 +35,70 @@ class _AppBottomNavState extends State<AppBottomNav> {
     setState(() => _currentIndex = index);
   }
 
-
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: Colors.transparent,
-    body: Stack(
-      children: [
-        // الصفحات
-        IndexedStack(
-          index: _currentIndex,
-          children: _pages,
-        ),
-        // الناف بار فوق المحتوى
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: _buildNavBar(),
-        ),
-      ],
-    ),
-  );
-}
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          // الصفحات
+          IndexedStack(index: _currentIndex, children: _pages),
+          // الناف بار فوق المحتوى
+          Positioned(bottom: 0, left: 0, right: 0, child: _buildNavBar()),
+        ],
+      ),
+    );
+  }
 
-Widget _buildNavBar() {
-  final sw = MediaQuery.of(context).size.width;
-  final itemWidth = ((sw - 44 - 32) / 4).clamp(52.0, 76.0);
+  Widget _buildNavBar() {
+    final sw = MediaQuery.of(context).size.width;
+    final itemWidth = ((sw - 44 - 32) / 4).clamp(52.0, 76.0);
 
-  return SafeArea(
-    top: false,
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(22, 6, 22, 12),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(40),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            height: 68,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.35),
-              borderRadius: BorderRadius.circular(40),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.50),
-                width: 1.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 6, 22, 12),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(40),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              height: MediaQuery.of(context).size.height * 0.08,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.35),
+                borderRadius: BorderRadius.circular(40),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.50),
+                  width: 1.2,
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(
-                _items.length,
-                (i) => _NavItem(
-                  data: _items[i],
-                  active: _currentIndex == i,
-                  width: itemWidth,
-                  onTap: () => _onTap(i),
-                  activeColor: _activeBlue,
-                  inactiveColor: _inactiveGrey,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: List.generate(
+                  _items.length,
+                  (i) => _NavItem(
+                    data: _items[i],
+                    active: _currentIndex == i,
+                    width: itemWidth,
+                    onTap: () => _onTap(i),
+                    activeColor: _activeBlue,
+                    inactiveColor: _inactiveGrey,
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 class _NavItemData {
