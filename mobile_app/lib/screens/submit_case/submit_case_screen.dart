@@ -337,7 +337,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
         'caseID': caseId,
         'ownerId': uid,
         'vehicleId': selectedVehicle!.docId,
-        'status': 'submitted',
+        'status': 'under analysis ',
         'createdAt': FieldValue.serverTimestamp(),
         'najimReport': {
           'pdfPath': pdfPath,
