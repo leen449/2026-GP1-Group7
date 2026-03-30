@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import './verification_screen.dart';
 import '../home/home_screen.dart';
+import '../NavBar/nav_bar.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -142,7 +143,7 @@ class _AuthScreenState extends State<AuthScreen> {
         await _auth.signInWithCredential(credential);
         if (isSignUp) await _saveUserToFirestore(phone);
         if (!mounted) return;
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen())); // home يبقى بالمين
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AppBottomNav())); // home يبقى بالمين
       },
 
       // فشل الإرسال
@@ -251,14 +252,17 @@ class _AuthScreenState extends State<AuthScreen> {
                   : const BorderSide(color: Color(0xFF0B3B66), width: 1.5),
             ),
           ),
-          onChanged: (_) {
-            // مسح الخطأ لما يبدأ يكتب
-            setState(() {
-              _nameError = null;
-              _nationalIdError = null;
-              _phoneError = null;
-            });
-          },
+          onChanged: (val) {
+  if (keyboardType == TextInputType.phone && val.startsWith('0')) {
+    setState(() => _phoneError = 'Phone number should not start with 0');
+  } else {
+    setState(() {
+      _nameError = null;
+      _nationalIdError = null;
+      _phoneError = null;
+    });
+  }
+},
         ),
         if (errorText != null)
           Padding(
@@ -365,7 +369,7 @@ class _AuthScreenState extends State<AuthScreen> {
         _label('Phone Number'),
         _inputField(
           controller: _loginPhoneController,
-          hint: 'Your Phone Number',
+          hint: '5XXXXXXXX',
           keyboardType: TextInputType.phone,
           errorText: _phoneError,
           maxLength: 9,
@@ -406,7 +410,7 @@ class _AuthScreenState extends State<AuthScreen> {
         _label('Phone Number'),
         _inputField(
           controller: _signupPhoneController,
-          hint: 'Your Phone Number',
+          hint: '5XXXXXXXX',
           keyboardType: TextInputType.phone,
           errorText: _phoneError,
           maxLength: 9,
