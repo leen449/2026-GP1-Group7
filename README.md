@@ -67,7 +67,6 @@ This repository is organized as follows:
 │   ├── training/           # Notebooks & training scripts
 │   ├── inference/          # Prediction scripts
 │   └── weights/            # Saved models (.pt, .keras, etc.)
-├── assets/                 # Images for README, diagrams (NOT used by Flutter)
 ├── AUTHORS.md
 └── README.md
 ```
