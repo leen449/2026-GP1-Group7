@@ -54,7 +54,6 @@ This repository is organized as follows:
 ├── docs/                   # All reports & documentation
 │   ├── proposal/
 │   ├── sprint0/
-│   ├── sprint1/
 │   └── sprint2/
 ├── mobile_app/             # Flutter frontend
 │   ├── lib/                # Flutter source code (screens, widgets, etc.)
