@@ -78,22 +78,22 @@ def _extract_text_from_base64_pdf(pdf_base64: str) -> list[str]:
 
     
 def _extract_text_from_pdf_bytes(pdf_bytes: bytes) -> list[str]:
-        pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
 
-        all_lines = []
+    all_lines = []
 
-        for page_index, page in enumerate(pdf_doc):
-         text = page.get_text("text")
-         lines = [line.strip() for line in text.split("\n") if line.strip()]
-         print(f"\n--- PAGE {page_index + 1} RAW LINES ---")
-         
-         for line in lines:
+    for page_index, page in enumerate(pdf_doc):
+        text = page.get_text("text")
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+        print(f"\n--- PAGE {page_index + 1} RAW LINES ---")
+
+        for line in lines:
             print(line)
-            all_lines.extend(lines)
 
-        print(f"\n   [Najm OCR] Extracted {len(all_lines)} lines from PDF")
-        return all_lines
+        all_lines.extend(lines)
 
+    print(f"\n   [Najm OCR] Extracted {len(all_lines)} lines from PDF")
+    return all_lines
 
 def _download_pdf_bytes_from_storage(pdf_path: str) -> bytes:
     bucket = storage.bucket('crashlens-233bf.firebasestorage.app')
@@ -344,9 +344,14 @@ async def process_najm_ocr(case_id: str) -> dict:
                 print(f"   [Najm OCR] Base64 decode failed: {decode_error}")
 
         if pdf_bytes is None:
+            error_message = "No PDF found for this case (neither Storage path nor base64)"
+            case_ref.update({
+                "status": "ocr_failed",
+                "ocrError": error_message,
+            })
             return {
                 "status": "error",
-                "message": "No PDF found for this case (neither Storage path nor base64)",
+                "message": error_message,
                 "data": None,
             }
 
@@ -362,35 +367,70 @@ async def process_najm_ocr(case_id: str) -> dict:
 
         found_count = sum(bool(x) for x in [accident_number, accident_date, damage_location])
 
-        case_ref.update({
+        
+# Always store extracted values, even if partial/failed
+        update_data = {
             "najimReport.accidentNumber": accident_number,
             "najimReport.accidentDate": accident_date,
             "najimReport.damageLocation": damage_location,
-        })
+        }
+        
+        if found_count == 3:
+            update_data["status"] = "under_analysis"
+            update_data["ocrError"] = firestore.DELETE_FIELD
+            case_ref.update(update_data)
 
-        if found_count == 0:
             return {
-                "status": "error",
-                "message": "PDF was processed, but no target Najm fields were extracted",
-                "data": None,
+                "status": "success",
+                "data": {
+                    "accidentNumber": accident_number,
+                    "accidentDate": accident_date,
+                    "damageLocation": damage_location,
+                },
+                "message": None,
             }
 
-        status = "success" if found_count == 3 else "partial_success"
+        missing_fields = []
+        if not accident_number:
+            missing_fields.append("accidentNumber")
+        if not accident_date:
+            missing_fields.append("accidentDate")
+        if not damage_location:
+            missing_fields.append("damageLocation")
+
+        error_message = f"Najm OCR failed to extract required fields: {', '.join(missing_fields)}"
+
+        update_data["status"] = "ocr_failed"
+        update_data["ocrError"] = error_message
+        case_ref.update(update_data)
 
         return {
-            "status": status,
+            "status": "error",
+            "message": error_message,
             "data": {
                 "accidentNumber": accident_number,
                 "accidentDate": accident_date,
                 "damageLocation": damage_location,
             },
-            "message": None if status == "success" else "Some Najm fields were extracted, but not all",
         }
 
     except Exception as e:
-        print(f"!!! NAJM OCR ERROR: {str(e)}")
+        error_message = f"Najm OCR Error: {str(e)}"
+        print(f"!!! NAJM OCR ERROR: {error_message}")
+
+        try:
+            _ensure_firebase_initialized()
+            db = firestore.client()
+            case_ref = db.collection("accidentCase").document(case_id)
+            case_ref.update({
+                "status": "ocr_failed",
+                "ocrError": error_message,
+            })
+        except Exception as update_error:
+            print(f"❌ Failed to update case status after OCR exception: {update_error}")
+
         return {
             "status": "error",
-            "message": f"Najm OCR Error: {str(e)}",
+            "message": error_message,
             "data": None,
         }

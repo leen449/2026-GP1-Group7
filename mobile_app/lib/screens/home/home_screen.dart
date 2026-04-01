@@ -183,6 +183,91 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  //  New method to show OCR failure dialog
+  void _showOcrFailedDialog() {
+    final size = MediaQuery.of(context).size;
+    final double screenWidth = size.width;
+
+    showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        // Constrain the dialog width for larger screens (Tablets/Desktop)
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85,
+          ),
+          child: SingleChildScrollView(
+            // Prevents overflow on small screens
+            child: Padding(
+              padding: EdgeInsets.all(screenWidth * 0.06), // Dynamic padding
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.red,
+                        size: screenWidth * 0.08, // Dynamic icon size
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        // Prevents text overflow in the Row
+                        child: Text(
+                          'Verification Failed',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.045, // Dynamic font
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenWidth * 0.04),
+                  Text(
+                    'We could not verify the uploaded PDF as a valid Najm accident report.\n\nPlease submit a new case and make sure you upload the correct Najm accident report file.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035, // Dynamic font
+                      color: Colors.black87,
+                      height: 1.5,
+                    ),
+                  ),
+                  SizedBox(height: screenWidth * 0.06),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0B4A7D),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          vertical: screenWidth * 0.03,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        elevation: 4,
+                      ),
+                      child: Text(
+                        'Got it',
+                        style: TextStyle(fontSize: screenWidth * 0.04),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   @override
   Widget build(BuildContext context) {
@@ -456,19 +541,38 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _statusBadge(String status) {
-    final bool approved = status.toLowerCase() == 'approved';
+    final s = status.toLowerCase().trim();
+    final displayStatus = s == 'ocr_failed' ? 'Verification Failed' : status;
+
+    Color bgColor;
+    Color textColor;
+
+    if (s == 'approved') {
+      bgColor = const Color(0xFFDFF3E3);
+      textColor = const Color(0xFF2E7D32);
+    } else if (s == 'pending') {
+      bgColor = const Color(0xFFE8EDF3);
+      textColor = const Color(0xFF4A6072);
+    } else if (s == 'ocr_failed') {
+      bgColor = const Color(0xFFFFE7E7);
+      textColor = const Color(0xFFC62828);
+    } else {
+      bgColor = const Color(0xFFF6E3D8);
+      textColor = const Color(0xFFB35A2A);
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: approved ? const Color(0xFFDFF3E3) : const Color(0xFFF6E3D8),
+        color: bgColor,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        status,
+        displayStatus,
         style: TextStyle(
           fontWeight: FontWeight.w700,
           fontSize: 12,
-          color: approved ? const Color(0xFF2E7D32) : const Color(0xFFB35A2A),
+          color: textColor,
         ),
       ),
     );
@@ -588,7 +692,23 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           ),
-                          _statusBadge(status),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _statusBadge(status),
+                              if (status.toLowerCase() == 'ocr_failed') ...[
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: _showOcrFailedDialog,
+                                  child: const Icon(
+                                    Icons.warning_amber_rounded,
+                                    color: Colors.orange,
+                                    size: 22,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ],
                       ),
                     ),

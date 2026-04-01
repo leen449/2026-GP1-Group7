@@ -53,12 +53,14 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // ── Submission state ──────────────────────────────────────────────
   bool _isSubmitting = false;
   String _submitStatus = '';
+  bool _infoConfirmed = false;
 
   // ── Validation ────────────────────────────────────────────────────
   bool get canSubmit =>
       selectedVehicle != null &&
       najmFileName != null &&
       capturedPhotos.isNotEmpty &&
+      _infoConfirmed &&
       !_isSubmitting;
 
   @override
@@ -116,8 +118,8 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
     if (result == null) return;
     final picked = result.files.single;
 
-    // ✅ Reject files over 900KB — same limit as Firestore check in _submitCase
-    if (picked.size > 900 * 1024) {
+    // ✅ Reject files over 5MB — same limit as Firestore check in _submitCase
+    if (picked.size > 5 * 1024 * 1024) {
       if (!mounted) return;
       await _showFileSizeDialog(picked.size);
       return;
@@ -135,87 +137,107 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // Same visual style as the National ID confirmation dialog
   // ─────────────────────────────────────────────────────────────────
   Future<void> _showFileSizeDialog(int fileSize) async {
-    final sizeKB = (fileSize / 1024).toStringAsFixed(0);
+    final sizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(1);
+
+    // Get screen dimensions
+    final size = MediaQuery.of(context).size;
+    final double screenWidth = size.width;
+
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ── Header ────────────────────────────────────────
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Icon(
-                    Icons.warning_amber_rounded,
-                    color: Colors.red,
-                    size: 28,
-                  ),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'File Too Large',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      softWrap: true,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // ── Body ──────────────────────────────────────────
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+        child: ConstrainedBox(
+          // Keeps the dialog from stretching too wide on tablets
+          constraints: BoxConstraints(
+            maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.9,
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(screenWidth * 0.06), // Responsive padding
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'The selected PDF is $sizeKB KB, which exceeds the 900 KB limit.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      color: Colors.black87,
-                      height: 1.5,
+                  // ── Header ────────────────────────────────────────
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment
+                        .center, // Centers the group horizontally
+                    crossAxisAlignment: CrossAxisAlignment
+                        .center, // Aligns icon and text vertically
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.red,
+                        size: screenWidth * 0.07,
+                      ),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        // Flexible allows the text to only take the space it needs
+                        child: Text(
+                          'File Too Large',
+                          textAlign: TextAlign
+                              .center, // Ensures text lines center if they wrap
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.045,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenWidth * 0.04),
+
+                  // ── Body ──────────────────────────────────────────
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'The selected PDF is $sizeMB MB, which exceeds the 5 MB limit.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.035, // Responsive font
+                          color: Colors.black87,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Please compress the file before uploading ',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.035, // Responsive font
+                          color: Colors.black87,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenWidth * 0.06),
+
+                  // ── Button ────────────────────────────────────────
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0B4A7D),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        elevation: 4,
+                      ),
+                      child: Text(
+                        'Got it',
+                        style: TextStyle(fontSize: screenWidth * 0.04),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Please compress the file before uploading ',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      color: Colors.black87,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                 ],
               ),
-              const SizedBox(height: 24),
-
-              // ── Button — same style as confirm button ──────────
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0B4A7D),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    elevation: 4,
-                  ),
-                  child: const Text('Got it'),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -337,7 +359,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
         'caseID': caseId,
         'ownerId': uid,
         'vehicleId': selectedVehicle!.docId,
-        'status': 'under analysis ',
+        'status': 'pending ',
         'createdAt': FieldValue.serverTimestamp(),
         'najimReport': {
           'pdfPath': pdfPath,
@@ -357,10 +379,11 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
           'uploadedAt': FieldValue.serverTimestamp(),
         });
       }
-
-      // ── Step 6: Call Najm OCR backend to extract PDF fields ──────
-      // This runs in background — we don't block the user waiting for it
-      // If it fails, the case is still submitted successfully
+      // ── Step 6: Trigger Najm OCR backend in background ───────────
+      // Case is created with status = pending
+      // Backend will update Firestore to:
+      // - under_analysis on OCR success
+      // - ocr_failed on OCR failure
       _callNajmOcr(caseId);
 
       // ── Step 7: Lock National ID if this is the first case ──────
@@ -403,9 +426,13 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // Call Najm OCR backend — runs in background after submission
   // ─────────────────────────────────────────────────────────────────
   Future<void> _callNajmOcr(String caseId) async {
+    // Backend handles OCR + Firestore status updates:
+    // - success  -> status = under_analysis
+    // - failure  -> status = ocr_failed + error details
+    // Flutter only triggers the job and does not block the user.
     // ⚠️ Replace with  deployed backend URL when available
     // For local testing use your machine's IP e.g. http://192.168.1.x:8000
-    const backendUrl = 'http://192.168.100.35:8000';
+    const backendUrl = 'http://172.20.10.2:8000';
 
     try {
       print('🔍 Calling Najm OCR for case: $caseId');
@@ -415,18 +442,14 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['status'] == 'success') {
-          print('✅ Najm OCR success: ${data['data']}');
-        } else {
-          print('⚠️ Najm OCR returned error: ${data['message']}');
-        }
+        print('✅ Najm OCR job triggered: $data');
       } else {
-        print('⚠️ Najm OCR HTTP error: ${response.statusCode}');
+        print('⚠️ Najm OCR trigger failed: HTTP ${response.statusCode}');
       }
     } catch (e) {
       // OCR failure does NOT affect the case submission
       // The fields will just remain empty until OCR runs
-      print('⚠️ Najm OCR call failed (non-critical): $e');
+      print('⚠️ Failed to trigger Najm OCR: $e');
     }
   }
 
@@ -437,15 +460,17 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    // ✅ Check nationalIDLocked directly from Firestore
     final userDoc = await FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
         .get();
     final isLocked = userDoc.data()?['nationalIDLocked'] ?? false;
 
-    // ✅ Only show National ID dialog on first case (when not yet locked)
     if (!isLocked) {
+      // Get screen dimensions for responsiveness
+      final size = MediaQuery.of(context).size;
+      final double screenWidth = size.width;
+
       final confirmed = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
@@ -453,90 +478,102 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          child: ConstrainedBox(
+            // Limits width on tablets so the dialog doesn't look stretched
+            constraints: BoxConstraints(
+              maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.9,
+            ),
+            child: SingleChildScrollView(
+              // Prevents overflow on small screens
+              child: Padding(
+                padding: EdgeInsets.all(
+                  screenWidth * 0.06,
+                ), // Responsive padding
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.warning_amber_rounded,
-                      color: Colors.red,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Confirm National ID',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment
+                          .center, // Centers the group horizontally
+                      crossAxisAlignment: CrossAxisAlignment
+                          .center, // Aligns icon and text vertically
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.red,
+                          size: screenWidth * 0.07, // Responsive icon
                         ),
-                        softWrap: true,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Confirm National ID',
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.045, // Responsive font
+                              fontWeight: FontWeight.bold,
+                            ),
+                            softWrap: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: screenWidth * 0.04),
+                    Text(
+                      'Please confirm that your National ID is correct. Once submitted, it cannot be edited.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.035, // Responsive font
+                        color: Colors.black87,
+                        height: 1.5,
                       ),
+                    ),
+                    SizedBox(height: screenWidth * 0.06),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0B4A7D),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              elevation: 4,
+                            ),
+                            child: const Text('Confirm'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
+                            child: const Text(
+                              'Cancel', // Fixed lowercase 'c'
+                              style: TextStyle(color: Colors.black87),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Please confirm that your National ID is correct. Once submitted, it cannot be edited.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    color: Colors.black87,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0B4A7D),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          elevation: 4,
-                        ),
-                        child: const Text('Confirm'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          side: BorderSide(color: Colors.grey.shade300),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
-                        child: const Text(
-                          'cancel',
-                          style: TextStyle(color: Colors.black87),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ),
       );
 
-      // User cancelled — do not proceed
       if (confirmed != true || !mounted) return;
     }
 
-    // ✅ Proceed to submit — either first case confirmed, or ID already locked
     await _submitCase();
   }
 
@@ -952,12 +989,57 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                   ),
                                 ),
 
+                              const SizedBox(height: 24),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Checkbox(
+                                      value: _infoConfirmed,
+                                      activeColor: const Color(0xFF0B4A7D),
+                                      onChanged: _isSubmitting
+                                          ? null
+                                          : (value) {
+                                              setState(() {
+                                                _infoConfirmed = value ?? false;
+                                              });
+                                            },
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Expanded(
+                                      child: Padding(
+                                        padding: EdgeInsets.only(top: 10),
+                                        child: Text(
+                                          'I confirm that all submitted information are correct.',
+                                          style: TextStyle(
+                                            fontSize: 13.5,
+                                            color: Colors.black87,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                               const SizedBox(height: 20),
                             ],
                           ),
                         ),
                       ),
                     ),
+                    const SizedBox(height: 20),
 
                     // ── Submit button ─────────────────────────────
                     if (canSubmit) ...[
