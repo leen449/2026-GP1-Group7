@@ -1,22 +1,22 @@
 from pydantic import BaseModel
-from typing import List, Any, Optional
-
-
+from typing import List, Optional
+ 
+ 
 class OCRStructuredData(BaseModel):
-    plate_number: Optional[str] = ""
-    chassis_number: Optional[str] = ""
-    vehicle_brand: Optional[str] = ""
-    color: Optional[str] = ""
+    """Represents the extracted vehicle fields from the registration card"""
+    plate_number:       Optional[str] = ""
+    make:               Optional[str] = ""
+    model:              Optional[str] = ""
     manufacturing_year: Optional[str] = ""
-    serial_number: Optional[str] = ""
-    owner_name: Optional[str] = ""
-    user_name: Optional[str] = ""
-
-
+    color:              Optional[str] = ""
+    chassis_number:     Optional[str] = ""
+ 
+ 
 class OCRResponse(BaseModel):
+    """Full response returned by the /ocr/ endpoint"""
+    status:   str
     raw_text: List[str]
-    raw_result: List[Any]
-    structured_data: OCRStructuredData
+    data:     OCRStructuredData
 
 # ─────────────────────────────────────────────────────────────────
 # Najm Report Models

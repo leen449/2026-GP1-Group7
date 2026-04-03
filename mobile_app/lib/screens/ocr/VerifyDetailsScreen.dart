@@ -1,21 +1,115 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../home/home_screen.dart';
+import '../../services/ocr_service.dart';
 
 class VerifyDetailsScreen extends StatefulWidget {
-  const VerifyDetailsScreen({super.key});
+  // Receives the cropped image path from PreviewPhotoScreen
+  final String? imagePath;
+
+  const VerifyDetailsScreen({super.key, this.imagePath});
 
   @override
   State<VerifyDetailsScreen> createState() => _VerifyDetailsScreenState();
 }
 
 class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
-  final _plateController = TextEditingController(text: 'A B C 5432');
-  final _modelController = TextEditingController(text: 'Mazda');
-  final _colorController = TextEditingController(text: 'White');
-  final _makeController = TextEditingController(text: 'A B C 5432');
-  final _yearController = TextEditingController(text: '2024');
-  final _chassisController = TextEditingController(text: 'ASJJIWNBC54327483');
+  // Text controllers — auto-filled by OCR, editable by the user
+  final _plateController = TextEditingController();
+  final _makeController = TextEditingController();
+  final _modelController = TextEditingController();
+  final _yearController = TextEditingController();
+  final _colorController = TextEditingController();
+  final _chassisController = TextEditingController();
 
+  bool _isLoading = true; // true while OCR API call is in progress
+  bool _isSaving = false; // true while saving to Firestore
+  String? _errorMsg; // shown if OCR fails, prompts manual entry
+
+  @override
+  void initState() {
+    super.initState();
+    // Start OCR as soon as the screen opens
+    _loadOcrData();
+  }
+
+  // ── Calls the OCR API and fills in the form fields automatically ──
+  Future<void> _loadOcrData() async {
+    // If no image was passed, skip OCR and show empty form
+    if (widget.imagePath == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      // Send the image to FastAPI and get structured vehicle data
+      final data = await OcrService.scanCard(widget.imagePath!);
+
+      if (mounted) {
+        setState(() {
+          // Map each API field to its corresponding text controller
+          _plateController.text = data['plateNumber'] ?? '';
+          _makeController.text = data['make'] ?? '';
+          _modelController.text = data['model'] ?? '';
+          _yearController.text = data['year'] ?? '';
+          _colorController.text = data['color'] ?? '';
+          _chassisController.text = data['chassisNumber'] ?? '';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // OCR failed — show a warning and let the user fill manually
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMsg =
+              'Could not read card automatically. Please fill manually.';
+        });
+      }
+    }
+  }
+
+  // ── Saves the verified vehicle data to Firestore ──
+  Future<void> _saveToFirebase() async {
+    setState(() => _isSaving = true);
+
+    try {
+      // Get the currently logged-in user's ID
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) throw Exception('User not logged in');
+
+      // Save a new document in the 'vehicles' collection
+      await FirebaseFirestore.instance.collection('vehicles').add({
+        'ownerId': uid,
+        'plateNumber': _plateController.text.trim(),
+        'make': _makeController.text.trim(),
+        'model': _modelController.text.trim(),
+        'year': _yearController.text.trim(),
+        'color': _colorController.text.trim(),
+        'chassisNumber': _chassisController.text.trim(),
+        'isArchived': false, // default — vehicle is active
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Show success dialog after saving
+      if (mounted) _showSuccessDialog();
+    } catch (e) {
+      // Show error snackbar if saving fails
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // ── Shows a success dialog then navigates back to HomeScreen ──
   void _showSuccessDialog() {
     showDialog(
       context: context,
@@ -27,6 +121,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Green check icon
               Container(
                 width: 60,
                 height: 60,
@@ -51,11 +146,10 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pushNamedAndRemoveUntil(
+                    Navigator.of(context).pop(); // close dialog
+                    Navigator.of(
                       context,
-                      '/home',
-                      (_) => false,
-                    );
+                    ).pushNamedAndRemoveUntil('/home', (route) => false);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1E3A6E),
@@ -84,11 +178,12 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
 
   @override
   void dispose() {
+    // Always dispose controllers to avoid memory leaks
     _plateController.dispose();
-    _modelController.dispose();
-    _colorController.dispose();
     _makeController.dispose();
+    _modelController.dispose();
     _yearController.dispose();
+    _colorController.dispose();
     _chassisController.dispose();
     super.dispose();
   }
@@ -98,85 +193,146 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-
-            // Title
-            const Text(
-              'Verify Details',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1A1A2E),
-              ),
-            ),
-
-            const SizedBox(height: 6),
-
-            // Subtitle
-            const Text(
-              'Verify or edit details if needed.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF2563EB)),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Form fields
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: _isLoading
+            // Show loading spinner while OCR is running
+            ? const Center(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildField('Plate Number', _plateController),
-                    _buildField('Model', _modelController),
-                    _buildField('Color', _colorController),
-                    _buildField('Make', _makeController),
-                    _buildField(
-                      'Year',
-                      _yearController,
-                      keyboardType: TextInputType.number,
+                    CircularProgressIndicator(color: Color(0xFF1E3A6E)),
+                    SizedBox(height: 16),
+                    Text(
+                      'Reading your card...',
+                      style: TextStyle(color: Color(0xFF888888), fontSize: 15),
                     ),
-                    _buildField('chasis Number', _chassisController),
-                    const SizedBox(height: 8),
                   ],
                 ),
-              ),
-            ),
+              )
+            : Column(
+                children: [
+                  const SizedBox(height: 12),
 
-            // Add Vehicle button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _showSuccessDialog,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A6E),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    '+ Add Vehicle',
+                  // Title
+                  const Text(
+                    'Verify Details',
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A2E),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 6),
+
+                  // Subtitle
+                  const Text(
+                    'Verify or edit details if needed.',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF2563EB)),
+                  ),
+
+                  // Warning banner shown if OCR failed
+                  if (_errorMsg != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF3CD),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFFE082)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.warning_amber_rounded,
+                              color: Color(0xFFF59E0B),
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _errorMsg!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF7A5000),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 12),
+
+                  // Scrollable form with all vehicle fields
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildField('Plate Number', _plateController),
+                          _buildField('Make', _makeController),
+                          _buildField('Model', _modelController),
+                          _buildField(
+                            'Year',
+                            _yearController,
+                            keyboardType: TextInputType.number,
+                          ),
+                          _buildField('Color', _colorController),
+                          _buildField('Chassis Number', _chassisController),
+                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Add Vehicle button — disabled while saving
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _saveToFirebase,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1E3A6E),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          elevation: 0,
+                        ),
+                        // Show spinner inside button while saving
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : const Text(
+                                '+ Add Vehicle',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
+  // ── Reusable labeled text field widget ──
   Widget _buildField(
     String label,
     TextEditingController controller, {
@@ -187,6 +343,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Field label
           Text(
             label,
             style: const TextStyle(
@@ -196,6 +353,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
             ),
           ),
           const SizedBox(height: 6),
+          // Input field with blue border
           TextField(
             controller: controller,
             keyboardType: keyboardType,
