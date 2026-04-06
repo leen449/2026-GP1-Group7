@@ -9,6 +9,8 @@ import 'dart:ui';
 import '../NavBar/nav_bar.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import '../vehicle/add_vehicle_screen.dart';
+import '../vehicle/vehicle_details_screen.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -32,16 +34,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadUserName() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .get();
-    if (doc.exists && mounted) {
-      setState(() => _userName = doc.data()?['name'] ?? '');
-    }
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return;
+
+  final query = await FirebaseFirestore.instance
+      .collection('users')
+      .where('userID', isEqualTo: uid)
+      .limit(1)
+      .get();
+
+  if (query.docs.isNotEmpty && mounted) {
+    setState(() => _userName = query.docs.first.data()['name'] ?? '');
   }
+}
 
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
@@ -84,18 +89,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
-              ListTile(
-                title: const Text(
-                  'Add Manually',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('Add Manually')));
-                },
-              ),
+ListTile(
+  title: const Text(
+    'Add Manually',
+    style: TextStyle(fontWeight: FontWeight.w600),
+  ),
+  onTap: () {
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddVehicleScreen()),
+    );
+  },
+),
               const SizedBox(height: 8),
             ],
           ),
@@ -382,30 +388,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _myVehiclesHeader() {
-    return Row(
-      children: [
-        const Text(
-          'My Vehicles',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: _textDark,
-          ),
+Widget _myVehiclesHeader() {
+  return Row(
+    children: [
+      const Text(
+        'My Vehicles',
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: _textDark,
         ),
-        const Spacer(),
-        GestureDetector(
-          onTap: _showAddOptions,
-          child: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(color: _cardGrey, shape: BoxShape.circle),
-            child: const Icon(Icons.add, size: 20, color: _textDark),
+      ),
+      const Spacer(),
+      GestureDetector(
+        onTap: _showAddOptions,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: _cardGrey,
+            shape: BoxShape.circle,
           ),
+          child: const Icon(Icons.add, size: 20, color: _textDark),
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
   Widget _vehiclesHorizontalList() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -464,53 +473,65 @@ class _HomeScreenState extends State<HomeScreen> {
                   final name = '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim();
                   final plate = v['plateNumber'] ?? '';
 
-                  return Container(
-                    width: 145,
-                    // ✅ No fixed height on the card itself — let content breathe
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _cardGrey,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Image.asset(
-                          'assets/images/car2.png',
-                          width: 76,
-                          height: 52, // ✅ fixed image height
-                          fit: BoxFit.contain,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          name,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _textDark,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          plate,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: _textMuted,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+return GestureDetector(
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VehicleDetailsScreen(
+          vehicleId: vehicles[i].id,
+          vehicleData: v,
+        ),
+      ),
+    );
+  },
+  child: Container(
+    width: 145,
+    padding: const EdgeInsets.symmetric(
+      horizontal: 10,
+      vertical: 8,
+    ),
+    decoration: BoxDecoration(
+      color: _cardGrey,
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Image.asset(
+          'assets/images/car2.png',
+          width: 76,
+          height: 52,
+          fit: BoxFit.contain,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          name,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: _textDark,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          plate,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 11,
+            color: _textMuted,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    ),
+  ),
+);
                 },
               ),
             );

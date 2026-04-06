@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:flutter/services.dart';
 import 'screens/NavBar/nav_bar.dart';
+import 'screens/vehicle/add_vehicle_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -35,6 +36,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/home': (context) => const AppBottomNav(),
         '/auth': (context) => const AuthScreen(),
+        '/addVehicle': (context) => const AddVehicleScreen(),
       },
     );
   }
