@@ -45,4 +45,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-
+# Secret keys
+serviceAccountKey.json
+**/serviceAccountKey.json
