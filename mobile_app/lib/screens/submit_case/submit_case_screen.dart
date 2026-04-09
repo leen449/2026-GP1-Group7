@@ -432,7 +432,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
     // Flutter only triggers the job and does not block the user.
     // ⚠️ Replace with  deployed backend URL when available
     // For local testing use your machine's IP e.g. http://192.168.1.x:8000
-    const backendUrl = 'http:// 192.168.100.35:8000';
+    const backendUrl = 'http://172.20.10.2:8000';
 
     try {
       print('🔍 Calling Najm OCR for case: $caseId');
