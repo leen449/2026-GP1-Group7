@@ -89,14 +89,47 @@ class _VerificationScreenState extends State<VerificationScreen> {
       );
       return;
     }
+
     setState(() => _isLoading = true);
+
     try {
       final credential = PhoneAuthProvider.credential(
         verificationId: _verificationId,
         smsCode: _otpCode,
       );
+
       await FirebaseAuth.instance.signInWithCredential(credential);
-      if (widget.isSignUp) await _saveUserToFirestore();
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (widget.isSignUp) {
+        if (!userDoc.exists) {
+          await _saveUserToFirestore();
+        }
+      } else {
+        if (!userDoc.exists) {
+          await FirebaseAuth.instance.signOut();
+          setState(() => _isLoading = false);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No account found. Please sign up first.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+
       if (!mounted) return;
       Navigator.pushReplacement(
         context,

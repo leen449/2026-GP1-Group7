@@ -89,15 +89,15 @@ class VehicleDetailsScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.warning_amber_rounded,
-                  color: Colors.red, size: 42),
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.red,
+                size: 42,
+              ),
               const SizedBox(height: 12),
               const Text(
                 'Delete Vehicle?',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
               ),
               const SizedBox(height: 10),
               const Text(
@@ -178,10 +178,7 @@ class VehicleDetailsScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.black87,
-              ),
+              style: const TextStyle(fontSize: 14, color: Colors.black87),
             ),
           ],
         ),
@@ -210,10 +207,7 @@ class VehicleDetailsScreen extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.black87,
-            ),
+            style: const TextStyle(fontSize: 14, color: Colors.black87),
           ),
         ],
       ),
@@ -255,10 +249,7 @@ class VehicleDetailsScreen extends StatelessWidget {
             itemBuilder: (_) => const [
               PopupMenuItem<String>(
                 value: 'delete',
-                child: Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
-                ),
+                child: Text('Delete', style: TextStyle(color: Colors.red)),
               ),
             ],
           ),
@@ -268,16 +259,16 @@ class VehicleDetailsScreen extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         child: ListView(
           children: [
-           Container(
-  height: 120,
-  alignment: Alignment.center,
-  child: Image.asset(
-    'assets/images/car2.png',
-    width: 180,
-    height: 100,
-    fit: BoxFit.contain,
-  ),
-),
+            Container(
+              height: 120,
+              alignment: Alignment.center,
+              child: Image.asset(
+                'assets/images/car2.png',
+                width: 180,
+                height: 100,
+                fit: BoxFit.contain,
+              ),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [

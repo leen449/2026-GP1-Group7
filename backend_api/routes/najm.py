@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from services.Najm_services import process_najm_ocr
+from services.najm_services import process_najm_ocr
 from models.ocr_models import NajmOCRResponse, NajmStructuredData
 
 router = APIRouter()

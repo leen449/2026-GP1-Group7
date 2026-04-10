@@ -51,7 +51,8 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _validateNationalId(String val) {
     if (val.trim().isEmpty) return 'Please enter your National/Residence ID';
     if (val.length != 10) return 'ID must be exactly 10 digits';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'ID must contain digits only';
+    if (!RegExp(r'^[0-9]+$').hasMatch(val))
+      return 'ID must contain digits only';
     if (!val.startsWith('1') && !val.startsWith('2')) {
       return 'ID must start with 1 (Saudi) or 2 (Resident)';
     }
@@ -60,7 +61,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
   String? _validatePhone(String val) {
     if (val.trim().isEmpty) return 'Please enter your phone number';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Phone must contain digits only';
+    if (!RegExp(r'^[0-9]+$').hasMatch(val))
+      return 'Phone must contain digits only';
     if (val.length != 9) return 'Phone number must be 9 digits';
     if (!val.startsWith('5')) return 'Phone number must start with 5';
     return null;
@@ -95,69 +97,71 @@ class _AuthScreenState extends State<AuthScreen> {
 
     setState(() => _isLoading = true);
 
-    // لو Log in: تحقق إن الرقم موجود في Firestore أولاً
-    if (!isSignUp) {
-      final query = await FirebaseFirestore.instance
-          .collection('users')
-          .where('phoneNumber', isEqualTo: phone)
-          .get();
-
-      if (query.docs.isEmpty) {
-        setState(() => _isLoading = false);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No account found. Please sign up first.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-    }
-
-    // لو Sign up: تحقق إن الرقم مو مسجل مسبقاً
-    if (isSignUp) {
-      final query = await FirebaseFirestore.instance
-          .collection('users')
-          .where('phoneNumber', isEqualTo: phone)
-          .get();
-
-      if (query.docs.isNotEmpty) {
-        setState(() => _isLoading = false);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('This phone number is already registered. Please log in.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-    }
-
     await _auth.verifyPhoneNumber(
       phoneNumber: phone,
 
-      // Android: تحقق تلقائي
       verificationCompleted: (PhoneAuthCredential credential) async {
-        await _auth.signInWithCredential(credential);
-        if (isSignUp) await _saveUserToFirestore(phone);
-        if (!mounted) return;
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AppBottomNav())); // home يبقى بالمين
+        try {
+          await _auth.signInWithCredential(credential);
+          final user = _auth.currentUser;
+          if (user == null) {
+            setState(() => _isLoading = false);
+            return;
+          }
+
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
+          if (isSignUp) {
+            if (!userDoc.exists) {
+              await _saveUserToFirestore(phone);
+            }
+          } else {
+            if (!userDoc.exists) {
+              await _auth.signOut();
+              setState(() => _isLoading = false);
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('No account found. Please sign up first.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              return;
+            }
+          }
+
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const AppBottomNav()),
+          );
+        } catch (e) {
+          setState(() => _isLoading = false);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Authentication failed: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       },
 
-      // فشل الإرسال
       verificationFailed: (FirebaseAuthException e) {
         setState(() => _isLoading = false);
         String msg = 'An error occurred. Please try again.';
         if (e.code == 'invalid-phone-number') msg = 'Invalid phone number.';
-        if (e.code == 'too-many-requests') msg = 'Too many requests. Try again later.';
+        if (e.code == 'too-many-requests')
+          msg = 'Too many requests. Try again later.';
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), backgroundColor: Colors.red),
         );
       },
 
-      // تم إرسال OTP
       codeSent: (String verificationId, int? resendToken) {
         setState(() => _isLoading = false);
         if (!mounted) return;
@@ -180,7 +184,6 @@ class _AuthScreenState extends State<AuthScreen> {
       timeout: const Duration(seconds: 60),
     );
   }
-
   // ── حفظ بيانات المستخدم في Firestore ────────────────────────
 
   Future<void> _saveUserToFirestore(String phone) async {
@@ -253,16 +256,18 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
           ),
           onChanged: (val) {
-  if (keyboardType == TextInputType.phone && val.startsWith('0')) {
-    setState(() => _phoneError = 'Phone number should not start with 0');
-  } else {
-    setState(() {
-      _nameError = null;
-      _nationalIdError = null;
-      _phoneError = null;
-    });
-  }
-},
+            if (keyboardType == TextInputType.phone && val.startsWith('0')) {
+              setState(
+                () => _phoneError = 'Phone number should not start with 0',
+              );
+            } else {
+              setState(() {
+                _nameError = null;
+                _nationalIdError = null;
+                _phoneError = null;
+              });
+            }
+          },
         ),
         if (errorText != null)
           Padding(
