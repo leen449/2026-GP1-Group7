@@ -16,12 +16,12 @@ class OcrService {
 
       // Use multipart request to send the image as a file upload
       final request = http.MultipartRequest('POST', uri);
-      request.files.add(
-        await http.MultipartFile.fromPath('file', imagePath),
-      );
+      request.files.add(await http.MultipartFile.fromPath('file', imagePath));
 
       // Wait up to 30 seconds for the OCR response
-      final response = await request.send().timeout(const Duration(seconds: 30));
+      final response = await request.send().timeout(
+        const Duration(seconds: 150),
+      );
 
       if (response.statusCode == 200) {
         final body = await response.stream.bytesToString();
@@ -33,12 +33,12 @@ class OcrService {
         // Map API response keys → controller-friendly keys
         // Note: API uses spaces in keys (e.g. 'plate number'), we use camelCase
         return {
-          'plateNumber':   data['plate number']       ?? '',
-          'make':          data['make']               ?? '',
-          'model':         data['model']              ?? '',
-          'year':          data['manufacturing year'] ?? '',
-          'color':         data['color']              ?? '',
-          'chassisNumber': data['chassis number']     ?? '',
+          'plateNumber': data['plateNumber'] ?? '',
+          'make': data['make'] ?? '',
+          'model': data['model'] ?? '',
+          'year': data['year'] ?? '',
+          'color': data['color'] ?? '',
+          'chassisNumber': data['chassisNumber'] ?? '',
         };
       } else {
         throw Exception('Server returned status ${response.statusCode}');

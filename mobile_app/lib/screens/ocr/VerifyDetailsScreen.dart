@@ -36,19 +36,20 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
 
   // ── Calls the OCR API and fills in the form fields automatically ──
   Future<void> _loadOcrData() async {
-    // If no image was passed, skip OCR and show empty form
     if (widget.imagePath == null) {
+      print('OCR: imagePath is null');
       setState(() => _isLoading = false);
       return;
     }
 
+    print('OCR: starting scan for path: ${widget.imagePath}');
+
     try {
-      // Send the image to FastAPI and get structured vehicle data
       final data = await OcrService.scanCard(widget.imagePath!);
+      print('OCR: response received: $data');
 
       if (mounted) {
         setState(() {
-          // Map each API field to its corresponding text controller
           _plateController.text = data['plateNumber'] ?? '';
           _makeController.text = data['make'] ?? '';
           _modelController.text = data['model'] ?? '';
@@ -59,7 +60,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
         });
       }
     } catch (e) {
-      // OCR failed — show a warning and let the user fill manually
+      print('OCR: failed with error: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
