@@ -125,50 +125,7 @@ def _crop_region(image, x1, y1, x2, y2):
 
     return image[y1:y2, x1:x2]
 
-def _extract_year_from_roi(image, ocr_items: list) -> str:
-    """
-    Extract manufacturing year by:
-    1) locating the anchor 'سنة الصنع'
-    2) cropping the nearby expected year region
-    3) running OCR again only on that small crop
-    """
-    anchor = _find_anchor_item(ocr_items, ["سنة الصنع", "سنة", "صنع"])
-    if not anchor:
-        return ""
 
-    # On Arabic cards, the value is usually to the left of the label,
-    # and roughly on the same row or slightly below.
-    roi_x1 = anchor["x_min"] - max(anchor["w"] * 7.0, 320)
-    roi_x2 = anchor["x_max"] + max(anchor["w"] * 1.5, 80)
-    roi_y1 = anchor["y_min"] - max(anchor["h"] * 1.0, 30)
-    roi_y2 = anchor["y_max"] + max(anchor["h"] * 3.0, 80) 
-
-    roi = _crop_region(image, roi_x1, roi_y1, roi_x2, roi_y2)
-    if roi is None or roi.size == 0:
-        return ""
-
-    try:
-        roi_result = reader.readtext(
-            roi,
-            detail=0,
-            text_threshold=0.4,
-            low_text=0.2
-        )
-    except Exception:
-        return ""
-
-    roi_texts = [_normalize_text(t) for t in roi_result]
-
-    # Search clean 4-digit year first
-    for text in roi_texts:
-        compact = re.sub(r"\s+", "", text)
-        match = re.search(r'(19[8-9]\d|20[0-3]\d)', compact)
-        if match:
-            return match.group(1)
-        print("Year ROI OCR:", roi_texts)
-        
-        
-    return ""
 
 def _best_color_match(text: str) -> str:
     """
@@ -456,8 +413,8 @@ def _extract_year_from_roi(image, ocr_items: list) -> str:
         if match:
             return match.group(1)
 
-    # 3) Handle spaced/reordered like "23 20"
-    parts = re.findall(r'\d{2}', text)
+      # 3) Handle spaced/reordered like "23 20"
+     parts = re.findall(r'\d{2}', text)
     if len(parts) == 2:
         candidate1 = parts[0] + parts[1]
         candidate2 = parts[1] + parts[0]
