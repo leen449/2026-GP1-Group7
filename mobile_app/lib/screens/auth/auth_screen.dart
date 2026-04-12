@@ -196,7 +196,6 @@ class _AuthScreenState extends State<AuthScreen> {
       'nationalID': _nationalIdController.text.trim(),
       'phoneNumber': phone,
       'nationalIDLocked': false,
-      'role': 'user',
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
