@@ -77,6 +77,9 @@ class VehicleDetailsScreen extends StatelessWidget {
   }
 
   Future<void> _showDeleteDialog(BuildContext context) async {
+    final size = MediaQuery.of(context).size;
+    final double screenWidth = size.width;
+
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => Dialog(
@@ -84,67 +87,88 @@ class VehicleDetailsScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: Color(0xFFB9C3CF)),
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.red,
-                size: 42,
+        child: ConstrainedBox(
+          // Limits the dialog width on tablets/desktop
+          constraints: BoxConstraints(
+            maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85,
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.05,
+                vertical: 18,
               ),
-              const SizedBox(height: 12),
-              const Text(
-                'Delete Vehicle?',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Are you sure you want to delete this vehicle?',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.black87),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(
-                    width: 100,
-                    height: 38,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D4D8B),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(22),
-                        ),
-                      ),
-                      child: const Text('Delete'),
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.red,
+                    size: screenWidth * 0.1, // Responsive icon size
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Delete Vehicle?',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: screenWidth * 0.045, // Responsive font
                     ),
                   ),
-                  const SizedBox(width: 14),
-                  SizedBox(
-                    width: 100,
-                    height: 38,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEDEDED),
-                        foregroundColor: Colors.black87,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(22),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Are you sure you want to delete this vehicle?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 40,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0D4D8B),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(22),
+                              ),
+                            ),
+                            child: const Text('Delete'),
+                          ),
                         ),
                       ),
-                      child: const Text('cancel'),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 40,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFEDEDED),
+                              foregroundColor: Colors.black87,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(22),
+                              ),
+                            ),
+                            child: const Text(
+                              'Cancel',
+                            ), // Capitalized for consistency
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),

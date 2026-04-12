@@ -585,7 +585,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
       final response = await http
           .post(Uri.parse('$backendUrl/ocr/najm/$caseId'))
-          .timeout(const Duration(seconds: 45));
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

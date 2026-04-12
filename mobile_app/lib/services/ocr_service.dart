@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 class OcrService {
   // Base URL for the FastAPI backend
   // Use 10.0.2.2 for Android emulator (maps to localhost on the host machine)
-  static const String _baseUrl = 'http://192.168.0.250:8000';
+  static const String _baseUrl = 'http://172.20.10.2:8000';
   // static const String _baseUrl = 'http://127.0.0.1:8000'; // iOS simulator
   // static const String _baseUrl = 'http://192.168.0.250:8000'; // physical device
 
