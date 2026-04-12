@@ -14,6 +14,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../NavBar/nav_bar.dart';
 import 'dart:ui';
+import 'imageValidator.dart';
 
 // ─────────────────────────────────────────────
 // VehicleItem — now includes docId from Firestore
@@ -54,6 +55,18 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   bool _isSubmitting = false;
   String _submitStatus = '';
   bool _infoConfirmed = false;
+  bool _isValidating = false;
+  DateTime _najmUploadedAt = DateTime.now();
+  // ── Validation state ─────────────────────────────────────────────
+  int _validationProgress = 0;
+  List<ImageValidationResult> _validationResults = [];
+
+  bool get _hasValidationResults =>
+      _validationResults.isNotEmpty &&
+      _validationResults.length == capturedPhotos.length;
+
+  bool get _allUncertain =>
+      _hasValidationResults && ImageValidator.allUncertain(_validationResults);
 
   // ── Validation ────────────────────────────────────────────────────
   bool get canSubmit =>
@@ -61,7 +74,8 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       najmFileName != null &&
       capturedPhotos.isNotEmpty &&
       _infoConfirmed &&
-      !_isSubmitting;
+      !_isSubmitting &&
+      !_isValidating;
 
   @override
   void initState() {
@@ -105,6 +119,34 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       print('❌ Error loading vehicles: $e');
       if (mounted) setState(() => _loadingVehicles = false);
     }
+  }
+
+  // ────────────────────validation function ───────────────────────────────
+  Future<void> _validateCapturedImages(List<File> images) async {
+    setState(() {
+      _isValidating = true;
+      _validationProgress = 0;
+      _validationResults = List.generate(
+        images.length,
+        (i) => ImageValidationResult.pending(images[i]),
+      );
+    });
+
+    await ImageValidator.validateAll(
+      images: images,
+      onProgress: (index, result) {
+        if (!mounted) return;
+        setState(() {
+          _validationResults[index] = result;
+          _validationProgress = index + 1;
+        });
+      },
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _isValidating = false;
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -244,6 +286,116 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
     );
   }
 
+  // ──────────────────────all uncertain dialog ──────────────────────────────
+  Future<bool> _showAllUncertainWarning() async {
+    final size = MediaQuery.of(context).size;
+    final double screenWidth = size.width;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.9,
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(screenWidth * 0.06),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.orange,
+                        size: screenWidth * 0.07,
+                      ),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        // Replaced Expanded with Flexible for better centering
+                        child: Text(
+                          'Images Could Not Be Verified',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.045,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          softWrap: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenWidth * 0.04),
+                  Text(
+                    'None of the captured images could be confirmed as vehicle-related. Please ensure your photos clearly show vehicle damage.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      color: Colors.black87,
+                      height: 1.5,
+                    ),
+                  ),
+                  SizedBox(height: screenWidth * 0.06),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0B4A7D),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            elevation: 4,
+                          ),
+                          child: Text(
+                            'Submit Anyway',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: screenWidth * 0.032),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: BorderSide(color: Colors.grey.shade300),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: Text(
+                            'Retake Photos',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.black87,
+                              fontSize: screenWidth * 0.032,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return result ?? false;
+  }
+
   // ─────────────────────────────────────────────────────────────────
   // Upload Najm PDF to Firebase Storage and return the download URL
   //-─────────────────────────────────────────────────────────────────
@@ -359,7 +511,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
         'caseID': caseId,
         'ownerId': uid,
         'vehicleId': selectedVehicle!.docId,
-        'status': 'pending ',
+        'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
         'najimReport': {
           'pdfPath': pdfPath,
@@ -426,16 +578,11 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // Call Najm OCR backend — runs in background after submission
   // ─────────────────────────────────────────────────────────────────
   Future<void> _callNajmOcr(String caseId) async {
-    // Backend handles OCR + Firestore status updates:
-    // - success  -> status = under_analysis
-    // - failure  -> status = ocr_failed + error details
-    // Flutter only triggers the job and does not block the user.
-    // ⚠️ Replace with  deployed backend URL when available
-    // For local testing use your machine's IP e.g. http://192.168.1.x:8000
-    const backendUrl = 'http://192.168.0.9:8000';
+    const backendUrl = 'http://172.20.10.2:8000';
 
     try {
       print('🔍 Calling Najm OCR for case: $caseId');
+
       final response = await http
           .post(Uri.parse('$backendUrl/ocr/najm/$caseId'))
           .timeout(const Duration(seconds: 45));
@@ -444,12 +591,28 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
         final data = jsonDecode(response.body);
         print('✅ Najm OCR job triggered: $data');
       } else {
-        print('⚠️ Najm OCR trigger failed: HTTP ${response.statusCode}');
+        print('⚠️ OCR trigger failed: HTTP ${response.statusCode}');
+
+        // 🔥 NEW: mark as failed
+        await FirebaseFirestore.instance
+            .collection('accidentCase')
+            .doc(caseId)
+            .update({
+              'status': 'ocr_failed',
+              'ocrError': 'Failed to trigger OCR (HTTP ${response.statusCode})',
+            });
       }
     } catch (e) {
-      // OCR failure does NOT affect the case submission
-      // The fields will just remain empty until OCR runs
       print('⚠️ Failed to trigger Najm OCR: $e');
+
+      // 🔥 NEW: mark as failed
+      await FirebaseFirestore.instance
+          .collection('accidentCase')
+          .doc(caseId)
+          .update({
+            'status': 'ocr_failed',
+            'ocrError': 'OCR request failed (network/timeout)',
+          });
     }
   }
 
@@ -457,6 +620,18 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // Confirm dialog
   // ─────────────────────────────────────────────────────────────────
   Future<void> _showConfirmDialog() async {
+    if (!_hasValidationResults) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please wait for image validation to complete'),
+        ),
+      );
+      return;
+    }
+    if (_allUncertain) {
+      final proceed = await _showAllUncertainWarning();
+      if (!proceed || !mounted) return;
+    }
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
@@ -820,8 +995,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                               ),
                                             ),
                                             const SizedBox(height: 2),
+
                                             Text(
-                                              'just now',
+                                              'uploaded',
                                               style: TextStyle(
                                                 color: Colors.grey.shade500,
                                                 fontSize: 12,
@@ -881,7 +1057,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                               if (capturedPhotos.isEmpty)
                                 Center(
                                   child: ElevatedButton.icon(
-                                    onPressed: _isSubmitting
+                                    onPressed: _isSubmitting || _isValidating
                                         ? null
                                         : () async {
                                             final result =
@@ -894,11 +1070,18 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                                         const GuidedDamageCaptureScreen(),
                                                   ),
                                                 );
+
                                             if (result == null ||
                                                 result.isEmpty)
                                               return;
-                                            setState(
-                                              () => capturedPhotos = result,
+
+                                            setState(() {
+                                              capturedPhotos = result;
+                                              _validationResults = [];
+                                            });
+
+                                            await _validateCapturedImages(
+                                              result,
                                             );
                                           },
                                     icon: const Icon(
@@ -923,7 +1106,29 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                     ),
                                   ),
                                 ),
-
+                              if (_isValidating) ...[
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF0B4A7D),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'Validating images... ($_validationProgress/${capturedPhotos.length})',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                               if (capturedPhotos.isNotEmpty)
                                 SizedBox(
                                   height: 80,
@@ -933,7 +1138,14 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                     separatorBuilder: (_, __) =>
                                         const SizedBox(width: 10),
                                     itemBuilder: (context, index) {
+                                      final hasResult =
+                                          index < _validationResults.length;
+                                      final result = hasResult
+                                          ? _validationResults[index]
+                                          : null;
+
                                       return Stack(
+                                        clipBehavior: Clip.none,
                                         children: [
                                           InkWell(
                                             onTap: () {
@@ -959,16 +1171,54 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                               ),
                                             ),
                                           ),
+
+                                          if (result != null &&
+                                              !result.isPending)
+                                            Positioned(
+                                              top: -4,
+                                              left: -4,
+                                              child: Container(
+                                                width: 20,
+                                                height: 20,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: result.isValid
+                                                      ? const Color(0xFF2EAB5F)
+                                                      : Colors.orange,
+                                                  border: Border.all(
+                                                    color: Colors.white,
+                                                    width: 1.5,
+                                                  ),
+                                                ),
+                                                child: Icon(
+                                                  result.isValid
+                                                      ? Icons.check
+                                                      : Icons.warning_rounded,
+                                                  size: 12,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+
                                           Positioned(
                                             top: 4,
                                             right: 4,
                                             child: InkWell(
-                                              onTap: _isSubmitting
+                                              onTap:
+                                                  _isSubmitting || _isValidating
                                                   ? null
-                                                  : () => setState(
-                                                      () => capturedPhotos
-                                                          .removeAt(index),
-                                                    ),
+                                                  : () => setState(() {
+                                                      capturedPhotos.removeAt(
+                                                        index,
+                                                      );
+
+                                                      if (index <
+                                                          _validationResults
+                                                              .length) {
+                                                        _validationResults
+                                                            .removeAt(index);
+                                                      }
+                                                    }),
                                               child: Container(
                                                 width: 18,
                                                 height: 18,
@@ -988,7 +1238,46 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                     },
                                   ),
                                 ),
-
+                              if (_hasValidationResults &&
+                                  !_isValidating &&
+                                  ImageValidator.countUncertain(
+                                        _validationResults,
+                                      ) >
+                                      0) ...[
+                                const SizedBox(height: 10),
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: Colors.orange.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(
+                                        Icons.info_outline,
+                                        color: Colors.orange,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          '${ImageValidator.countUncertain(_validationResults)} image(s) could not be confirmed as vehicle-related. Please ensure they clearly show vehicle damage.',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.black87,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 24),
                               Container(
                                 padding: const EdgeInsets.symmetric(
@@ -1008,7 +1297,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                     Checkbox(
                                       value: _infoConfirmed,
                                       activeColor: const Color(0xFF0B4A7D),
-                                      onChanged: _isSubmitting
+                                      onChanged: _isSubmitting || _isValidating
                                           ? null
                                           : (value) {
                                               setState(() {
