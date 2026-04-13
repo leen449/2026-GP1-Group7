@@ -4,6 +4,7 @@ import numpy as np
 import easyocr
 from deep_translator import GoogleTranslator
 from difflib import SequenceMatcher
+from datetime import datetime
 
 # Initialize the reader once (Global) to speed up processing
 print("Loading OCR Model...")
@@ -83,6 +84,26 @@ MODEL_ALIAS_MAP = {
     "vxr":       "VXR",
 }
 
+ARABIC_PLATE_LETTER_MAP = {
+    "ا": "A",
+    "ب": "B",
+    "ح": "J",
+    "د": "D",
+    "ر": "R",
+    "س": "S",
+    "ص": "X",
+    "ط": "T",
+    "ع": "E",
+    "ق": "G",
+    "ك": "K",
+    "ل": "L",
+    "م": "Z",
+    "ن": "N",
+    "ه": "H",
+    "و": "U",
+    "ى": "Y",
+    "ي": "Y",
+}
 
 def _normalize_text(text: str) -> str:
     """
@@ -113,6 +134,29 @@ def _normalize_match_text(text: str) -> str:
     text = re.sub(r"[^a-z0-9\u0600-\u06ff\s]+", " ", text)
     return " ".join(text.split())
 
+def _is_valid_year(year_text: str) -> bool:
+    """
+    Validate a 4-digit manufacturing year dynamically.
+    """
+    if not re.fullmatch(r"\d{4}", year_text):
+        return False
+
+    year = int(year_text)
+    current_year = datetime.now().year
+
+    # Adjust lower bound if your real data needs older cars
+    return 1970 <= year <= current_year + 1
+
+
+def _extract_valid_year_candidates(text: str) -> list[str]:
+    """
+    Extract all 4-digit year-like candidates from text and keep only valid ones.
+    """
+    if not text:
+        return []
+
+    candidates = re.findall(r"\d{4}", text)
+    return [c for c in candidates if _is_valid_year(c)]
 
 def _resolve_brand_alias(text: str) -> str:
     """
@@ -281,15 +325,66 @@ def _extract_chassis_number_by_anchor(ocr_items: list) -> str:
     _, best_text = candidates[0]
     return best_text
 
+def _normalize_plate_text(text: str) -> str:
+    """
+    Normalize plate OCR text while preserving Arabic and English letters.
+    """
+    if not text:
+        return ""
+
+    text = _normalize_text(text).strip().upper()
+    text = " ".join(text.split())
+    return text
+
+
+def _extract_arabic_plate_letters(text: str) -> str:
+    """
+    Extract Arabic plate letters from text and map them to English equivalents.
+
+    Arabic plate letters are often read in visual RTL order, while the final
+    English plate output should be LTR, so we reverse the Arabic sequence first.
+    """
+    if not text:
+        return ""
+
+    arabic_letters = re.findall(r"[ابتثجحخدذرزسشصضطظعغفقكلمنهوىي]", text)
+    if not arabic_letters:
+        return ""
+
+    # Reverse Arabic plate letters so the final mapped English letters
+    # come out in left-to-right order
+    arabic_letters = arabic_letters[::-1]
+
+    mapped = []
+    for ch in arabic_letters:
+        mapped_letter = ARABIC_PLATE_LETTER_MAP.get(ch)
+        if mapped_letter:
+            mapped.append(mapped_letter)
+
+    if len(mapped) >= 3:
+        return "".join(mapped[:3])
+
+    return ""
+
+
+def _looks_like_arabic_plate_letter(text: str) -> bool:
+    """
+    True if text is a single Arabic plate letter candidate.
+    """
+    if not text:
+        return False
+    compact = re.sub(r"\s+", "", text)
+    return bool(re.fullmatch(r"[ابتثجحخدذرزسشصضطظعغفقكلمنهوىي]", compact))
 
 def _extract_plate_by_anchor(ocr_items: list) -> str:
     """
     Extract plate number using anchor 'رقم اللوحة'.
 
-    Safer improvements:
+    Improvements:
     1. relative horizontal threshold instead of fixed 650
     2. smarter single-letter grouping
-    3. final sanity check before returning a full plate
+    3. Arabic plate-letter support
+    4. final sanity check before returning a full plate
     """
     anchor = _find_anchor_item(ocr_items, ["رقم اللوحة", "اللوحة"])
     if not anchor or not ocr_items:
@@ -303,14 +398,13 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
         if item is anchor:
             continue
 
-        text = item["normalized"].strip().upper()
+        text = _normalize_plate_text(item["normalized"])
         if not text:
             continue
 
         vertical_diff = abs(item["cy"] - anchor["cy"])
-        horizontal_diff = anchor["cx"] - item["cx"]  # positive => left of anchor
+        horizontal_diff = anchor["cx"] - item["cx"]
 
-        # Keep nearby items only
         if vertical_diff > max(anchor["h"], item["h"]) * 2.2:
             continue
 
@@ -345,6 +439,7 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
     number_candidates = []
     letter_candidates = []
     single_letter_items = []
+    single_arabic_letter_items = []
 
     for item in nearby_items:
         text = item["text"]
@@ -359,7 +454,7 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
                 "cy": item["cy"],
             })
 
-        # Case 2: letters only
+        # Case 2: English letters only
         elif re.fullmatch(r"[A-Z]{3}", compact):
             letter_candidates.append({
                 "score": item["score"] + 4,
@@ -368,12 +463,16 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
                 "cy": item["cy"],
             })
 
-        # Case 3: single letter box
+        # Case 3: single English letter
         elif re.fullmatch(r"[A-Z]", compact):
             single_letter_items.append(item)
 
-        # Case 4: merged full plate like 6987GTJ
+        # Case 4: single Arabic plate letter
+        elif _looks_like_arabic_plate_letter(compact):
+            single_arabic_letter_items.append(item)
+
         else:
+            # Case 5: merged full plate like 6987GTJ
             match = re.fullmatch(r"(\d{1,4})([A-Z]{3})", compact)
             if match:
                 digits, letters = match.groups()
@@ -391,7 +490,7 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
                 })
                 continue
 
-            # Case 5: digits and letters separated by spaces/noise
+            # Case 6: digits and English letters separated by spaces/noise
             match = re.search(r"(\d{1,4}).*?([A-Z]\s*[A-Z]\s*[A-Z])", text)
             if match:
                 digits = match.group(1)
@@ -409,7 +508,17 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
                     "cy": item["cy"],
                 })
 
-    # Smarter single-letter grouping
+            # Case 7: Arabic letters inside a multi-character text block
+            arabic_letters = _extract_arabic_plate_letters(text)
+            if arabic_letters and re.fullmatch(r"[A-Z]{3}", arabic_letters):
+                letter_candidates.append({
+                    "score": item["score"] + 4,
+                    "value": arabic_letters,
+                    "cx": item["cx"],
+                    "cy": item["cy"],
+                })
+
+    # Smarter English single-letter grouping
     if len(single_letter_items) >= 3:
         single_letter_items.sort(key=lambda x: x["cx"])
 
@@ -419,7 +528,6 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
         for i in range(len(single_letter_items) - 2):
             group = single_letter_items[i:i + 3]
 
-            # Keep only visually consistent groups
             cy_values = [g["cy"] for g in group]
             cx_values = [g["cx"] for g in group]
 
@@ -431,11 +539,8 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
 
             avg_h = sum(g["h"] for g in group) / 3.0
 
-            # Reject groups that are too vertically misaligned
             if max_vertical_spread > avg_h * 0.8:
                 continue
-
-            # Reject groups that are too widely spaced
             if max_horizontal_gap > max(anchor["w"] * 1.8, 90):
                 continue
 
@@ -457,6 +562,52 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
         if best_group:
             letter_candidates.append(best_group)
 
+    # Smarter Arabic single-letter grouping
+    if len(single_arabic_letter_items) >= 3:
+        single_arabic_letter_items.sort(key=lambda x: x["cx"])
+
+        best_group = None
+        best_group_score = -1.0
+
+        for i in range(len(single_arabic_letter_items) - 2):
+            group = single_arabic_letter_items[i:i + 3]
+
+            cy_values = [g["cy"] for g in group]
+            cx_values = [g["cx"] for g in group]
+
+            max_vertical_spread = max(cy_values) - min(cy_values)
+            max_horizontal_gap = max(
+                abs(cx_values[1] - cx_values[0]),
+                abs(cx_values[2] - cx_values[1])
+            )
+
+            avg_h = sum(g["h"] for g in group) / 3.0
+
+            if max_vertical_spread > avg_h * 0.8:
+                continue
+            if max_horizontal_gap > max(anchor["w"] * 1.8, 90):
+                continue
+
+            arabic_text = "".join(re.sub(r"\s+", "", g["text"]) for g in group)
+            mapped_letters = _extract_arabic_plate_letters(arabic_text)
+
+            if not re.fullmatch(r"[A-Z]{3}", mapped_letters):
+                continue
+
+            group_score = sum(g["score"] for g in group) / 3.0
+
+            if group_score > best_group_score:
+                best_group_score = group_score
+                best_group = {
+                    "score": group_score + 3,
+                    "value": mapped_letters,
+                    "cx": sum(g["cx"] for g in group) / 3.0,
+                    "cy": sum(g["cy"] for g in group) / 3.0,
+                }
+
+        if best_group:
+            letter_candidates.append(best_group)
+
     number_candidates.sort(key=lambda x: x["score"], reverse=True)
     letter_candidates.sort(key=lambda x: x["score"], reverse=True)
 
@@ -471,19 +622,21 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
         same_row = abs(best_number["cy"] - best_letters["cy"]) <= max(anchor["h"] * 1.2, 35)
         close_enough = abs(best_number["cx"] - best_letters["cx"]) <= max(image_width * 0.20, 180)
 
-        if re.fullmatch(r"\d{1,4}", digits) and re.fullmatch(r"[A-Z]{3}", letters) and same_row and close_enough:
+        if (
+            re.fullmatch(r"\d{1,4}", digits)
+            and re.fullmatch(r"[A-Z]{3}", letters)
+            and same_row
+            and close_enough
+        ):
             return f"{digits} {' '.join(letters)}"
 
-    # Partial fallback: digits only if strong
     if best_number and re.fullmatch(r"\d{1,4}", best_number["value"]):
         return best_number["value"]
 
-    # Partial fallback: letters only if strong
     if best_letters and re.fullmatch(r"[A-Z]{3}", best_letters["value"]):
         return " ".join(best_letters["value"])
 
     return ""
-
 
 def _extract_year_from_roi(image, ocr_items: list) -> str:
     """
@@ -495,8 +648,12 @@ def _extract_year_from_roi(image, ocr_items: list) -> str:
         print("YEAR: no anchor found")
         return ""
 
-    print("YEAR ANCHOR:", anchor["normalized"],
-          anchor["x_min"], anchor["y_min"], anchor["x_max"], anchor["y_max"])
+    print(
+        "YEAR ANCHOR:",
+        anchor["normalized"],
+        anchor["x_min"], anchor["y_min"],
+        anchor["x_max"], anchor["y_max"]
+    )
 
     roi_x1 = anchor["x_min"] - max(anchor["w"] * 2.2, 140)
     roi_x2 = anchor["x_min"] + max(anchor["w"] * 0.3, 25)
@@ -525,26 +682,27 @@ def _extract_year_from_roi(image, ocr_items: list) -> str:
     for text in roi_texts:
         compact = re.sub(r"\s+", "", text)
 
-        # 1) Normal case (e.g. 2023)
-        match = re.search(r'(19[8-9]\d|20[0-3]\d)', compact)
-        if match:
-            return match.group(1)
+        # 1) Normal case: direct 4-digit year
+        direct_candidates = _extract_valid_year_candidates(compact)
+        if direct_candidates:
+            return direct_candidates[0]
 
-        # 2) Handle reversed OCR like "2320" (from "23 20")
-        if re.fullmatch(r'\d{4}', compact):
+        # 2) Reversed OCR case, e.g. "5201" for "1025" or similar mistakes
+        if re.fullmatch(r"\d{4}", compact):
             reversed_text = compact[::-1]
-            match = re.search(r'(19[8-9]\d|20[0-3]\d)', reversed_text)
-            if match:
-                return match.group(1)
+            reversed_candidates = _extract_valid_year_candidates(reversed_text)
+            if reversed_candidates:
+                return reversed_candidates[0]
 
-            # 3) Handle spaced/reordered like "23 20"
-            parts = re.findall(r'\d{2}', text)
-            if len(parts) == 2:
-                candidate1 = parts[0] + parts[1]
-                candidate2 = parts[1] + parts[0]
-                for candidate in (candidate1, candidate2):
-                    if re.fullmatch(r'(19[8-9]\d|20[0-3]\d)', candidate):
-                        return candidate
+        # 3) Spaced/reordered case like "20 15" or "15 20"
+        parts = re.findall(r"\d{2}", text)
+        if len(parts) == 2:
+            candidate1 = parts[0] + parts[1]
+            candidate2 = parts[1] + parts[0]
+
+            for candidate in (candidate1, candidate2):
+                if _is_valid_year(candidate):
+                    return candidate
 
     return ""
 
@@ -782,22 +940,6 @@ def _extract_color_by_anchor(ocr_items: list, image_width: int) -> str:
     return _translate_to_english(candidates[0][1])
 
 
-def _get_vin_confidence(vin: str) -> str:
-    """
-    Return a simple confidence level for the extracted VIN.
-    (Not currently used, kept for potential future use.)
-    """
-    if not vin:
-        return "low"
-    vin = vin.strip().upper()
-    vin = re.sub(r"[^A-Z0-9]", "", vin)
-    has_digit = any(ch.isdigit() for ch in vin)
-    has_alpha = any(ch.isalpha() for ch in vin)
-    if len(vin) == 17 and has_digit and has_alpha:
-        return "high"
-    if len(vin) in (15, 16, 18) and has_digit and has_alpha:
-        return "medium"
-    return "low"
 
 
 def _extract_plate_english(texts: list) -> str:
@@ -840,24 +982,24 @@ def _extract_chassis_number(texts: list) -> str:
 
 def _extract_year(texts: list) -> str:
     """
-    Extract manufacturing year.
+    Extract manufacturing year from OCR text lines.
     """
-    pattern = r'(19[8-9]\d|20[0-3]\d)'
-
     for i, text in enumerate(texts):
         if "سنة" in text or "صنع" in text:
-            match = re.search(pattern, text)
-            if match:
-                return match.group()
+            candidates = _extract_valid_year_candidates(text)
+            if candidates:
+                return candidates[0]
+
             if i + 1 < len(texts):
-                match = re.search(pattern, texts[i + 1])
-                if match:
-                    return match.group()
+                candidates = _extract_valid_year_candidates(texts[i + 1])
+                if candidates:
+                    return candidates[0]
 
     for text in texts:
-        match = re.search(pattern, text)
-        if match:
-            return match.group()
+        candidates = _extract_valid_year_candidates(text)
+        if candidates:
+            return candidates[0]
+
     return ""
 
 
