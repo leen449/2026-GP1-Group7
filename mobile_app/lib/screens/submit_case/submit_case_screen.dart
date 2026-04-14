@@ -578,7 +578,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // Call Najm OCR backend — runs in background after submission
   // ─────────────────────────────────────────────────────────────────
   Future<void> _callNajmOcr(String caseId) async {
-    const backendUrl = 'http://172.20.10.2:8000';
+    const backendUrl = 'http://192.168.0.11:8000';
 
     try {
       print('🔍 Calling Najm OCR for case: $caseId');
