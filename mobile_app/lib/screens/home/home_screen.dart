@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const Color _bannerBlue = Color(0xFF6F8FA7);
 
   String _userName = '';
+  String _userDocId = ''; // ✅ الـ UID القديم من Firestore
 
   @override
   void initState() {
@@ -35,17 +36,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadUserName() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final phone = user.phoneNumber;
+    if (phone == null) return;
 
     final query = await FirebaseFirestore.instance
         .collection('users')
-        .where('userID', isEqualTo: uid)
+        .where('phoneNumber', isEqualTo: phone)
         .limit(1)
         .get();
 
     if (query.docs.isNotEmpty && mounted) {
-      setState(() => _userName = query.docs.first.data()['name'] ?? '');
+      setState(() {
+        _userName = query.docs.first.data()['name'] ?? '';
+        _userDocId = query.docs.first.id; // ✅ نحفظ الـ UID القديم
+      });
     }
   }
 
@@ -190,7 +197,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  //  New method to show OCR failure dialog
   void _showOcrFailedDialog() {
     final size = MediaQuery.of(context).size;
     final double screenWidth = size.width;
@@ -200,15 +206,13 @@ class _HomeScreenState extends State<HomeScreen> {
       barrierDismissible: false,
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        // Constrain the dialog width for larger screens (Tablets/Desktop)
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85,
           ),
           child: SingleChildScrollView(
-            // Prevents overflow on small screens
             child: Padding(
-              padding: EdgeInsets.all(screenWidth * 0.06), // Dynamic padding
+              padding: EdgeInsets.all(screenWidth * 0.06),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -218,16 +222,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       Icon(
                         Icons.warning_amber_rounded,
                         color: Colors.red,
-                        size: screenWidth * 0.08, // Dynamic icon size
+                        size: screenWidth * 0.08,
                       ),
                       const SizedBox(width: 8),
                       Flexible(
-                        // Prevents text overflow in the Row
                         child: Text(
                           'Verification Failed',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: screenWidth * 0.045, // Dynamic font
+                            fontSize: screenWidth * 0.045,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -239,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     'We could not verify the uploaded PDF as a valid Najm accident report.\n\nPlease submit a new case and make sure you upload the correct Najm accident report file.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: screenWidth * 0.035, // Dynamic font
+                      fontSize: screenWidth * 0.035,
                       color: Colors.black87,
                       height: 1.5,
                     ),
@@ -275,7 +278,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  @override
   @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
@@ -348,20 +350,17 @@ class _HomeScreenState extends State<HomeScreen> {
         final w = constraints.maxWidth;
         final cardHeight = w * 0.50;
 
-        // ✅ Stack with Clip.none so car overflows outside the blue box
-        // matching the original Figma design
         return SizedBox(
-          height: cardHeight + 30, // extra space for car overflow at bottom
+          height: cardHeight + 30,
           width: double.infinity,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              // Blue background card
               Positioned(
                 left: 0,
                 right: 0,
                 top: 0,
-                bottom: 30, // card stops 30px before bottom
+                bottom: 30,
                 child: Container(
                   decoration: BoxDecoration(
                     color: _bannerBlue,
@@ -369,13 +368,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-
-              // Car image — positioned to overflow bottom of card
               Positioned(
                 left: w * 0.04,
                 right: 0,
                 top: w * 0.02,
-                bottom: 0, // extends 30px below the card
+                bottom: 0,
                 child: Image.asset(
                   'assets/images/orange_car.png',
                   fit: BoxFit.contain,
@@ -415,13 +412,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _vehiclesHorizontalList() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const SizedBox();
+    if (_userDocId.isEmpty) return const SizedBox(); // ✅
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('vehicles')
-          .where('ownerId', isEqualTo: uid)
+          .where('ownerId', isEqualTo: _userDocId) // ✅
           .where('isArchived', isEqualTo: false)
           .snapshots(),
       builder: (context, snapshot) {
@@ -453,11 +449,8 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
-        // ✅ Use LayoutBuilder so card height scales with screen width
         return LayoutBuilder(
           builder: (context, constraints) {
-            // Card is 145px wide — height proportional to avoid overflow
-            // image(76) + padding(20) + text(12) + spacing(8) + plate(11+2) = ~130
             const cardHeight = 130.0;
 
             return SizedBox(
@@ -598,13 +591,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _reportList() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const SizedBox();
+    if (_userDocId.isEmpty) return const SizedBox(); // ✅
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('accidentCase')
-          .where('ownerId', isEqualTo: uid)
+          .where('ownerId', isEqualTo: _userDocId) // ✅
           .orderBy('createdAt', descending: true)
           .limit(3)
           .snapshots(),
@@ -656,8 +648,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 String plate = '';
                 if (vSnap.hasData && vSnap.data!.exists) {
                   final vData = vSnap.data!.data() as Map<String, dynamic>;
-                  carName = '${vData['make'] ?? ''} ${vData['model'] ?? ''}'
-                      .trim();
+                  carName =
+                      '${vData['make'] ?? ''} ${vData['model'] ?? ''}'.trim();
                   plate = vData['plateNumber'] ?? '';
                 }
 

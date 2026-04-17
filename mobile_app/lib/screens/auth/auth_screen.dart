@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import './verification_screen.dart';
-import '../home/home_screen.dart';
 import '../NavBar/nav_bar.dart';
-
+import './change_phone_screen.dart';
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
 
@@ -22,14 +21,15 @@ class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _nationalIdController = TextEditingController();
   final TextEditingController _signupPhoneController = TextEditingController();
+  DateTime? _selectedDate;
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  bool _isLoading = false;
 
   // Error messages
   String? _nameError;
   String? _nationalIdError;
   String? _phoneError;
+  String? _dateError;
 
   @override
   void dispose() {
@@ -43,16 +43,17 @@ class _AuthScreenState extends State<AuthScreen> {
   // ── Validation ──────────────────────────────────────────────
 
   String? _validateName(String val) {
-    if (val.trim().isEmpty) return 'Please enter your name';
-    if (val.trim().length < 2) return 'Name must be at least 2 characters';
+    if (val.trim().isEmpty) return 'Please enter your full name';
+    final parts = val.trim().split(RegExp(r'\s+'));
+    if (parts.length < 2) return 'Please enter both first and last name';
+    if (parts.any((p) => p.length < 2)) return 'Each name must be at least 2 characters';
     return null;
   }
 
   String? _validateNationalId(String val) {
     if (val.trim().isEmpty) return 'Please enter your National/Residence ID';
     if (val.length != 10) return 'ID must be exactly 10 digits';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val))
-      return 'ID must contain digits only';
+    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'ID must contain digits only';
     if (!val.startsWith('1') && !val.startsWith('2')) {
       return 'ID must start with 1 (Saudi) or 2 (Resident)';
     }
@@ -61,10 +62,17 @@ class _AuthScreenState extends State<AuthScreen> {
 
   String? _validatePhone(String val) {
     if (val.trim().isEmpty) return 'Please enter your phone number';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val))
-      return 'Phone must contain digits only';
+    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Phone must contain digits only';
+    if (val.startsWith('0')) return 'Phone number should not start with 0';
     if (val.length != 9) return 'Phone number must be 9 digits';
     if (!val.startsWith('5')) return 'Phone number must start with 5';
+    return null;
+  }
+
+  String? _validateDate() {
+    if (_selectedDate == null) return 'Please select your date of birth';
+    final age = DateTime.now().difference(_selectedDate!).inDays ~/ 365;
+    if (age < 18) return 'You must be at least 18 years old';
     return null;
   }
 
@@ -72,20 +80,50 @@ class _AuthScreenState extends State<AuthScreen> {
     final nameErr = _validateName(_nameController.text);
     final idErr = _validateNationalId(_nationalIdController.text);
     final phoneErr = _validatePhone(_signupPhoneController.text);
+    final dateErr = _validateDate();
 
     setState(() {
       _nameError = nameErr;
       _nationalIdError = idErr;
       _phoneError = phoneErr;
+      _dateError = dateErr;
     });
 
-    return nameErr == null && idErr == null && phoneErr == null;
+    return nameErr == null && idErr == null && phoneErr == null && dateErr == null;
   }
 
   bool _validateLogin() {
     final phoneErr = _validatePhone(_loginPhoneController.text);
     setState(() => _phoneError = phoneErr);
     return phoneErr == null;
+  }
+
+  // ── Date Picker ──────────────────────────────────────────────
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 18, now.month, now.day),
+      firstDate: DateTime(1900),
+      lastDate: now,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF0B3B66),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+        _dateError = _validateDate();
+      });
+    }
   }
 
   // ── Firebase: إرسال OTP ──────────────────────────────────────
@@ -95,8 +133,6 @@ class _AuthScreenState extends State<AuthScreen> {
         ? '+966${_signupPhoneController.text.trim()}'
         : '+966${_loginPhoneController.text.trim()}';
 
-    setState(() => _isLoading = true);
-
     await _auth.verifyPhoneNumber(
       phoneNumber: phone,
 
@@ -104,10 +140,7 @@ class _AuthScreenState extends State<AuthScreen> {
         try {
           await _auth.signInWithCredential(credential);
           final user = _auth.currentUser;
-          if (user == null) {
-            setState(() => _isLoading = false);
-            return;
-          }
+          if (user == null) return;
 
           final userDoc = await FirebaseFirestore.instance
               .collection('users')
@@ -115,13 +148,10 @@ class _AuthScreenState extends State<AuthScreen> {
               .get();
 
           if (isSignUp) {
-            if (!userDoc.exists) {
-              await _saveUserToFirestore(phone);
-            }
+            if (!userDoc.exists) await _saveUserToFirestore(phone);
           } else {
             if (!userDoc.exists) {
               await _auth.signOut();
-              setState(() => _isLoading = false);
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -139,23 +169,17 @@ class _AuthScreenState extends State<AuthScreen> {
             MaterialPageRoute(builder: (_) => const AppBottomNav()),
           );
         } catch (e) {
-          setState(() => _isLoading = false);
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Authentication failed: $e'),
-              backgroundColor: Colors.red,
-            ),
+            SnackBar(content: Text('Authentication failed: $e'), backgroundColor: Colors.red),
           );
         }
       },
 
       verificationFailed: (FirebaseAuthException e) {
-        setState(() => _isLoading = false);
         String msg = 'An error occurred. Please try again.';
         if (e.code == 'invalid-phone-number') msg = 'Invalid phone number.';
-        if (e.code == 'too-many-requests')
-          msg = 'Too many requests. Try again later.';
+        if (e.code == 'too-many-requests') msg = 'Too many requests. Try again later.';
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), backgroundColor: Colors.red),
@@ -163,7 +187,6 @@ class _AuthScreenState extends State<AuthScreen> {
       },
 
       codeSent: (String verificationId, int? resendToken) {
-        setState(() => _isLoading = false);
         if (!mounted) return;
         Navigator.push(
           context,
@@ -184,6 +207,7 @@ class _AuthScreenState extends State<AuthScreen> {
       timeout: const Duration(seconds: 60),
     );
   }
+
   // ── حفظ بيانات المستخدم في Firestore ────────────────────────
 
   Future<void> _saveUserToFirestore(String phone) async {
@@ -195,13 +219,17 @@ class _AuthScreenState extends State<AuthScreen> {
       'name': _nameController.text.trim(),
       'nationalID': _nationalIdController.text.trim(),
       'phoneNumber': phone,
+      'dateOfBirth': _selectedDate != null
+          ? '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}'
+          : '',
       'nationalIDLocked': false,
+      'role': 'user',
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  // ── UI Helpers (نفس الشكل الأصلي) ───────────────────────────
+  // ── UI Helpers ───────────────────────────────────────────────
 
   TextStyle _textStyle({double fontSize = 14, Color color = Colors.black}) {
     return TextStyle(fontSize: fontSize, color: color);
@@ -220,6 +248,7 @@ class _AuthScreenState extends State<AuthScreen> {
     TextInputType keyboardType = TextInputType.text,
     String? errorText,
     int? maxLength,
+    bool isNationalId = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,10 +262,7 @@ class _AuthScreenState extends State<AuthScreen> {
             filled: true,
             fillColor: Colors.white,
             counterText: '',
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -255,26 +281,69 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
           ),
           onChanged: (val) {
-            if (keyboardType == TextInputType.phone && val.startsWith('0')) {
-              setState(
-                () => _phoneError = 'Phone number should not start with 0',
-              );
-            } else {
-              setState(() {
-                _nameError = null;
-                _nationalIdError = null;
-                _phoneError = null;
-              });
-            }
-          },
+ if (isNationalId) {
+  setState(() => _nationalIdError = 
+    'ID must start with 1 (Saudi) or 2 (Resident) and be 10 digits');
+  if (val.length == 10 && (val.startsWith('1') || val.startsWith('2'))) {
+    setState(() => _nationalIdError = null);
+  }
+} else if (keyboardType == TextInputType.phone && val.startsWith('0')) {
+    setState(() => _phoneError = 'Phone number should not start with 0');
+  } else {
+    setState(() {
+      _nameError = null;
+      _nationalIdError = null;
+      _phoneError = null;
+    });
+  }
+},
         ),
         if (errorText != null)
           Padding(
             padding: const EdgeInsets.only(top: 6, right: 4),
-            child: Text(
-              errorText,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+            child: Text(errorText, style: const TextStyle(color: Colors.red, fontSize: 12)),
+          ),
+      ],
+    );
+  }
+
+  Widget _dateField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: _pickDate,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: _dateError != null
+                  ? Border.all(color: Colors.red, width: 1.5)
+                  : Border.all(color: Colors.transparent),
             ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _selectedDate != null
+                      ? '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}'
+                      : 'YYYY-MM-DD',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: _selectedDate != null ? Colors.black87 : Colors.black38,
+                  ),
+                ),
+                const Icon(Icons.calendar_today, size: 18, color: Color(0xFF0B3B66)),
+              ],
+            ),
+          ),
+        ),
+        if (_dateError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, right: 4),
+            child: Text(_dateError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
           ),
       ],
     );
@@ -290,9 +359,7 @@ class _AuthScreenState extends State<AuthScreen> {
           backgroundColor: const Color(0xFF0B3B66),
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         child: Text(text, style: _textStyle(fontSize: 16, color: Colors.white)),
       ),
@@ -317,6 +384,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 _nameError = null;
                 _nationalIdError = null;
                 _phoneError = null;
+                _dateError = null;
               }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
@@ -327,10 +395,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 child: Text(
                   'Sign up',
-                  style: _textStyle(
-                    fontSize: 14,
-                    color: isLogin ? Colors.black54 : Colors.black87,
-                  ),
+                  style: _textStyle(fontSize: 14, color: isLogin ? Colors.black54 : Colors.black87),
                 ),
               ),
             ),
@@ -343,6 +408,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 _nameError = null;
                 _nationalIdError = null;
                 _phoneError = null;
+                _dateError = null;
               }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
@@ -353,10 +419,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 child: Text(
                   'Log in',
-                  style: _textStyle(
-                    fontSize: 14,
-                    color: isLogin ? Colors.black87 : Colors.black54,
-                  ),
+                  style: _textStyle(fontSize: 14, color: isLogin ? Colors.black87 : Colors.black54),
                 ),
               ),
             ),
@@ -378,14 +441,31 @@ class _AuthScreenState extends State<AuthScreen> {
           errorText: _phoneError,
           maxLength: 9,
         ),
-        const SizedBox(height: 90),
+        const SizedBox(height: 24),
         _primaryButton(
           text: 'Log in',
           onTap: () {
-            if (_validateLogin()) {
-              _sendOTP(isSignUp: false);
-            }
+            if (_validateLogin()) _sendOTP(isSignUp: false);
           },
+        ),
+        const SizedBox(height: 16),
+        Center(
+          child: GestureDetector(
+            onTap: () {
+  Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const ChangePhoneScreen()),
+  );
+},
+            child: const Text(
+              "Can't access your number? Change it",
+              style: TextStyle(
+                color: Color(0xFF0B3B66),
+                fontSize: 13,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -395,21 +475,25 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('Name'),
+        _label('Full Name'),
         _inputField(
           controller: _nameController,
-          hint: 'Name',
+          hint: 'First and Last Name',
           errorText: _nameError,
         ),
         const SizedBox(height: 14),
         _label('National / Residence ID'),
         _inputField(
           controller: _nationalIdController,
-          hint: 'ID',
+          hint: 'As shown on your ID card',
           keyboardType: TextInputType.number,
           errorText: _nationalIdError,
           maxLength: 10,
+          isNationalId:true,
         ),
+        const SizedBox(height: 14),
+        _label('Date of Birth'),
+        _dateField(),
         const SizedBox(height: 14),
         _label('Phone Number'),
         _inputField(
@@ -421,11 +505,9 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
         const SizedBox(height: 40),
         _primaryButton(
-          text: 'Sign in',
+          text: 'Sign up',
           onTap: () {
-            if (_validateSignup()) {
-              _sendOTP(isSignUp: true);
-            }
+            if (_validateSignup()) _sendOTP(isSignUp: true);
           },
         ),
       ],
@@ -446,15 +528,8 @@ class _AuthScreenState extends State<AuthScreen> {
                 height: 140,
                 child: Center(
                   child: isLogin
-                      ? Text(
-                          'Welcome Back',
-                          style: _textStyle(fontSize: 34, color: Colors.black),
-                        )
-                      : Image.asset(
-                          'assets/icons/logo.png',
-                          height: 120,
-                          fit: BoxFit.contain,
-                        ),
+                      ? Text('Welcome Back', style: _textStyle(fontSize: 34, color: Colors.black))
+                      : Image.asset('assets/icons/logo.png', height: 120, fit: BoxFit.contain),
                 ),
               ),
               const SizedBox(height: 18),

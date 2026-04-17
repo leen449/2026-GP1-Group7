@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../home/home_screen.dart';
 import '../NavBar/nav_bar.dart';
 
 class VerificationScreen extends StatefulWidget {
@@ -13,6 +12,7 @@ class VerificationScreen extends StatefulWidget {
   final bool isSignUp;
   final String name;
   final String nationalId;
+  final VoidCallback? onVerified;
 
   const VerificationScreen({
     super.key,
@@ -22,6 +22,7 @@ class VerificationScreen extends StatefulWidget {
     required this.isSignUp,
     this.name = '',
     this.nationalId = '',
+    this.onVerified,
   });
 
   @override
@@ -30,8 +31,7 @@ class VerificationScreen extends StatefulWidget {
 
 class _VerificationScreenState extends State<VerificationScreen> {
   final List<TextEditingController> _controllers = List.generate(
-    6,
-    (_) => TextEditingController(),
+    6, (_) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
@@ -79,6 +79,17 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   String get _otpCode => _controllers.map((c) => c.text).join();
 
+  void _navigateAfterVerification() {
+    if (widget.onVerified != null) {
+      widget.onVerified!();
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AppBottomNav()),
+      );
+    }
+  }
+
   Future<void> _verifyOtp() async {
     if (_otpCode.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -106,35 +117,37 @@ class _VerificationScreenState extends State<VerificationScreen> {
         return;
       }
 
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
       if (widget.isSignUp) {
+        // Sign up — نتحقق بالـ UID
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
         if (!userDoc.exists) {
           await _saveUserToFirestore();
         }
-      } else {
-        if (!userDoc.exists) {
-          await FirebaseAuth.instance.signOut();
-          setState(() => _isLoading = false);
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No account found. Please sign up first.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-      }
+     } else if (widget.onVerified == null) {
+  final query = await FirebaseFirestore.instance
+      .collection('users')
+      .where('phoneNumber', isEqualTo: widget.phone)
+      .limit(1)
+      .get();
 
+  if (query.docs.isEmpty) {
+    await FirebaseAuth.instance.signOut();
+    setState(() => _isLoading = false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('No account found. Please sign up first.'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+}
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AppBottomNav()),
-      );
+      _navigateAfterVerification();
     } on FirebaseAuthException catch (e) {
       setState(() => _isLoading = false);
       String msg = 'Incorrect code. Please try again.';
@@ -142,9 +155,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
         msg = 'Code expired. Please request a new one.';
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -172,10 +185,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         await FirebaseAuth.instance.signInWithCredential(credential);
         if (widget.isSignUp) await _saveUserToFirestore();
         if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const AppBottomNav()),
-        );
+        _navigateAfterVerification();
       },
       verificationFailed: (e) {
         if (!mounted) return;
@@ -206,30 +216,20 @@ class _VerificationScreenState extends State<VerificationScreen> {
   Widget build(BuildContext context) {
     final sw = MediaQuery.of(context).size.width;
     final sh = MediaQuery.of(context).size.height;
-    // ✅ When keyboard opens viewInsets.bottom > 0 — shrink content
     final keyboardH = MediaQuery.of(context).viewInsets.bottom;
     final isKeyboard = keyboardH > 0;
-
-    // ✅ OTP box size scales with screen width
-    // 6 boxes + 5 gaps must fit within sw - 44 (horizontal padding)
     final boxSize = ((sw - 44 - 50) / 6).clamp(40.0, 56.0);
     final boxGap = (boxSize * 0.2).clamp(6.0, 12.0);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
-      // ✅ resizeToAvoidBottomInset: true (default) — content shifts up
-      // with keyboard. We handle this via SingleChildScrollView.
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: SingleChildScrollView(
-          // ✅ Wrap in scroll so keyboard never causes overflow
           physics: const ClampingScrollPhysics(),
           child: ConstrainedBox(
-            // Minimum height = screen height so Spacer works
-            // Maximum = unconstrained so scroll works with keyboard
             constraints: BoxConstraints(
-              minHeight:
-                  sh -
+              minHeight: sh -
                   MediaQuery.of(context).padding.top -
                   MediaQuery.of(context).padding.bottom,
             ),
@@ -240,23 +240,17 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: isKeyboard ? 6 : 12),
-
-                    // Back button
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.arrow_back_ios_new_rounded),
                       padding: EdgeInsets.zero,
                     ),
-
                     SizedBox(height: isKeyboard ? 10 : 18),
-
-                    // Title
                     Center(
                       child: Text(
                         'Verify your phone\nnumber',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          // ✅ Responsive font size
                           fontSize: (sw * 0.082).clamp(26.0, 38.0),
                           fontWeight: FontWeight.w600,
                           color: Colors.black,
@@ -264,10 +258,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         ),
                       ),
                     ),
-
                     SizedBox(height: isKeyboard ? 8 : 14),
-
-                    // Subtitle
                     Center(
                       child: Text(
                         "We've sent an SMS with an activation\n"
@@ -281,23 +272,16 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         ),
                       ),
                     ),
-
                     SizedBox(height: isKeyboard ? 16 : 28),
-
-                    // ✅ OTP boxes — responsive size and gap
                     Center(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(
-                          6,
-                          (i) => _otpBox(i, boxSize, boxGap),
+                          6, (i) => _otpBox(i, boxSize, boxGap),
                         ),
                       ),
                     ),
-
                     SizedBox(height: isKeyboard ? 14 : 26),
-
-                    // Resend row
                     Center(
                       child: Wrap(
                         alignment: WrapAlignment.center,
@@ -321,19 +305,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               style: TextStyle(
                                 fontSize: (sw * 0.036).clamp(12.0, 15.0),
                                 fontWeight: FontWeight.w700,
-                                color: _canResend
-                                    ? Colors.black87
-                                    : Colors.black38,
+                                color: _canResend ? Colors.black87 : Colors.black38,
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
-
                     SizedBox(height: isKeyboard ? 14 : 26),
-
-                    // Verify button
                     SizedBox(
                       width: double.infinity,
                       height: 54,
@@ -347,9 +326,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           ),
                         ),
                         child: _isLoading
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
+                            ? const CircularProgressIndicator(color: Colors.white)
                             : const Text(
                                 'Verify',
                                 style: TextStyle(
@@ -360,7 +337,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               ),
                       ),
                     ),
-
                     const Spacer(),
                     const SizedBox(height: 10),
                   ],
@@ -376,7 +352,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   Widget _otpBox(int index, double size, double gap) {
     return Container(
       width: size,
-      height: size * 1.15, // slightly taller than wide
+      height: size * 1.15,
       margin: EdgeInsets.only(right: index == 5 ? 0 : gap),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.55),
