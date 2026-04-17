@@ -140,7 +140,6 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // ─────────────────────────────────────────────────────────────────
   Future<void> _initializeData() async {
     await _loadUserInfo();
-    await _loadVehicles();
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -152,17 +151,21 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       if (mounted) setState(() => _loadingVehicles = false);
       return;
     }
+
     print('🚗 Loading vehicles for _userDocId: $_userDocId');
+
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('vehicles')
           .where('ownerId', isEqualTo: _userDocId!)
           .where('isArchived', isEqualTo: false)
           .get();
+
       print('🚙 Vehicles found: ${snapshot.docs.length}');
       for (final doc in snapshot.docs) {
         print('Vehicle doc: ${doc.id}, ownerId: ${doc.data()['ownerId']}');
-      
+      }
+
       final vehicles = snapshot.docs.map((doc) {
         final data = doc.data();
         final make = data['make'] ?? '';
@@ -589,6 +592,37 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       ),
     );
   }
+  // ─────────────────────────────────────────────────────────────────
+  // Cleanup function to delete case document and PDF if OCR fails or user cancels
+  // ─────────────────────────────────────────────────────────────────
+
+  Future<void> _cleanupFailedCase({required String caseId}) async {
+    try {
+      // Delete PDF from Firebase Storage
+      await FirebaseStorage.instance
+          .ref()
+          .child('najm reports')
+          .child(caseId)
+          .child('report.pdf')
+          .delete();
+
+      print('🧹 Deleted PDF from storage');
+    } catch (e) {
+      print('⚠️ Failed to delete PDF: $e');
+    }
+
+    try {
+      // Delete Firestore document
+      await FirebaseFirestore.instance
+          .collection('accidentCase')
+          .doc(caseId)
+          .delete();
+
+      print('🧹 Deleted case document');
+    } catch (e) {
+      print('⚠️ Failed to delete case doc: $e');
+    }
+  }
 
   // ─────────────────────────────────────────────────────────────────
   // Handle "Next" — upload PDF to storage, run OCR, then advance step
@@ -617,11 +651,12 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       }
 
       // 1) Create case doc early
-      final caseRef = FirebaseFirestore.instance
-          .collection('accidentCase')
-          .doc();
+      final caseRef = _caseId == null || _caseId!.isEmpty
+          ? FirebaseFirestore.instance.collection('accidentCase').doc()
+          : FirebaseFirestore.instance.collection('accidentCase').doc(_caseId!);
 
       final caseId = caseRef.id;
+      _caseId = caseId;
 
       // 2) Upload PDF to the real case path
       final uploadedPdf = await _uploadNajmPdfToStorage(
@@ -638,7 +673,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
         'ownerId': _userDocId!,
         'vehicleId': selectedVehicle!.docId,
         'status': 'pending',
+        'isSubmitted': false,
         'createdAt': FieldValue.serverTimestamp(),
+        'ocrError': FieldValue.delete(),
         'najimReport': {
           'pdfPath': pdfPath,
           'pdfUrl': pdfUrl,
@@ -646,13 +683,13 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
           'accidentNumber': '',
           'damageLocation': '',
         },
-      });
+      }, SetOptions(merge: true));
 
       // keep case id for later final submission
       _caseId = caseId;
 
       // 4) Trigger OCR using caseId
-      const backendUrl = 'http://192.168.0.11:8000';
+      const backendUrl = 'http://172.20.10.2:8000';
       final response = await http
           .post(Uri.parse('$backendUrl/ocr/najm/$caseId'))
           .timeout(const Duration(seconds: 60));
@@ -694,6 +731,11 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
           });
         }
       } else {
+        await caseRef.update({
+          'status': 'ocr_failed',
+          'ocrError': 'OCR validation failed',
+        });
+
         setState(() => _isRunningOcr = false);
         _showOcrFailedDialog();
       }
@@ -796,6 +838,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       await caseRef.update({
         'ownerId': _userDocId!,
         'vehicleId': selectedVehicle!.docId,
+        'isSubmitted': true,
       });
 
       for (int i = 0; i < uploadedImages.length; i++) {
@@ -947,32 +990,118 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                               // ── Vehicle dropdown ─────────────────
                               const Text('Select vehicle'),
                               const SizedBox(height: 8),
-                              _loadingVehicles
-                                  ? const Center(
-                                      child: Padding(
-                                        padding: EdgeInsets.all(12),
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                    )
-                                  : _vehicles.isEmpty
-                                  ? Container(
-                                      padding: const EdgeInsets.all(14),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(
-                                          color: Colors.grey.shade300,
+                              if (_userDocId == null || _userDocId!.isEmpty)
+                                const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                              else
+                                StreamBuilder<QuerySnapshot>(
+                                  stream: FirebaseFirestore.instance
+                                      .collection('vehicles')
+                                      .where('ownerId', isEqualTo: _userDocId!)
+                                      .where('isArchived', isEqualTo: false)
+                                      .snapshots(),
+                                  builder: (context, snapshot) {
+                                    if (snapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return const Center(
+                                        child: Padding(
+                                          padding: EdgeInsets.all(12),
+                                          child: CircularProgressIndicator(),
                                         ),
-                                      ),
-                                      child: const Text(
-                                        'No vehicles found. Please add a vehicle first.',
-                                        style: TextStyle(color: Colors.grey),
-                                      ),
-                                    )
-                                  : DropdownButtonFormField<VehicleItem>(
-                                      value: selectedVehicle,
+                                      );
+                                    }
+
+                                    if (snapshot.hasError) {
+                                      return Container(
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.grey.shade300,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'Failed to load vehicles.',
+                                          style: TextStyle(color: Colors.grey),
+                                        ),
+                                      );
+                                    }
+
+                                    final docs = snapshot.data?.docs ?? [];
+
+                                    final vehicles = docs.map((doc) {
+                                      final data =
+                                          doc.data() as Map<String, dynamic>;
+                                      final make = data['make'] ?? '';
+                                      final model = data['model'] ?? '';
+                                      final plate = data['plateNumber'] ?? '';
+
+                                      return VehicleItem(
+                                        docId: doc.id,
+                                        name: '$make $model'.trim(),
+                                        plate: plate,
+                                      );
+                                    }).toList();
+
+                                    // keep selected vehicle valid if the list changes
+                                    if (selectedVehicle != null &&
+                                        !vehicles.any(
+                                          (v) =>
+                                              v.docId == selectedVehicle!.docId,
+                                        )) {
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                            if (mounted) {
+                                              setState(() {
+                                                selectedVehicle = null;
+                                              });
+                                            }
+                                          });
+                                    }
+
+                                    if (vehicles.isEmpty) {
+                                      return Container(
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.grey.shade300,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'No vehicles found. Please add a vehicle first.',
+                                          style: TextStyle(color: Colors.grey),
+                                        ),
+                                      );
+                                    }
+
+                                    final currentSelected =
+                                        selectedVehicle != null &&
+                                            vehicles.any(
+                                              (v) =>
+                                                  v.docId ==
+                                                  selectedVehicle!.docId,
+                                            )
+                                        ? vehicles.firstWhere(
+                                            (v) =>
+                                                v.docId ==
+                                                selectedVehicle!.docId,
+                                          )
+                                        : null;
+
+                                    return DropdownButtonFormField<VehicleItem>(
+                                      value: currentSelected,
                                       isExpanded: true,
-                                      // Disable dropdown after step 1 is done
                                       onChanged:
                                           (_currentStep > 1 || _isSubmitting)
                                           ? null
@@ -1027,7 +1156,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                       icon: const Icon(
                                         Icons.keyboard_arrow_down,
                                       ),
-                                      items: _vehicles.map((v) {
+                                      items: vehicles.map((v) {
                                         return DropdownMenuItem<VehicleItem>(
                                           value: v,
                                           child: Row(
@@ -1051,8 +1180,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                           ),
                                         );
                                       }).toList(),
-                                    ),
-
+                                    );
+                                  },
+                                ),
                               // ── Najm report ──────────────────────
                               const SizedBox(height: 40),
                               const Text('Upload najm report'),
