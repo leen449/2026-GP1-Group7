@@ -116,56 +116,67 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                           // ── Illustration ────────────────────────
                           Expanded(
                             flex: 46,
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                clipBehavior: Clip.none,
-                                children: [
-                                  // Oval platform
-                                  Positioned(
-                                    bottom: available * 0.05,
-                                    child: Container(
-                                      width: sw * 1.0,
-                                      height: sw * 0.24,
-                                      decoration: const ShapeDecoration(
-                                        shape: OvalBorder(),
-                                        shadows: [
-                                          BoxShadow(
-                                            color: Color.fromARGB(
-                                              66,
-                                              26,
-                                              26,
-                                              26,
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final imageWidth = (constraints.maxWidth * 1.25)
+                                    .clamp(320.0, 620.0);
+                                final ovalWidth = (constraints.maxWidth * 1.36)
+                                    .clamp(260.0, 500.0);
+                                final ovalHeight = (ovalWidth * 0.243).clamp(
+                                  60.0,
+                                  120.0,
+                                );
+
+                                return SizedBox(
+                                  width: double.infinity,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      Positioned(
+                                        bottom: constraints.maxHeight * 0.08,
+                                        child: Container(
+                                          width: ovalWidth,
+                                          height: ovalHeight,
+                                          decoration: const ShapeDecoration(
+                                            shape: OvalBorder(),
+                                            shadows: [
+                                              BoxShadow(
+                                                color: Color.fromARGB(
+                                                  66,
+                                                  26,
+                                                  26,
+                                                  26,
+                                                ),
+                                                offset: Offset(0, 10),
+                                                blurRadius: 10,
+                                              ),
+                                            ],
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                Color(0xFFFFFFFF),
+                                                Color(0xFFC8D8E4),
+                                                Color(0xFF91B1C9),
+                                              ],
+                                              stops: [0.0, 0.67, 1.0],
                                             ),
-                                            offset: Offset(0, 10),
-                                            blurRadius: 10,
                                           ),
-                                        ],
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                          colors: [
-                                            Color(0xFFFFFFFF),
-                                            Color(0xFFC8D8E4),
-                                            Color(0xFF91B1C9),
-                                          ],
-                                          stops: [0.0, 0.67, 1.0],
                                         ),
                                       ),
-                                    ),
+                                      Positioned(
+                                        bottom: constraints.maxHeight * 0.14,
+                                        child: Image.asset(
+                                          'assets/images/ChatGPT Image Mar 2, 2026, 01_20_39 AM.png',
+                                          width: imageWidth,
+                                          fit: BoxFit.contain,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  // Illustration image
-                                  Positioned(
-                                    top: available * 0.12,
-                                    child: Image.asset(
-                                      'assets/images/ChatGPT Image Mar 2, 2026, 01_20_39 AM.png',
-                                      width: sw * 1.22,
-                                      fit: BoxFit.contain,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                );
+                              },
                             ),
                           ),
 
@@ -198,15 +209,30 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                                     padding: EdgeInsets.symmetric(
                                       horizontal: sw * 0.06,
                                     ),
-                                    child: Text(
-                                      'Capture Photos Of The Damage, Make Sure To Take One Image Per Damage For Accurate Assessment',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: subtitleSize,
-                                        height: 1.5,
+                                    child: Text.rich(
+                                      TextSpan(
+                                        text:
+                                            'Capture photos of the damage. Make sure to take ',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: subtitleSize,
+                                          height: 1.5,
+                                        ),
+                                        children: [
+                                          TextSpan(
+                                            text: 'one image per damage',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFFFFD166),
+                                            ),
+                                          ),
+                                          const TextSpan(
+                                            text: ' for accurate assessment.',
+                                          ),
+                                        ],
                                       ),
+                                      textAlign: TextAlign.center,
                                     ),
                                   ),
                                 ],

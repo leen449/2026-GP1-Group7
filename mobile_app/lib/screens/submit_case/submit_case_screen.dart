@@ -8,16 +8,15 @@ import 'guided_damage_capture_screen.dart';
 import 'photo_preview_screen.dart';
 import 'CaseSubmittedScreen.dart';
 import 'CaseFailureScreen.dart';
-import 'cloudinary_service.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../NavBar/nav_bar.dart';
+import 'read_only_info_field.dart';
 import 'dart:ui';
-import 'imageValidator.dart';
 
 // ─────────────────────────────────────────────
-// VehicleItem — now includes docId from Firestore
+// VehicleItem — includes docId from Firestore
 // ─────────────────────────────────────────────
 class VehicleItem {
   final String docId;
@@ -38,8 +37,18 @@ class SubmitCaseScreen extends StatefulWidget {
 }
 
 class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
+  // ── Step tracking (1 = vehicle+PDF, 2 = photos+submit) ───────────
+  int _currentStep = 1;
+
   // ── State ─────────────────────────────────────────────────────────
   List<File> capturedPhotos = [];
+  String? _caseId;
+  // ── User info ─────────────────────────────────────────────────────
+  String? _userDocId;
+  String _userName = '';
+  String _nationalID = '';
+  String _phoneNumber = '';
+  bool _loadingUser = true;
 
   // ── Vehicle ───────────────────────────────────────────────────────
   List<VehicleItem> _vehicles = [];
@@ -55,53 +64,111 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   bool _isSubmitting = false;
   String _submitStatus = '';
   bool _infoConfirmed = false;
-  bool _isValidating = false;
-  DateTime _najmUploadedAt = DateTime.now();
-  // ── Validation state ─────────────────────────────────────────────
-  int _validationProgress = 0;
-  List<ImageValidationResult> _validationResults = [];
 
-  bool get _hasValidationResults =>
-      _validationResults.isNotEmpty &&
-      _validationResults.length == capturedPhotos.length;
+  // ── OCR state ─────────────────────────────────────────────────────
+  bool _isRunningOcr = false;
 
-  bool get _allUncertain =>
-      _hasValidationResults && ImageValidator.allUncertain(_validationResults);
+  // ── Step 1 validation ─────────────────────────────────────────────
+  bool get _canProceedToStep2 =>
+      selectedVehicle != null && najmFileName != null && !_isRunningOcr;
 
-  // ── Validation ────────────────────────────────────────────────────
+  // ── Step 2 submit validation ──────────────────────────────────────
   bool get canSubmit =>
-      selectedVehicle != null &&
-      najmFileName != null &&
-      capturedPhotos.isNotEmpty &&
-      _infoConfirmed &&
-      !_isSubmitting &&
-      !_isValidating;
+      capturedPhotos.isNotEmpty && _infoConfirmed && !_isSubmitting;
 
   @override
   void initState() {
     super.initState();
-    _loadVehicles();
+    _initializeData();
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Load user info from Firestore
+  // ─────────────────────────────────────────────────────────────────
+  Future<void> _loadUserInfo() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) setState(() => _loadingUser = false);
+      return;
+    }
+
+    final phone = user.phoneNumber;
+    if (phone == null) {
+      if (mounted) setState(() => _loadingUser = false);
+      return;
+    }
+
+    try {
+      final query = await FirebaseFirestore.instance
+          .collection('users')
+          .where('phoneNumber', isEqualTo: phone)
+          .limit(1)
+          .get();
+
+      if (mounted && query.docs.isNotEmpty) {
+        final doc = query.docs.first;
+        final data = doc.data();
+        print('📱 Auth phone: $phone');
+        print('👤 User query docs count: ${query.docs.length}');
+        if (query.docs.isNotEmpty) {
+          print('🆔 Firestore user doc id: ${query.docs.first.id}');
+        }
+        setState(() {
+          _userName = data['name'] ?? '';
+          _nationalID = data['nationalID'] ?? '';
+          _phoneNumber = data['phoneNumber'] ?? '';
+          _userDocId = doc.id;
+          _loadingUser = false;
+        });
+      } else {
+        if (mounted) {
+          setState(() {
+            _loadingUser = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('❌ Error loading user info: $e');
+      if (mounted) {
+        setState(() => _loadingUser = false);
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  //If _loadVehicles() runs before _loadUserInfo() finishes, then _userDocId will still be null. To prevent this, we can chain the calls so that _loadVehicles() only runs after _loadUserInfo() has completed and set the _userDocId. Here's how you can modify the initState to ensure this:
+  // ─────────────────────────────────────────────────────────────────
+  Future<void> _initializeData() async {
+    await _loadUserInfo();
+    await _loadVehicles();
   }
 
   // ─────────────────────────────────────────────────────────────────
   // Load vehicles from Firestore
   // ─────────────────────────────────────────────────────────────────
   Future<void> _loadVehicles() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
+    if (_userDocId == null || _userDocId!.isEmpty) {
+      print('❌ _userDocId is null or empty. Cannot load vehicles.');
+      if (mounted) setState(() => _loadingVehicles = false);
+      return;
+    }
+    print('🚗 Loading vehicles for _userDocId: $_userDocId');
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('vehicles')
-          .where('ownerId', isEqualTo: uid)
+          .where('ownerId', isEqualTo: _userDocId!)
           .where('isArchived', isEqualTo: false)
           .get();
-
+      print('🚙 Vehicles found: ${snapshot.docs.length}');
+      for (final doc in snapshot.docs) {
+        print('Vehicle doc: ${doc.id}, ownerId: ${doc.data()['ownerId']}');
+      }
       final vehicles = snapshot.docs.map((doc) {
         final data = doc.data();
         final make = data['make'] ?? '';
         final model = data['model'] ?? '';
         final plate = data['plateNumber'] ?? '';
+
         return VehicleItem(
           docId: doc.id,
           name: '$make $model'.trim(),
@@ -117,36 +184,120 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       }
     } catch (e) {
       print('❌ Error loading vehicles: $e');
-      if (mounted) setState(() => _loadingVehicles = false);
+      if (mounted) {
+        setState(() => _loadingVehicles = false);
+      }
     }
   }
 
-  // ────────────────────validation function ───────────────────────────────
-  Future<void> _validateCapturedImages(List<File> images) async {
-    setState(() {
-      _isValidating = true;
-      _validationProgress = 0;
-      _validationResults = List.generate(
-        images.length,
-        (i) => ImageValidationResult.pending(images[i]),
-      );
-    });
+  Future<String> _waitForCaseStatus({
+    required String caseId,
+    Duration timeout = const Duration(seconds: 60),
+    Duration pollInterval = const Duration(seconds: 2),
+  }) async {
+    final start = DateTime.now();
 
-    await ImageValidator.validateAll(
-      images: images,
-      onProgress: (index, result) {
-        if (!mounted) return;
-        setState(() {
-          _validationResults[index] = result;
-          _validationProgress = index + 1;
-        });
-      },
+    while (DateTime.now().difference(start) < timeout) {
+      final doc = await FirebaseFirestore.instance
+          .collection('accidentCase')
+          .doc(caseId)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data()!;
+        final status = (data['status'] ?? '').toString();
+
+        print('🔍 OCR status for case $caseId: $status');
+
+        if (status == 'under_analysis') return 'approved';
+        if (status == 'ocr_failed') return 'ocr_failed';
+      }
+
+      await Future.delayed(pollInterval);
+    }
+
+    return 'timeout';
+  }
+
+  void _showBackendConnectionDialog() {
+    final size = MediaQuery.of(context).size;
+    final double screenWidth = size.width;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85,
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(screenWidth * 0.06),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.wifi_off_rounded,
+                        color: Colors.red,
+                        size: screenWidth * 0.08,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'Connection Failed',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.045,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenWidth * 0.04),
+                  Text(
+                    'We could not connect to the OCR server.Please make sure the connection details are correct and try again.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      color: Colors.black87,
+                      height: 1.5,
+                    ),
+                  ),
+                  SizedBox(height: screenWidth * 0.06),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0B4A7D),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          vertical: screenWidth * 0.03,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        elevation: 4,
+                      ),
+                      child: Text(
+                        'Got it',
+                        style: TextStyle(fontSize: screenWidth * 0.04),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
-
-    if (!mounted) return;
-    setState(() {
-      _isValidating = false;
-    });
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -160,7 +311,6 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
     if (result == null) return;
     final picked = result.files.single;
 
-    // ✅ Reject files over 5MB — same limit as Firestore check in _submitCase
     if (picked.size > 5 * 1024 * 1024) {
       if (!mounted) return;
       await _showFileSizeDialog(picked.size);
@@ -176,12 +326,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
   // ─────────────────────────────────────────────────────────────────
   // File size warning dialog
-  // Same visual style as the National ID confirmation dialog
   // ─────────────────────────────────────────────────────────────────
   Future<void> _showFileSizeDialog(int fileSize) async {
     final sizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(1);
-
-    // Get screen dimensions
     final size = MediaQuery.of(context).size;
     final double screenWidth = size.width;
 
@@ -191,22 +338,18 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: ConstrainedBox(
-          // Keeps the dialog from stretching too wide on tablets
           constraints: BoxConstraints(
             maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.9,
           ),
           child: SingleChildScrollView(
             child: Padding(
-              padding: EdgeInsets.all(screenWidth * 0.06), // Responsive padding
+              padding: EdgeInsets.all(screenWidth * 0.06),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // ── Header ────────────────────────────────────────
                   Row(
-                    mainAxisAlignment: MainAxisAlignment
-                        .center, // Centers the group horizontally
-                    crossAxisAlignment: CrossAxisAlignment
-                        .center, // Aligns icon and text vertically
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.warning_amber_rounded,
@@ -215,11 +358,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                       ),
                       const SizedBox(width: 10),
                       Flexible(
-                        // Flexible allows the text to only take the space it needs
                         child: Text(
                           'File Too Large',
-                          textAlign: TextAlign
-                              .center, // Ensures text lines center if they wrap
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: screenWidth * 0.045,
                             fontWeight: FontWeight.bold,
@@ -229,8 +370,6 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                     ],
                   ),
                   SizedBox(height: screenWidth * 0.04),
-
-                  // ── Body ──────────────────────────────────────────
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -238,17 +377,17 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                         'The selected PDF is $sizeMB MB, which exceeds the 5 MB limit.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: screenWidth * 0.035, // Responsive font
+                          fontSize: screenWidth * 0.035,
                           color: Colors.black87,
                           height: 1.5,
                         ),
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Please compress the file before uploading ',
+                        'Please compress the file before uploading.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: screenWidth * 0.035, // Responsive font
+                          fontSize: screenWidth * 0.035,
                           color: Colors.black87,
                           height: 1.5,
                         ),
@@ -256,8 +395,6 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                     ],
                   ),
                   SizedBox(height: screenWidth * 0.06),
-
-                  // ── Button ────────────────────────────────────────
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -286,19 +423,20 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
     );
   }
 
-  // ──────────────────────all uncertain dialog ──────────────────────────────
-  Future<bool> _showAllUncertainWarning() async {
+  // ─────────────────────────────────────────────────────────────────
+  // OCR failed dialog (reused from home page)
+  // ─────────────────────────────────────────────────────────────────
+  void _showOcrFailedDialog() {
     final size = MediaQuery.of(context).size;
     final double screenWidth = size.width;
-
-    final result = await showDialog<bool>(
+    showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.9,
+            maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85,
           ),
           child: SingleChildScrollView(
             child: Padding(
@@ -308,31 +446,28 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.warning_amber_rounded,
-                        color: Colors.orange,
-                        size: screenWidth * 0.07,
+                        color: Colors.red,
+                        size: screenWidth * 0.08,
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Flexible(
-                        // Replaced Expanded with Flexible for better centering
                         child: Text(
-                          'Images Could Not Be Verified',
+                          'Verification Failed',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: screenWidth * 0.045,
                             fontWeight: FontWeight.bold,
                           ),
-                          softWrap: true,
                         ),
                       ),
                     ],
                   ),
                   SizedBox(height: screenWidth * 0.04),
                   Text(
-                    'None of the captured images could be confirmed as vehicle-related. Please ensure your photos clearly show vehicle damage.',
+                    'We could not verify the uploaded PDF as a valid Najm accident report.\n\nPlease upload the correct Najm accident report file.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
@@ -341,49 +476,26 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                     ),
                   ),
                   SizedBox(height: screenWidth * 0.06),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0B4A7D),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            elevation: 4,
-                          ),
-                          child: Text(
-                            'Submit Anyway',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: screenWidth * 0.032),
-                          ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0B4A7D),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          vertical: screenWidth * 0.03,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            side: BorderSide(color: Colors.grey.shade300),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          child: Text(
-                            'Retake Photos',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.black87,
-                              fontSize: screenWidth * 0.032,
-                            ),
-                          ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
                         ),
+                        elevation: 4,
                       ),
-                    ],
+                      child: Text(
+                        'Got it',
+                        style: TextStyle(fontSize: screenWidth * 0.04),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -392,13 +504,211 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
         ),
       ),
     );
-
-    return result ?? false;
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // Upload Najm PDF to Firebase Storage and return the download URL
-  //-─────────────────────────────────────────────────────────────────
+  // OCR success dialog
+  // ─────────────────────────────────────────────────────────────────
+  Future<void> _showOcrSuccessDialog() async {
+    final size = MediaQuery.of(context).size;
+    final double screenWidth = size.width;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85,
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(screenWidth * 0.06),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.check_circle_rounded,
+                        color: const Color(0xFF2EAB5F),
+                        size: screenWidth * 0.08,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'Report Verified',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.045,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenWidth * 0.04),
+                  Text(
+                    'Your Najm accident report has been successfully verified. You may now proceed to take the damage photos.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      color: Colors.black87,
+                      height: 1.5,
+                    ),
+                  ),
+                  SizedBox(height: screenWidth * 0.06),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0B4A7D),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          vertical: screenWidth * 0.03,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        elevation: 4,
+                      ),
+                      child: Text(
+                        'Continue',
+                        style: TextStyle(fontSize: screenWidth * 0.04),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Handle "Next" — upload PDF to storage, run OCR, then advance step
+  // ─────────────────────────────────────────────────────────────────
+  Future<void> _handleNext() async {
+    if (_userDocId == null || _userDocId!.isEmpty) {
+      print('❌ _userDocId is null or empty.');
+      return;
+    }
+
+    if (selectedVehicle == null || najmFilePath == null) {
+      print('❌ Vehicle or Najm PDF missing.');
+      return;
+    }
+
+    setState(() => _isRunningOcr = true);
+
+    try {
+      final pdfFile = File(najmFilePath!);
+      final pdfBytes = await pdfFile.readAsBytes();
+
+      if (pdfBytes.length > 5 * 1024 * 1024) {
+        setState(() => _isRunningOcr = false);
+        await _showFileSizeDialog(pdfBytes.length);
+        return;
+      }
+
+      // 1) Create case doc early
+      final caseRef = FirebaseFirestore.instance
+          .collection('accidentCase')
+          .doc();
+
+      final caseId = caseRef.id;
+
+      // 2) Upload PDF to the real case path
+      final uploadedPdf = await _uploadNajmPdfToStorage(
+        caseId: caseId,
+        filePath: najmFilePath!,
+      );
+
+      final pdfPath = uploadedPdf['pdfPath']!;
+      final pdfUrl = uploadedPdf['pdfUrl']!;
+
+      // 3) Save initial case document with pending OCR status
+      await caseRef.set({
+        'caseID': caseId,
+        'ownerId': _userDocId!,
+        'vehicleId': selectedVehicle!.docId,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+        'najimReport': {
+          'pdfPath': pdfPath,
+          'pdfUrl': pdfUrl,
+          'accidentDate': '',
+          'accidentNumber': '',
+          'damageLocation': '',
+        },
+      });
+
+      // keep case id for later final submission
+      _caseId = caseId;
+
+      // 4) Trigger OCR using caseId
+      const backendUrl = 'http://192.168.0.11:8000';
+      final response = await http
+          .post(Uri.parse('$backendUrl/ocr/najm/$caseId'))
+          .timeout(const Duration(seconds: 60));
+
+      if (!mounted) return;
+
+      if (response.statusCode != 200) {
+        await caseRef.update({
+          'status': 'ocr_failed',
+          'ocrError': 'Failed to trigger OCR (HTTP ${response.statusCode})',
+        });
+
+        setState(() => _isRunningOcr = false);
+        _showOcrFailedDialog();
+        return;
+      }
+
+      // 5) Poll Firestore for OCR result
+      final result = await _waitForCaseStatus(caseId: caseId);
+
+      if (!mounted) return;
+
+      if (result == 'approved') {
+        setState(() => _isRunningOcr = false);
+        await _showOcrSuccessDialog();
+        if (!mounted) return;
+
+        final photos = await Navigator.push<List<File>>(
+          context,
+          MaterialPageRoute(builder: (_) => const GuidedDamageCaptureScreen()),
+        );
+
+        if (!mounted) return;
+
+        if (photos != null && photos.isNotEmpty) {
+          setState(() {
+            capturedPhotos = photos;
+            _currentStep = 2;
+          });
+        }
+      } else {
+        setState(() => _isRunningOcr = false);
+        _showOcrFailedDialog();
+      }
+    } catch (e) {
+      print('❌ OCR error: $e');
+      if (mounted) {
+        setState(() => _isRunningOcr = false);
+        _showBackendConnectionDialog();
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Upload Najm PDF to Firebase Storage and return download URL
+  // ─────────────────────────────────────────────────────────────────
   Future<Map<String, String>> _uploadNajmPdfToStorage({
     required String caseId,
     required String filePath,
@@ -416,9 +726,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
     return {'pdfPath': ref.fullPath, 'pdfUrl': downloadUrl};
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Upload damage photos to Firebase Storage and return list of download URLs
-  //───────────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────
+  // Upload damage photos to Firebase Storage
+  // ─────────────────────────────────────────────────────────────────
   Future<List<Map<String, String>>> _uploadImagesToStorage({
     required String caseId,
     required List<File> images,
@@ -447,56 +757,33 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // Full submit flow
   // ─────────────────────────────────────────────────────────────────
   Future<void> _submitCase() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    if (_userDocId == null || _userDocId!.isEmpty) {
+      print('❌ _userDocId is null or empty. Cannot submit case.');
+      return;
+    }
+
+    if (_caseId == null || _caseId!.isEmpty) {
+      print('❌ _caseId is null or empty. OCR step must finish first.');
+      return;
+    }
+
+    if (selectedVehicle == null) {
+      print('❌ No vehicle selected.');
+      return;
+    }
 
     setState(() {
       _isSubmitting = true;
-      _submitStatus = 'Uploading PDF...';
+      _submitStatus = 'Uploading photos...';
     });
 
     try {
-      // ── Step 1: Generate a case ID ───────────────────────────────
       final caseRef = FirebaseFirestore.instance
           .collection('accidentCase')
-          .doc();
-      final caseId = caseRef.id;
-
-      // ── Step 2: Upload Najm PDF to Firebase Storage ──────────────
-      setState(() => _submitStatus = 'Uploading PDF...');
-
-      String pdfPath = '';
-      String pdfUrl = '';
-
-      if (najmFilePath != null) {
-        final pdfFile = File(najmFilePath!);
-        final pdfBytes = await pdfFile.readAsBytes();
-
-        final sizeMB = pdfBytes.length / (1024 * 1024);
-        print('📄 PDF size: ${sizeMB.toStringAsFixed(2)} MB');
-
-        if (pdfBytes.length > 5 * 1024 * 1024) {
-          throw Exception(
-            'PDF file is too large (${sizeMB.toStringAsFixed(2)} MB). '
-            'Maximum allowed size is 5 MB.',
-          );
-        }
-
-        final uploadedPdf = await _uploadNajmPdfToStorage(
-          caseId: caseId,
-          filePath: najmFilePath!,
-        );
-
-        pdfPath = uploadedPdf['pdfPath']!;
-        pdfUrl = uploadedPdf['pdfUrl']!;
-        print('✅ PDF uploaded to Firebase Storage');
-      }
-
-      // ── Step 3: Upload all photos to Firebase Storage ────────────
-      setState(() => _submitStatus = 'Uploading photos...');
+          .doc(_caseId!);
 
       final uploadedImages = await _uploadImagesToStorage(
-        caseId: caseId,
+        caseId: _caseId!,
         images: capturedPhotos,
       );
 
@@ -504,25 +791,13 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
         throw Exception('Photo upload failed — check your internet connection');
       }
 
-      // ── Step 4: Write case document to Firestore ─────────────────
       setState(() => _submitStatus = 'Saving case...');
 
-      await caseRef.set({
-        'caseID': caseId,
-        'ownerId': uid,
+      await caseRef.update({
+        'ownerId': _userDocId!,
         'vehicleId': selectedVehicle!.docId,
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-        'najimReport': {
-          'pdfPath': pdfPath,
-          'pdfUrl': pdfUrl,
-          'accidentDate': '',
-          'accidentNumber': '',
-          'damageLocation': '',
-        },
       });
 
-      // ── Step 5: Write each image as a subcollection document ─────
       for (int i = 0; i < uploadedImages.length; i++) {
         await caseRef.collection('images').add({
           'downloadUrl': uploadedImages[i]['downloadUrl'],
@@ -531,27 +806,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
           'uploadedAt': FieldValue.serverTimestamp(),
         });
       }
-      // ── Step 6: Trigger Najm OCR backend in background ───────────
-      // Case is created with status = pending
-      // Backend will update Firestore to:
-      // - under_analysis on OCR success
-      // - ocr_failed on OCR failure
-      _callNajmOcr(caseId);
 
-      // ── Step 7: Lock National ID if this is the first case ──────
-      final allCases = await FirebaseFirestore.instance
-          .collection('accidentCase')
-          .where('ownerId', isEqualTo: uid)
-          .get();
-
-      // If only one case exists (the one we just created), lock the ID
-      if (allCases.docs.length == 1) {
-        await FirebaseFirestore.instance.collection('users').doc(uid).update({
-          'nationalIDLocked': true,
-        });
-      }
-
-      // ── Step 7: Navigate to success screen ───────────────────────
       if (mounted) {
         Navigator.push(
           context,
@@ -565,7 +820,6 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
           _isSubmitting = false;
           _submitStatus = '';
         });
-        // ✅ Navigate to failure screen instead of showing a snackbar
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const CaseFailedScreen()),
@@ -575,178 +829,12 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // Call Najm OCR backend — runs in background after submission
-  // ─────────────────────────────────────────────────────────────────
-  Future<void> _callNajmOcr(String caseId) async {
-    const backendUrl = 'http://192.168.0.11:8000';
-
-    try {
-      print('🔍 Calling Najm OCR for case: $caseId');
-
-      final response = await http
-          .post(Uri.parse('$backendUrl/ocr/najm/$caseId'))
-          .timeout(const Duration(seconds: 60));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        print('✅ Najm OCR job triggered: $data');
-      } else {
-        print('⚠️ OCR trigger failed: HTTP ${response.statusCode}');
-
-        // 🔥 NEW: mark as failed
-        await FirebaseFirestore.instance
-            .collection('accidentCase')
-            .doc(caseId)
-            .update({
-              'status': 'ocr_failed',
-              'ocrError': 'Failed to trigger OCR (HTTP ${response.statusCode})',
-            });
-      }
-    } catch (e) {
-      print('⚠️ Failed to trigger Najm OCR: $e');
-
-      // 🔥 NEW: mark as failed
-      await FirebaseFirestore.instance
-          .collection('accidentCase')
-          .doc(caseId)
-          .update({
-            'status': 'ocr_failed',
-            'ocrError': 'OCR request failed (network/timeout)',
-          });
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────
-  // Confirm dialog
+  // Confirm dialog before final submission
   // ─────────────────────────────────────────────────────────────────
   Future<void> _showConfirmDialog() async {
-    if (!_hasValidationResults) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please wait for image validation to complete'),
-        ),
-      );
+    if (_userDocId == null || _userDocId!.isEmpty) {
+      print('❌ _userDocId is null or empty. Cannot confirm submission.');
       return;
-    }
-    if (_allUncertain) {
-      final proceed = await _showAllUncertainWarning();
-      if (!proceed || !mounted) return;
-    }
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .get();
-    final isLocked = userDoc.data()?['nationalIDLocked'] ?? false;
-
-    if (!isLocked) {
-      // Get screen dimensions for responsiveness
-      final size = MediaQuery.of(context).size;
-      final double screenWidth = size.width;
-
-      final confirmed = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: ConstrainedBox(
-            // Limits width on tablets so the dialog doesn't look stretched
-            constraints: BoxConstraints(
-              maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.9,
-            ),
-            child: SingleChildScrollView(
-              // Prevents overflow on small screens
-              child: Padding(
-                padding: EdgeInsets.all(
-                  screenWidth * 0.06,
-                ), // Responsive padding
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment
-                          .center, // Centers the group horizontally
-                      crossAxisAlignment: CrossAxisAlignment
-                          .center, // Aligns icon and text vertically
-                      children: [
-                        Icon(
-                          Icons.warning_amber_rounded,
-                          color: Colors.red,
-                          size: screenWidth * 0.07, // Responsive icon
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Confirm National ID',
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.045, // Responsive font
-                              fontWeight: FontWeight.bold,
-                            ),
-                            softWrap: true,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: screenWidth * 0.04),
-                    Text(
-                      'Please confirm that your National ID is correct. Once submitted, it cannot be edited.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: screenWidth * 0.035, // Responsive font
-                        color: Colors.black87,
-                        height: 1.5,
-                      ),
-                    ),
-                    SizedBox(height: screenWidth * 0.06),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0B4A7D),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              elevation: 4,
-                            ),
-                            child: const Text('Confirm'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: BorderSide(color: Colors.grey.shade300),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                            ),
-                            child: const Text(
-                              'Cancel', // Fixed lowercase 'c'
-                              style: TextStyle(color: Colors.black87),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-
-      if (confirmed != true || !mounted) return;
     }
 
     await _submitCase();
@@ -762,14 +850,15 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────────
+  // Build
+  // ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFFFF),
-
       body: Stack(
         children: [
-          // ── Main scrollable content ───────────────────────────────
+          // ── Main scrollable content ─────────────────────────────
           SafeArea(
             child: SingleChildScrollView(
               child: Padding(
@@ -787,7 +876,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                     ),
                     const SizedBox(height: 30),
 
-                    // ── Grey card ─────────────────────────────────
+                    // ── User info card ──────────────────────────────
+
+                    // ── Main form card ──────────────────────────────
                     Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 500),
@@ -808,7 +899,52 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // ── Vehicle dropdown ──────────────────
+                              // ── User info section inside same card ─────────────────
+                              _loadingUser
+                                  ? const Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(12),
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    )
+                                  : Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Submitting as',
+                                          style: TextStyle(
+                                            fontSize: 20,
+                                            color: Colors.grey,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 15),
+                                        ReadOnlyInfoField(
+                                          label: 'Name',
+                                          value: _userName,
+                                          icon: Icons.person_outline,
+                                        ),
+                                        const SizedBox(height: 14),
+                                        ReadOnlyInfoField(
+                                          label: 'National ID',
+                                          value: _nationalID,
+                                          icon: Icons.badge_outlined,
+                                        ),
+                                        const SizedBox(height: 14),
+                                        ReadOnlyInfoField(
+                                          label: 'Phone Number',
+                                          value: _phoneNumber,
+                                          icon: Icons.phone_outlined,
+                                        ),
+                                      ],
+                                    ),
+                              const SizedBox(height: 30),
+                              // ════════════════════════════════════
+                              // STEP 1: Vehicle + PDF
+                              // ════════════════════════════════════
+
+                              // ── Vehicle dropdown ─────────────────
                               const Text('Select vehicle'),
                               const SizedBox(height: 8),
                               _loadingVehicles
@@ -836,6 +972,13 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                   : DropdownButtonFormField<VehicleItem>(
                                       value: selectedVehicle,
                                       isExpanded: true,
+                                      // Disable dropdown after step 1 is done
+                                      onChanged:
+                                          (_currentStep > 1 || _isSubmitting)
+                                          ? null
+                                          : (value) => setState(
+                                              () => selectedVehicle = value,
+                                            ),
                                       decoration: InputDecoration(
                                         filled: true,
                                         fillColor: Colors.white,
@@ -854,6 +997,15 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                           ),
                                         ),
                                         enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: Colors.grey.shade300,
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        disabledBorder: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             10,
                                           ),
@@ -899,20 +1051,17 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                           ),
                                         );
                                       }).toList(),
-                                      onChanged: _isSubmitting
-                                          ? null
-                                          : (value) => setState(
-                                              () => selectedVehicle = value,
-                                            ),
                                     ),
 
-                              // ── Najm report ───────────────────────
+                              // ── Najm report ──────────────────────
                               const SizedBox(height: 40),
                               const Text('Upload najm report'),
                               const SizedBox(height: 8),
                               if (najmFileName == null) ...[
                                 InkWell(
-                                  onTap: _isSubmitting ? null : pickNajmPdf,
+                                  onTap: (_currentStep > 1 || _isSubmitting)
+                                      ? null
+                                      : pickNajmPdf,
                                   borderRadius: BorderRadius.circular(12),
                                   child: DottedBorder(
                                     color: const Color(0xFF2F6FED),
@@ -995,7 +1144,6 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                               ),
                                             ),
                                             const SizedBox(height: 2),
-
                                             Text(
                                               'uploaded',
                                               style: TextStyle(
@@ -1025,78 +1173,43 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 10),
-                                      InkWell(
-                                        onTap: _isSubmitting
-                                            ? null
-                                            : () {
-                                                setState(() {
-                                                  najmFileName = null;
-                                                  najmFilePath = null;
-                                                  najmFileBytes = null;
-                                                });
-                                              },
-                                        child: const Icon(
-                                          Icons.close,
-                                          size: 20,
+                                      // Only allow removing PDF on step 1
+                                      if (_currentStep == 1)
+                                        InkWell(
+                                          onTap: _isRunningOcr
+                                              ? null
+                                              : () {
+                                                  setState(() {
+                                                    najmFileName = null;
+                                                    najmFilePath = null;
+                                                    najmFileBytes = null;
+                                                  });
+                                                },
+                                          child: const Icon(
+                                            Icons.close,
+                                            size: 20,
+                                          ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ),
                               ],
 
-                              // ── Take Damage Photos ─────────────────
-                              const SizedBox(height: 40),
-                              const Text('Take Damage Photos'),
-                              const Text(
-                                '10 images maximum',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                              const SizedBox(height: 12),
-
-                              if (capturedPhotos.isEmpty)
+                              // ── Next button (step 1 only) ─────────
+                              if (_currentStep == 1) ...[
+                                const SizedBox(height: 24),
                                 Center(
-                                  child: ElevatedButton.icon(
-                                    onPressed: _isSubmitting || _isValidating
-                                        ? null
-                                        : () async {
-                                            final result =
-                                                await Navigator.push<
-                                                  List<File>
-                                                >(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (_) =>
-                                                        const GuidedDamageCaptureScreen(),
-                                                  ),
-                                                );
-
-                                            if (result == null ||
-                                                result.isEmpty)
-                                              return;
-
-                                            setState(() {
-                                              capturedPhotos = result;
-                                              _validationResults = [];
-                                            });
-
-                                            await _validateCapturedImages(
-                                              result,
-                                            );
-                                          },
-                                    icon: const Icon(
-                                      Icons.camera_alt,
-                                      color: Colors.white,
-                                    ),
-                                    label: const Text(
-                                      'Take Photos',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
+                                  child: ElevatedButton(
+                                    onPressed: _canProceedToStep2
+                                        ? _handleNext
+                                        : null,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF0B4A7D),
                                       foregroundColor: Colors.white,
+                                      disabledBackgroundColor:
+                                          Colors.grey.shade300,
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 18,
+                                        horizontal: 40,
                                         vertical: 12,
                                       ),
                                       shape: RoundedRectangleBorder(
@@ -1104,234 +1217,207 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                       ),
                                       elevation: 6,
                                     ),
+                                    child: const Text(
+                                      'Next',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              if (_isValidating) ...[
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Color(0xFF0B4A7D),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      'Validating images... ($_validationProgress/${capturedPhotos.length})',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.black54,
-                                      ),
-                                    ),
-                                  ],
                                 ),
                               ],
-                              if (capturedPhotos.isNotEmpty)
-                                SizedBox(
-                                  height: 80,
-                                  child: ListView.separated(
-                                    scrollDirection: Axis.horizontal,
-                                    itemCount: capturedPhotos.length,
-                                    separatorBuilder: (_, __) =>
-                                        const SizedBox(width: 10),
-                                    itemBuilder: (context, index) {
-                                      final hasResult =
-                                          index < _validationResults.length;
-                                      final result = hasResult
-                                          ? _validationResults[index]
-                                          : null;
 
-                                      return Stack(
-                                        clipBehavior: Clip.none,
-                                        children: [
-                                          InkWell(
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      PhotoPreviewScreen(
-                                                        imageFile:
-                                                            capturedPhotos[index],
-                                                      ),
-                                                ),
-                                              );
+                              // ════════════════════════════════════
+                              // STEP 2: Photos + Submit
+                              // ════════════════════════════════════
+                              if (_currentStep == 2) ...[
+                                // ── Take Damage Photos ───────────
+                                const SizedBox(height: 40),
+                                const Text('Take Damage Photos'),
+                                const Text(
+                                  '10 images maximum',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                                const SizedBox(height: 12),
+
+                                if (capturedPhotos.isEmpty)
+                                  Center(
+                                    child: ElevatedButton.icon(
+                                      onPressed: _isSubmitting
+                                          ? null
+                                          : () async {
+                                              final result =
+                                                  await Navigator.push<
+                                                    List<File>
+                                                  >(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          const GuidedDamageCaptureScreen(),
+                                                    ),
+                                                  );
+
+                                              if (result == null ||
+                                                  result.isEmpty)
+                                                return;
+
+                                              setState(() {
+                                                capturedPhotos = result;
+                                              });
                                             },
-                                            child: ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              child: Image.file(
-                                                capturedPhotos[index],
-                                                width: 70,
-                                                height: 70,
-                                                fit: BoxFit.cover,
+                                      icon: const Icon(
+                                        Icons.camera_alt,
+                                        color: Colors.white,
+                                      ),
+                                      label: const Text(
+                                        'Take Photos',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFF0B4A7D,
+                                        ),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 18,
+                                          vertical: 12,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            30,
+                                          ),
+                                        ),
+                                        elevation: 6,
+                                      ),
+                                    ),
+                                  ),
+
+                                if (capturedPhotos.isNotEmpty)
+                                  SizedBox(
+                                    height: 80,
+                                    child: ListView.separated(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: capturedPhotos.length,
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(width: 10),
+                                      itemBuilder: (context, index) {
+                                        return Stack(
+                                          clipBehavior: Clip.none,
+                                          children: [
+                                            InkWell(
+                                              onTap: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (_) =>
+                                                        PhotoPreviewScreen(
+                                                          imageFile:
+                                                              capturedPhotos[index],
+                                                        ),
+                                                  ),
+                                                );
+                                              },
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                child: Image.file(
+                                                  capturedPhotos[index],
+                                                  width: 70,
+                                                  height: 70,
+                                                  fit: BoxFit.cover,
+                                                ),
                                               ),
                                             ),
-                                          ),
-
-                                          if (result != null &&
-                                              !result.isPending)
                                             Positioned(
-                                              top: -4,
-                                              left: -4,
-                                              child: Container(
-                                                width: 20,
-                                                height: 20,
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  color: result.isValid
-                                                      ? const Color(0xFF2EAB5F)
-                                                      : Colors.orange,
-                                                  border: Border.all(
-                                                    color: Colors.white,
-                                                    width: 1.5,
+                                              top: 4,
+                                              right: 4,
+                                              child: InkWell(
+                                                onTap: _isSubmitting
+                                                    ? null
+                                                    : () => setState(() {
+                                                        capturedPhotos.removeAt(
+                                                          index,
+                                                        );
+                                                      }),
+                                                child: Container(
+                                                  width: 18,
+                                                  height: 18,
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                        color: Colors.white,
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                  child: const Icon(
+                                                    Icons.close,
+                                                    size: 14,
                                                   ),
                                                 ),
-                                                child: Icon(
-                                                  result.isValid
-                                                      ? Icons.check
-                                                      : Icons.warning_rounded,
-                                                  size: 12,
-                                                  color: Colors.white,
-                                                ),
                                               ),
                                             ),
-
-                                          Positioned(
-                                            top: 4,
-                                            right: 4,
-                                            child: InkWell(
-                                              onTap:
-                                                  _isSubmitting || _isValidating
-                                                  ? null
-                                                  : () => setState(() {
-                                                      capturedPhotos.removeAt(
-                                                        index,
-                                                      );
-
-                                                      if (index <
-                                                          _validationResults
-                                                              .length) {
-                                                        _validationResults
-                                                            .removeAt(index);
-                                                      }
-                                                    }),
-                                              child: Container(
-                                                width: 18,
-                                                height: 18,
-                                                decoration: const BoxDecoration(
-                                                  color: Colors.white,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: const Icon(
-                                                  Icons.close,
-                                                  size: 14,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    },
+                                          ],
+                                        );
+                                      },
+                                    ),
                                   ),
-                                ),
-                              if (_hasValidationResults &&
-                                  !_isValidating &&
-                                  ImageValidator.countUncertain(
-                                        _validationResults,
-                                      ) >
-                                      0) ...[
-                                const SizedBox(height: 10),
+
+                                // ── Confirmation checkbox ─────────
+                                const SizedBox(height: 24),
                                 Container(
-                                  padding: const EdgeInsets.all(10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: Colors.orange.withOpacity(0.08),
-                                    borderRadius: BorderRadius.circular(10),
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: Colors.orange.withOpacity(0.3),
+                                      color: Colors.grey.shade300,
                                     ),
                                   ),
                                   child: Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Icon(
-                                        Icons.info_outline,
-                                        color: Colors.orange,
-                                        size: 16,
+                                      Checkbox(
+                                        value: _infoConfirmed,
+                                        activeColor: const Color(0xFF0B4A7D),
+                                        onChanged: _isSubmitting
+                                            ? null
+                                            : (value) {
+                                                setState(() {
+                                                  _infoConfirmed =
+                                                      value ?? false;
+                                                });
+                                              },
                                       ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          '${ImageValidator.countUncertain(_validationResults)} image(s) could not be confirmed as vehicle-related. Please ensure they clearly show vehicle damage.',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.black87,
-                                            height: 1.4,
+                                      const SizedBox(width: 4),
+                                      const Expanded(
+                                        child: Padding(
+                                          padding: EdgeInsets.only(top: 10),
+                                          child: Text(
+                                            'I confirm that all submitted information are correct.',
+                                            style: TextStyle(
+                                              fontSize: 13.5,
+                                              color: Colors.black87,
+                                              height: 1.4,
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
+                                const SizedBox(height: 20),
                               ],
-                              const SizedBox(height: 24),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Checkbox(
-                                      value: _infoConfirmed,
-                                      activeColor: const Color(0xFF0B4A7D),
-                                      onChanged: _isSubmitting || _isValidating
-                                          ? null
-                                          : (value) {
-                                              setState(() {
-                                                _infoConfirmed = value ?? false;
-                                              });
-                                            },
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Expanded(
-                                      child: Padding(
-                                        padding: EdgeInsets.only(top: 10),
-                                        child: Text(
-                                          'I confirm that all submitted information are correct.',
-                                          style: TextStyle(
-                                            fontSize: 13.5,
-                                            color: Colors.black87,
-                                            height: 1.4,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 20),
                             ],
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
 
-                    // ── Submit button ─────────────────────────────
-                    if (canSubmit) ...[
+                    // ── Submit button (step 2 only) ─────────────────
+                    if (_currentStep == 2 && canSubmit) ...[
                       const SizedBox(height: 24),
                       Center(
                         child: ElevatedButton(
@@ -1363,7 +1449,39 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
             ),
           ),
 
-          // ── Loading overlay ───────────────────────────────────────
+          // ── OCR loading overlay ────────────────────────────────────
+          if (_isRunningOcr)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 24,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: Color(0xFF0B4A7D)),
+                      SizedBox(height: 16),
+                      Text(
+                        'Verifying Najm report...',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // ── Submission loading overlay ─────────────────────────────
           if (_isSubmitting)
             Container(
               color: Colors.black.withOpacity(0.5),
@@ -1398,8 +1516,48 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       ),
     );
   }
+}
 
-  // ─────────────────────────────────────────────────────────────────
-  // Bottom Nav
-  // ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+// Helper widget — single row in the user info card
+// ─────────────────────────────────────────────────────────────────
+class _UserInfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _UserInfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF0B4A7D)),
+        const SizedBox(width: 10),
+        Text(
+          '$label: ',
+          style: const TextStyle(
+            fontSize: 13,
+            color: Colors.grey,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
 }

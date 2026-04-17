@@ -24,6 +24,26 @@ def _ensure_firebase_initialized():
             raise
 
 
+ARABIC_TO_ENGLISH_PLATE = {
+    "ا": "A",
+    "ب": "B",
+    "ح": "H",
+    "د": "D",
+    "ر": "R",
+    "س": "S",
+    "ص": "S",
+    "ط": "T",
+    "ع": "A",
+    "ق": "Q",
+    "ك": "K",
+    "ل": "L",
+    "م": "M",
+    "ن": "N",
+    "ه": "H",
+    "و": "W",
+    "ى": "Y",
+    "ي": "Y",
+}
 
 def _normalize(text: str) -> str:
     if not text:
@@ -298,6 +318,154 @@ def _extract_damage_location(lines: list[str]) -> str:
 
     return ""
 
+def _normalize_spaces(text: str) -> str:
+    return re.sub(r"\s+", " ", _normalize(text)).strip()
+
+
+def _normalize_plate(text: str) -> str:
+    text = _normalize(text)
+
+    # keep only Arabic letters, English letters, digits, and spaces
+    text = re.sub(r"[^0-9A-Za-z\u0621-\u064A\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # collect digits
+    digits = "".join(re.findall(r"\d", text))
+
+    # collect english letters directly
+    english_letters = re.findall(r"[A-Za-z]", text)
+
+    # collect arabic letters
+    arabic_letters = re.findall(r"[\u0621-\u064A]", text)
+
+    letters = []
+
+    if arabic_letters:
+        # reverse Arabic plate letters because OCR/PDF extraction
+        # often returns them in visual order
+        arabic_letters = list(reversed(arabic_letters))
+
+        for ch in arabic_letters:
+            if ch in ARABIC_TO_ENGLISH_PLATE:
+                letters.append(ARABIC_TO_ENGLISH_PLATE[ch])
+
+    elif english_letters:
+        letters.extend([ch.upper() for ch in english_letters])
+
+    return f"{digits}{''.join(letters)}"
+
+def _normalize_ascii(text: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", _normalize(text).lower())
+
+
+def _normalize_digits(text: str) -> str:
+    return re.sub(r"\D", "", _normalize(text))
+
+
+
+def _clean_plate_candidate(value: str) -> str:
+    value = _normalize(value)
+
+    # remove common label fragments
+    value = re.sub(r"(?:رقم\s*اللوحه|رقم\s*اللوحة|اللوحه\s*رقم|اللوحة\s*رقم|رقم)", "", value)
+    value = value.strip(" :.-")
+
+    return value
+
+def _extract_plate_number(lines: list[str]) -> str:
+    normalized_lines = [_normalize(line) for line in lines]
+
+    labels = [
+        "رقم اللوحه",
+        "رقم اللوحة",
+        "اللوحه رقم",
+        "اللوحة رقم",
+    ]
+
+    for i, line in enumerate(normalized_lines):
+        if any(label in line for label in labels):
+            # same line: label + value
+            m = re.search(
+                r"(?:رقم\s*اللوحه|رقم\s*اللوحة|اللوحه\s*رقم|اللوحة\s*رقم)\s*:?\s*(.+)$",
+                line
+            )
+            if m:
+                value = _clean_plate_candidate(m.group(1))
+                if re.search(r"\d", value):
+                    return value
+
+            # nearby lines fallback
+            for j in range(i + 1, min(i + 3, len(normalized_lines))):
+                candidate = _clean_plate_candidate(normalized_lines[j])
+                if re.search(r"\d", candidate):
+                    return candidate
+
+    return ""
+
+
+def _extract_national_id(lines: list[str]) -> str:
+    normalized_lines = [_normalize(line) for line in lines]
+    labels = [
+        "السجل المدني / الاقامه",
+        "السجل المدني / الاقامة",
+        "السجل المدني",
+        "الاقامه",
+        "الاقامة",
+        "رقم الهويه",
+        "رقم الهويه",
+        "رقم الهوية",
+    ]
+
+    for i, line in enumerate(normalized_lines):
+        if any(label in line for label in labels):
+            # same line
+            m = re.search(r"(\d{10})", line)
+            if m:
+                return m.group(1)
+
+            # nearby lines
+            for j in range(max(0, i - 1), min(i + 3, len(normalized_lines))):
+                nearby = normalized_lines[j]
+                m = re.search(r"\b(\d{10})\b", nearby)
+                if m:
+                    return m.group(1)
+
+    # fallback: any 10-digit number, excluding hotline
+    for line in normalized_lines:
+        for m in re.finditer(r"\b(\d{10})\b", line):
+            candidate = m.group(1)
+            if candidate != "920000560":
+                return candidate
+
+    return ""
+
+
+
+
+
+def _safe_str(value) -> str:
+    return "" if value is None else str(value).strip()
+
+
+def _match_plate(extracted: str, expected: str) -> bool:
+    if not extracted or not expected:
+        return False
+    return _normalize_plate(extracted) == _normalize_plate(expected)
+
+
+def _match_national_id(extracted: str, expected: str) -> bool:
+    if not extracted or not expected:
+        return False
+    return _normalize_digits(extracted) == _normalize_digits(expected)
+
+
+def _match_text_loose(extracted: str, expected: str) -> bool:
+    if not extracted or not expected:
+        return False
+    a = _normalize_ascii(extracted)
+    b = _normalize_ascii(expected)
+    return bool(a) and bool(b) and (a == b or a in b or b in a)
+
 
 async def process_najm_ocr(case_id: str) -> dict:
     try:
@@ -322,23 +490,22 @@ async def process_najm_ocr(case_id: str) -> dict:
         pdf_path = najm_report.get("pdfPath", "")
         pdf_base64 = case_data.get("pdfBase64", "")
 
+        owner_id = case_data.get("ownerId", "")
+        vehicle_id = case_data.get("vehicleId", "")
+
         pdf_bytes = None
 
-        # 1) Prefer Firebase Storage
         if pdf_path:
             print(f"[Najm OCR] Trying Storage path: {pdf_path}")
             try:
                 pdf_bytes = _download_pdf_bytes_from_storage(pdf_path)
-              
                 print(f"   [Najm OCR] PDF loaded from Storage, size: {len(pdf_bytes)} bytes")
             except Exception as storage_error:
                 print(f"   [Najm OCR] Storage load failed: {storage_error}")
 
-        # 2) Fallback to old base64
         if pdf_bytes is None and pdf_base64:
             try:
                 pdf_bytes = base64.b64decode(pdf_base64)
-                pdf_source = "base64"
                 print(f"   [Najm OCR] PDF loaded from base64, size: {len(pdf_bytes)} bytes")
             except Exception as decode_error:
                 print(f"   [Najm OCR] Base64 decode failed: {decode_error}")
@@ -357,48 +524,107 @@ async def process_najm_ocr(case_id: str) -> dict:
 
         lines = _extract_text_from_pdf_bytes(pdf_bytes)
 
+        # Existing Najm fields
         accident_number = _extract_accident_number(lines, pdf_bytes)
         accident_date = _extract_accident_date(lines)
         damage_location = _extract_damage_location(lines)
 
+        # New verification fields from report
+        extracted_plate = _extract_plate_number(lines)
+        extracted_national_id = _extract_national_id(lines)
+  
+
         print(f"   [Najm OCR] accidentNumber: {accident_number}")
         print(f"   [Najm OCR] accidentDate: {accident_date}")
         print(f"   [Najm OCR] damageLocation: {damage_location}")
+        print(f"   [Najm OCR] extractedPlate: {extracted_plate}")
+        print(f"   [Najm OCR] extractedNationalID: {extracted_national_id}")
 
-        found_count = sum(bool(x) for x in [accident_number, accident_date, damage_location])
 
-        
-# Always store extracted values, even if partial/failed
+        # Load expected values from Firestore
+        user_data = {}
+        vehicle_data = {}
+
+        if owner_id:
+            user_doc = db.collection("users").document(owner_id).get()
+            if user_doc.exists:
+                user_data = user_doc.to_dict() or {}
+
+        if vehicle_id:
+            vehicle_doc = db.collection("vehicles").document(vehicle_id).get()
+            if vehicle_doc.exists:
+                vehicle_data = vehicle_doc.to_dict() or {}
+
+        expected_national_id = _safe_str(user_data.get("nationalID"))
+
+        expected_plate = _safe_str(vehicle_data.get("plateNumber"))
+
+
+        # Matching
+        plate_matched = _match_plate(extracted_plate, expected_plate)
+        national_id_matched = _match_national_id(extracted_national_id, expected_national_id)
+        print(f"[PLATE RAW] extracted={extracted_plate} expected={expected_plate}")
+        print(f"[PLATE NORMALIZED] extracted={_normalize_plate(extracted_plate)} expected={_normalize_plate(expected_plate)}")
+        print(f"[PLATE MATCH] {plate_matched}")
+        print(f"[NID RAW] extracted={extracted_national_id} expected={expected_national_id}")
+        print(f"[NID MATCH] {national_id_matched}")
+
+
+        # OCR completeness
+        required_ocr_ok = all([accident_number, accident_date, damage_location])
+
+        # Verification rule:
+        # strong pass = plate + national ID
+        # fallback pass = plate + make + model
+        identity_verified = national_id_matched 
+        vehicle_verified = plate_matched and (national_id_matched )
+
+        verified = required_ocr_ok and vehicle_verified
+
         update_data = {
             "najimReport.accidentNumber": accident_number,
             "najimReport.accidentDate": accident_date,
             "najimReport.damageLocation": damage_location,
         }
-        
-        if found_count == 3:
+
+        if verified:
             update_data["status"] = "under_analysis"
             update_data["ocrError"] = firestore.DELETE_FIELD
             case_ref.update(update_data)
 
             return {
                 "status": "success",
+                "message": None,
                 "data": {
                     "accidentNumber": accident_number,
                     "accidentDate": accident_date,
                     "damageLocation": damage_location,
+                    "plateNumber": extracted_plate,
+                    "nationalID": extracted_national_id,
+                    "verification": {
+                        "plateMatched": plate_matched,
+                        "nationalIdMatched": national_id_matched,
+                    },
                 },
-                "message": None,
             }
 
-        missing_fields = []
-        if not accident_number:
-            missing_fields.append("accidentNumber")
-        if not accident_date:
-            missing_fields.append("accidentDate")
-        if not damage_location:
-            missing_fields.append("damageLocation")
+        errors = []
 
-        error_message = f"Najm OCR failed to extract required fields: {', '.join(missing_fields)}"
+        if not required_ocr_ok:
+            if not accident_number:
+                errors.append("accidentNumber missing")
+            if not accident_date:
+                errors.append("accidentDate missing")
+            if not damage_location:
+                errors.append("damageLocation missing")
+
+        if not plate_matched:
+            errors.append("plate number does not match selected vehicle")
+
+        if not (national_id_matched ):
+            errors.append("report does not sufficiently match selected vehicle / user")
+
+        error_message = "Najm verification failed: " + ", ".join(errors)
 
         update_data["status"] = "ocr_failed"
         update_data["ocrError"] = error_message
@@ -411,6 +637,12 @@ async def process_najm_ocr(case_id: str) -> dict:
                 "accidentNumber": accident_number,
                 "accidentDate": accident_date,
                 "damageLocation": damage_location,
+                "plateNumber": extracted_plate,
+                "nationalID": extracted_national_id,
+                "verification": {
+                    "plateMatched": plate_matched,
+                    "nationalIdMatched": national_id_matched,
+                },
             },
         }
 
