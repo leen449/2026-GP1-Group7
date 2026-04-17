@@ -162,7 +162,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       print('🚙 Vehicles found: ${snapshot.docs.length}');
       for (final doc in snapshot.docs) {
         print('Vehicle doc: ${doc.id}, ownerId: ${doc.data()['ownerId']}');
-      }
+      
       final vehicles = snapshot.docs.map((doc) {
         final data = doc.data();
         final make = data['make'] ?? '';
