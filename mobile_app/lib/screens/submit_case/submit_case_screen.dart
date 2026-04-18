@@ -741,6 +741,23 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       }
     } catch (e) {
       print('❌ OCR error: $e');
+
+      if (_caseId != null && _caseId!.isNotEmpty) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('accidentCase')
+              .doc(_caseId!)
+              .update({
+                'status': 'ocr_failed',
+                'ocrError': 'Connection to OCR server failed: $e',
+              });
+        } catch (updateError) {
+          print(
+            '⚠️ Failed to update case after OCR connection error: $updateError',
+          );
+        }
+      }
+
       if (mounted) {
         setState(() => _isRunningOcr = false);
         _showBackendConnectionDialog();

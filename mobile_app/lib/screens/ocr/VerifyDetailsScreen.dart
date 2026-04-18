@@ -76,28 +76,39 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     setState(() => _isSaving = true);
 
     try {
-      // Get the currently logged-in user's ID
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) throw Exception('User not logged in');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not logged in');
 
-      // Save a new document in the 'vehicles' collection
+      // ✅ نجيب الـ UID القديم من Firestore بالرقم
+      final phone = user.phoneNumber;
+      String ownerId = user.uid;
+
+      if (phone != null) {
+        final query = await FirebaseFirestore.instance
+            .collection('users')
+            .where('phoneNumber', isEqualTo: phone)
+            .limit(1)
+            .get();
+        if (query.docs.isNotEmpty) {
+          ownerId = query.docs.first.id;
+        }
+      }
+
       await FirebaseFirestore.instance.collection('vehicles').add({
-        'ownerId': uid,
+        'ownerId': ownerId, // ✅
         'plateNumber': _plateController.text.trim(),
         'make': _makeController.text.trim(),
         'model': _modelController.text.trim(),
         'year': _yearController.text.trim(),
         'color': _colorController.text.trim(),
         'chassisNumber': _chassisController.text.trim(),
-        'isArchived': false, // default — vehicle is active
+        'isArchived': false,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Show success dialog after saving
       if (mounted) _showSuccessDialog();
     } catch (e) {
-      // Show error snackbar if saving fails
       if (mounted) {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
