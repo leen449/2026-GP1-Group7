@@ -33,52 +33,66 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   }
 
   Future<void> _addVehicle() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not logged in')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      await FirebaseFirestore.instance.collection('vehicles').add({
-        'plateNumber': _plateController.text.trim(),
-        'model': _modelController.text.trim(),
-        'color': _colorController.text.trim(),
-        'make': _makeController.text.trim(),
-        'year': _yearController.text.trim(),
-        'chassisNumber': _chassisController.text.trim(),
-        'ownerId': user.uid,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'isArchived': false,
-      });
-
-      if (!mounted) return;
-
-      await showDialog(
-        context: context,
-        builder: (_) => const _SuccessDialog(
-          message: 'Your vehicle has been successfully added to your account',
-        ),
-      );
-
-      if (!mounted) return;
-      Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to add vehicle: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('User not logged in')),
+    );
+    return;
   }
 
+  setState(() => _isLoading = true);
+
+  try {
+    // ✅ نجيب الـ UID القديم من Firestore بالرقم
+    final phone = user.phoneNumber;
+    String ownerId = user.uid;
+
+    if (phone != null) {
+      final query = await FirebaseFirestore.instance
+          .collection('users')
+          .where('phoneNumber', isEqualTo: phone)
+          .limit(1)
+          .get();
+      if (query.docs.isNotEmpty) {
+        ownerId = query.docs.first.id;
+      }
+    }
+
+    await FirebaseFirestore.instance.collection('vehicles').add({
+      'plateNumber': _plateController.text.trim(),
+      'model': _modelController.text.trim(),
+      'color': _colorController.text.trim(),
+      'make': _makeController.text.trim(),
+      'year': _yearController.text.trim(),
+      'chassisNumber': _chassisController.text.trim(),
+      'ownerId': ownerId, // ✅
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'isArchived': false,
+    });
+
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (_) => const _SuccessDialog(
+        message: 'Your vehicle has been successfully added to your account',
+      ),
+    );
+
+    if (!mounted) return;
+    Navigator.pop(context);
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to add vehicle: $e')),
+    );
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
+  }
+}
   InputDecoration _fieldDecoration() {
     return InputDecoration(
       isDense: true,

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import './verification_screen.dart';
 import '../NavBar/nav_bar.dart';
 import './change_phone_screen.dart';
+
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
 
@@ -18,7 +19,8 @@ class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _loginPhoneController = TextEditingController();
 
   // Controllers (Sign up)
-  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _nationalIdController = TextEditingController();
   final TextEditingController _signupPhoneController = TextEditingController();
   DateTime? _selectedDate;
@@ -26,7 +28,8 @@ class _AuthScreenState extends State<AuthScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Error messages
-  String? _nameError;
+  String? _firstNameError;
+  String? _lastNameError;
   String? _nationalIdError;
   String? _phoneError;
   String? _dateError;
@@ -34,7 +37,8 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void dispose() {
     _loginPhoneController.dispose();
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _nationalIdController.dispose();
     _signupPhoneController.dispose();
     super.dispose();
@@ -42,11 +46,15 @@ class _AuthScreenState extends State<AuthScreen> {
 
   // ── Validation ──────────────────────────────────────────────
 
-  String? _validateName(String val) {
-    if (val.trim().isEmpty) return 'Please enter your full name';
-    final parts = val.trim().split(RegExp(r'\s+'));
-    if (parts.length < 2) return 'Please enter both first and last name';
-    if (parts.any((p) => p.length < 2)) return 'Each name must be at least 2 characters';
+  String? _validateFirstName(String val) {
+    if (val.trim().isEmpty) return 'Please enter your first name';
+    if (val.trim().length < 2) return 'First name must be at least 2 characters';
+    return null;
+  }
+
+  String? _validateLastName(String val) {
+    if (val.trim().isEmpty) return 'Please enter your last name';
+    if (val.trim().length < 2) return 'Last name must be at least 2 characters';
     return null;
   }
 
@@ -77,19 +85,21 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   bool _validateSignup() {
-    final nameErr = _validateName(_nameController.text);
+    final firstErr = _validateFirstName(_firstNameController.text);
+    final lastErr = _validateLastName(_lastNameController.text);
     final idErr = _validateNationalId(_nationalIdController.text);
     final phoneErr = _validatePhone(_signupPhoneController.text);
     final dateErr = _validateDate();
 
     setState(() {
-      _nameError = nameErr;
+      _firstNameError = firstErr;
+      _lastNameError = lastErr;
       _nationalIdError = idErr;
       _phoneError = phoneErr;
       _dateError = dateErr;
     });
 
-    return nameErr == null && idErr == null && phoneErr == null && dateErr == null;
+    return firstErr == null && lastErr == null && idErr == null && phoneErr == null && dateErr == null;
   }
 
   bool _validateLogin() {
@@ -196,8 +206,15 @@ class _AuthScreenState extends State<AuthScreen> {
               resendToken: resendToken,
               phone: phone,
               isSignUp: isSignUp,
-              name: isSignUp ? _nameController.text.trim() : '',
+              name: isSignUp
+                  ? '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'
+                  : '',
               nationalId: isSignUp ? _nationalIdController.text.trim() : '',
+              dateOfBirth: isSignUp
+                  ? (_selectedDate != null
+                      ? '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}'
+                      : '')
+                  : '',
             ),
           ),
         );
@@ -216,14 +233,13 @@ class _AuthScreenState extends State<AuthScreen> {
 
     await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
       'userID': user.uid,
-      'name': _nameController.text.trim(),
+      'name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
       'nationalID': _nationalIdController.text.trim(),
       'phoneNumber': phone,
       'dateOfBirth': _selectedDate != null
           ? '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}'
           : '',
       'nationalIDLocked': false,
-      'role': 'user',
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -281,22 +297,23 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
           ),
           onChanged: (val) {
- if (isNationalId) {
-  setState(() => _nationalIdError = 
-    'ID must start with 1 (Saudi) or 2 (Resident) and be 10 digits');
-  if (val.length == 10 && (val.startsWith('1') || val.startsWith('2'))) {
-    setState(() => _nationalIdError = null);
-  }
-} else if (keyboardType == TextInputType.phone && val.startsWith('0')) {
-    setState(() => _phoneError = 'Phone number should not start with 0');
-  } else {
-    setState(() {
-      _nameError = null;
-      _nationalIdError = null;
-      _phoneError = null;
-    });
-  }
-},
+            if (isNationalId) {
+              setState(() => _nationalIdError =
+                'ID must start with 1 (Saudi) or 2 (Resident) and be 10 digits');
+              if (val.length == 10 && (val.startsWith('1') || val.startsWith('2'))) {
+                setState(() => _nationalIdError = null);
+              }
+            } else if (keyboardType == TextInputType.phone && val.startsWith('0')) {
+              setState(() => _phoneError = 'Phone number should not start with 0');
+            } else {
+              setState(() {
+                _firstNameError = null;
+                _lastNameError = null;
+                _nationalIdError = null;
+                _phoneError = null;
+              });
+            }
+          },
         ),
         if (errorText != null)
           Padding(
@@ -381,7 +398,8 @@ class _AuthScreenState extends State<AuthScreen> {
               borderRadius: BorderRadius.circular(12),
               onTap: () => setState(() {
                 isLogin = false;
-                _nameError = null;
+                _firstNameError = null;
+                _lastNameError = null;
                 _nationalIdError = null;
                 _phoneError = null;
                 _dateError = null;
@@ -405,7 +423,8 @@ class _AuthScreenState extends State<AuthScreen> {
               borderRadius: BorderRadius.circular(12),
               onTap: () => setState(() {
                 isLogin = true;
-                _nameError = null;
+                _firstNameError = null;
+                _lastNameError = null;
                 _nationalIdError = null;
                 _phoneError = null;
                 _dateError = null;
@@ -452,11 +471,11 @@ class _AuthScreenState extends State<AuthScreen> {
         Center(
           child: GestureDetector(
             onTap: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const ChangePhoneScreen()),
-  );
-},
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ChangePhoneScreen()),
+              );
+            },
             child: const Text(
               "Can't access your number? Change it",
               style: TextStyle(
@@ -475,11 +494,18 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('Full Name'),
+        _label('First Name'),
         _inputField(
-          controller: _nameController,
-          hint: 'First and Last Name',
-          errorText: _nameError,
+          controller: _firstNameController,
+          hint: 'First Name',
+          errorText: _firstNameError,
+        ),
+        const SizedBox(height: 14),
+        _label('Last Name'),
+        _inputField(
+          controller: _lastNameController,
+          hint: 'Last Name',
+          errorText: _lastNameError,
         ),
         const SizedBox(height: 14),
         _label('National / Residence ID'),
@@ -489,7 +515,7 @@ class _AuthScreenState extends State<AuthScreen> {
           keyboardType: TextInputType.number,
           errorText: _nationalIdError,
           maxLength: 10,
-          isNationalId:true,
+          isNationalId: true,
         ),
         const SizedBox(height: 14),
         _label('Date of Birth'),

@@ -13,6 +13,7 @@ class VerificationScreen extends StatefulWidget {
   final String name;
   final String nationalId;
   final VoidCallback? onVerified;
+  final String dateOfBirth;
 
   const VerificationScreen({
     super.key,
@@ -23,6 +24,7 @@ class VerificationScreen extends StatefulWidget {
     this.name = '',
     this.nationalId = '',
     this.onVerified,
+    this.dateOfBirth = '',
   });
 
   @override
@@ -162,19 +164,19 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 
   Future<void> _saveUserToFirestore() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-      'userID': user.uid,
-      'name': widget.name,
-      'nationalID': widget.nationalId,
-      'phoneNumber': widget.phone,
-      'nationalIDLocked': false,
-      'role': 'user',
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
+  await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+    'userID': user.uid,
+    'name': widget.name,
+    'nationalID': widget.nationalId,
+    'phoneNumber': widget.phone,
+    'dateOfBirth': widget.dateOfBirth, // ✅ جديد
+    'nationalIDLocked': false,
+    'createdAt': FieldValue.serverTimestamp(),
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
+}
 
   Future<void> _resendOTP() async {
     if (!_canResend) return;
