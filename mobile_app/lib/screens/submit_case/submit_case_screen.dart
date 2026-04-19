@@ -868,6 +868,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       }
 
       if (mounted) {
+        _caseId = null;
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const CaseSubmittedScreen()),
