@@ -16,16 +16,26 @@ class VerifyDetailsScreen extends StatefulWidget {
 
 class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
   // Text controllers — auto-filled by OCR, editable by the user
-  final _plateController = TextEditingController();
-  final _makeController = TextEditingController();
-  final _modelController = TextEditingController();
-  final _yearController = TextEditingController();
-  final _colorController = TextEditingController();
+  final _plateController   = TextEditingController();
+  final _makeController    = TextEditingController();
+  final _modelController   = TextEditingController();
+  final _yearController    = TextEditingController();
+  final _colorController   = TextEditingController();
   final _chassisController = TextEditingController();
 
-  bool _isLoading = true; // true while OCR API call is in progress
-  bool _isSaving = false; // true while saving to Firestore
-  String? _errorMsg; // shown if OCR fails, prompts manual entry
+  // Tracks validation error messages per field
+  final Map<String, String?> _fieldErrors = {
+    'plateNumber':   null,
+    'make':          null,
+    'model':         null,
+    'year':          null,
+    'color':         null,
+    'chassisNumber': null,
+  };
+
+  bool _isLoading = true;  // true while OCR API call is in progress
+  bool _isSaving  = false; // true while saving to Firestore
+  String? _errorMsg;       // shown if OCR fails, prompts manual entry
 
   @override
   void initState() {
@@ -50,11 +60,11 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
 
       if (mounted) {
         setState(() {
-          _plateController.text = data['plateNumber'] ?? '';
-          _makeController.text = data['make'] ?? '';
-          _modelController.text = data['model'] ?? '';
-          _yearController.text = data['year'] ?? '';
-          _colorController.text = data['color'] ?? '';
+          _plateController.text   = data['plateNumber']   ?? '';
+          _makeController.text    = data['make']          ?? '';
+          _modelController.text   = data['model']         ?? '';
+          _yearController.text    = data['year']          ?? '';
+          _colorController.text   = data['color']         ?? '';
           _chassisController.text = data['chassisNumber'] ?? '';
           _isLoading = false;
         });
@@ -64,15 +74,76 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMsg =
-              'Could not read card automatically. Please fill manually.';
+          _errorMsg = 'Could not read card automatically. Please fill manually.';
         });
       }
     }
   }
 
+  // ── Validate all fields before saving ──
+  bool _validateFields() {
+    final errors = <String, String?>{};
+
+    // Plate Number — must contain letters and numbers
+    final plate = _plateController.text.trim();
+    if (plate.isEmpty) {
+      errors['plateNumber'] = 'Plate number is required';
+    } else if (!RegExp(r'[A-Za-z\u0600-\u06FF]').hasMatch(plate) ||
+               !RegExp(r'[0-9]').hasMatch(plate)) {
+      errors['plateNumber'] = 'Plate number must contain both letters and numbers';
+    } else {
+      errors['plateNumber'] = null;
+    }
+
+    // Make — required
+    final make = _makeController.text.trim();
+    errors['make'] = make.isEmpty ? 'Make is required' : null;
+
+    // Model — required
+    final model = _modelController.text.trim();
+    errors['model'] = model.isEmpty ? 'Model is required' : null;
+
+    // Year — required, between 1900 and 2027
+    final yearStr = _yearController.text.trim();
+    if (yearStr.isEmpty) {
+      errors['year'] = 'Year is required';
+    } else {
+      final year = int.tryParse(yearStr);
+      if (year == null) {
+        errors['year'] = 'Year must be a number';
+      } else if (year < 1900 || year > 2027) {
+        errors['year'] = 'Year must be between 1900 and 2027';
+      } else {
+        errors['year'] = null;
+      }
+    }
+
+    // Color — required
+    final color = _colorController.text.trim();
+    errors['color'] = color.isEmpty ? 'Color is required' : null;
+
+    // Chassis Number — required, exactly 17 alphanumeric characters
+    final chassis = _chassisController.text.trim();
+    if (chassis.isEmpty) {
+      errors['chassisNumber'] = 'Chassis number is required';
+    } else if (!RegExp(r'^[A-Za-z0-9]{17}$').hasMatch(chassis)) {
+      errors['chassisNumber'] = 'Chassis number must be exactly 17 letters and numbers';
+    } else {
+      errors['chassisNumber'] = null;
+    }
+
+    setState(() => _fieldErrors
+      ..clear()
+      ..addAll(errors));
+
+    return errors.values.every((e) => e == null);
+  }
+
   // ── Saves the verified vehicle data to Firestore ──
   Future<void> _saveToFirebase() async {
+    // Validate first — show errors if any field is invalid
+    if (!_validateFields()) return;
+
     setState(() => _isSaving = true);
 
     try {
@@ -95,16 +166,16 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
       }
 
       await FirebaseFirestore.instance.collection('vehicles').add({
-        'ownerId': ownerId, // ✅
-        'plateNumber': _plateController.text.trim(),
-        'make': _makeController.text.trim(),
-        'model': _modelController.text.trim(),
-        'year': _yearController.text.trim(),
-        'color': _colorController.text.trim(),
+        'ownerId':       ownerId,
+        'plateNumber':   _plateController.text.trim(),
+        'make':          _makeController.text.trim(),
+        'model':         _modelController.text.trim(),
+        'year':          _yearController.text.trim(),
+        'color':         _colorController.text.trim(),
         'chassisNumber': _chassisController.text.trim(),
-        'isArchived': false,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
+        'isArchived':    false,
+        'createdAt':     FieldValue.serverTimestamp(),
+        'updatedAt':     FieldValue.serverTimestamp(),
       });
 
       if (mounted) _showSuccessDialog();
@@ -159,9 +230,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).pop(); // close dialog
-                    Navigator.of(
-                      context,
-                    ).pushNamedAndRemoveUntil('/home', (route) => false);
+                    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1E3A6E),
@@ -286,16 +355,13 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildField('Plate Number', _plateController),
-                          _buildField('Make', _makeController),
-                          _buildField('Model', _modelController),
-                          _buildField(
-                            'Year',
-                            _yearController,
-                            keyboardType: TextInputType.number,
-                          ),
-                          _buildField('Color', _colorController),
-                          _buildField('Chassis Number', _chassisController),
+                          _buildField('Plate Number',   _plateController, fieldKey: 'plateNumber'),
+                          _buildField('Make',           _makeController,  fieldKey: 'make'),
+                          _buildField('Model',          _modelController, fieldKey: 'model'),
+                          _buildField('Year',           _yearController,  fieldKey: 'year',
+                              keyboardType: TextInputType.number),
+                          _buildField('Color',          _colorController, fieldKey: 'color'),
+                          _buildField('Chassis Number', _chassisController, fieldKey: 'chassisNumber'),
                           const SizedBox(height: 8),
                         ],
                       ),
@@ -348,8 +414,12 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
   Widget _buildField(
     String label,
     TextEditingController controller, {
+    required String fieldKey,
     TextInputType keyboardType = TextInputType.text,
   }) {
+    final errorText = _fieldErrors[fieldKey];
+    final hasError  = errorText != null;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -358,17 +428,23 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
           // Field label
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF333333),
+              color: hasError ? Colors.red : const Color(0xFF333333),
             ),
           ),
           const SizedBox(height: 6),
-          // Input field with blue border
+          // Input field
           TextField(
             controller: controller,
             keyboardType: keyboardType,
+            // Clear error when user starts typing
+            onChanged: (_) {
+              if (_fieldErrors[fieldKey] != null) {
+                setState(() => _fieldErrors[fieldKey] = null);
+              }
+            },
             style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A2E)),
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.symmetric(
@@ -377,20 +453,23 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(
-                  color: Color(0xFF2563EB),
-                  width: 1.2,
+                borderSide: BorderSide(
+                  color: hasError ? Colors.red : const Color(0xFF2563EB),
+                  width: hasError ? 1.8 : 1.2,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(
-                  color: Color(0xFF1E3A6E),
+                borderSide: BorderSide(
+                  color: hasError ? Colors.red : const Color(0xFF1E3A6E),
                   width: 1.8,
                 ),
               ),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: hasError ? const Color(0xFFFFF5F5) : Colors.white,
+              // Error message below the field
+              errorText: errorText,
+              errorStyle: const TextStyle(fontSize: 11),
             ),
           ),
         ],
