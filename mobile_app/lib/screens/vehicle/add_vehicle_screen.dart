@@ -62,7 +62,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     }
 
     await FirebaseFirestore.instance.collection('vehicles').add({
-      'plateNumber': _plateController.text.trim(),
+'plateNumber': _normalizePlateNumber(_plateController.text),
       'model': _modelController.text.trim(),
       'color': _colorController.text.trim(),
       'make': _makeController.text.trim(),
@@ -109,32 +109,123 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   }
 
   Widget _buildField({
-    required String label,
-    required TextEditingController controller,
-    TextInputType? keyboardType,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.black87,
-            fontWeight: FontWeight.w400,
-          ),
+  required String label,
+  required TextEditingController controller,
+  TextInputType? keyboardType,
+  String? Function(String?)? validator,
+  String? hintText,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          fontSize: 12,
+          color: Colors.black87,
+          fontWeight: FontWeight.w400,
         ),
-        const SizedBox(height: 6),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          validator: (value) =>
-              value == null || value.trim().isEmpty ? 'Required' : null,
-          decoration: _fieldDecoration(),
+      ),
+      const SizedBox(height: 6),
+      TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        validator: validator,
+        decoration: _fieldDecoration().copyWith(
+          hintText: hintText,
         ),
-      ],
-    );
+      ),
+    ],
+  );
+
+}
+String _normalizePlateNumber(String input) {
+  final value = input.trim().toUpperCase().replaceAll(' ', '');
+
+  final lettersOnly = value.replaceAll(RegExp(r'[^A-Z]'), '');
+  final numbersOnly = value.replaceAll(RegExp(r'[^0-9]'), '');
+
+  return '${numbersOnly} ${lettersOnly}'.trim();
+}
+String? _validatePlateNumber(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return 'Required';
   }
+
+  final input = value.trim().toUpperCase().replaceAll(' ', '');
+
+  if (!RegExp(r'^[A-Z0-9]+$').hasMatch(input)) {
+    return 'Use English letters and digits only';
+  }
+
+  final letters = input.replaceAll(RegExp(r'[^A-Z]'), '');
+  final numbers = input.replaceAll(RegExp(r'[^0-9]'), '');
+
+  if (letters.isEmpty || numbers.isEmpty) {
+    return 'Plate must contain letters and numbers';
+  }
+
+  if (letters.length > 3) {
+    return 'Maximum 3 letters';
+  }
+
+  if (numbers.length > 4) {
+    return 'Maximum 4 digits';
+  }
+
+  return null;
+}
+
+String? _validateYear(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return 'Required';
+  }
+
+  final input = value.trim();
+
+  if (!RegExp(r'^\d+$').hasMatch(input)) {
+    return 'Year must contain numbers only';
+  }
+
+  final year = int.tryParse(input);
+  final currentYear = DateTime.now().year;
+
+  if (year == null) {
+    return 'Invalid year';
+  }
+
+  if (year < 1900 || year > currentYear) {
+    return 'Year must be between 1900 and $currentYear';
+  }
+
+  return null;
+}
+
+String? _validateChassisNumber(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return 'Required';
+  }
+
+  final input = value.trim().toUpperCase();
+
+  if (input.length != 17) {
+    return 'Chassis number must be exactly 17 characters';
+  }
+
+  // اختياري: السماح فقط بحروف إنجليزية وأرقام
+  if (!RegExp(r'^[A-Z0-9]{17}$').hasMatch(input)) {
+    return 'Use English letters and numbers only';
+  }
+
+  return null;
+}
+
+String? _validateRequired(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return 'Required';
+  }
+  return null;
+}
 
   @override
   Widget build(BuildContext context) {
@@ -163,58 +254,84 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
             child: ListView(
-              children: [
-                _buildField(label: 'Plate Number', controller: _plateController),
-                const SizedBox(height: 14),
-                _buildField(label: 'Model', controller: _modelController),
-                const SizedBox(height: 14),
-                _buildField(label: 'Color', controller: _colorController),
-                const SizedBox(height: 14),
-                _buildField(label: 'Make', controller: _makeController),
-                const SizedBox(height: 14),
-                _buildField(
-                  label: 'Year',
-                  controller: _yearController,
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 14),
-                _buildField(
-                  label: 'chassis Number',
-                  controller: _chassisController,
-                ),
-                const SizedBox(height: 28),
-                SizedBox(
-                  height: 44,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _addVehicle,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryBlue,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: primaryBlue.withOpacity(0.7),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text(
-                            '+ Add Vehicle',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                              fontSize: 14,
-                            ),
-                          ),
-                  ),
-                ),
-              ],
+       children: [
+  _buildField(
+    label: 'Plate Number',
+    controller: _plateController,
+    validator: _validatePlateNumber,
+      hintText: 'Example: 6987 GTJ',
+
+  ),
+  const SizedBox(height: 14),
+
+  _buildField(
+    label: 'Make',
+    controller: _makeController,
+    validator: _validateRequired,
+  ),
+  const SizedBox(height: 14),
+
+  _buildField(
+    label: 'Model',
+    controller: _modelController,
+    validator: _validateRequired,
+  ),
+  const SizedBox(height: 14),
+
+  _buildField(
+    label: 'Year',
+    controller: _yearController,
+    keyboardType: TextInputType.number,
+    validator: _validateYear,
+  ),
+  const SizedBox(height: 14),
+
+  _buildField(
+    label: 'Color',
+    controller: _colorController,
+    validator: _validateRequired,
+  ),
+  const SizedBox(height: 14),
+
+  _buildField(
+    label: 'Chassis Number',
+    controller: _chassisController,
+    validator: _validateChassisNumber,
+  ),
+  const SizedBox(height: 28),
+
+  SizedBox(
+    height: 44,
+    child: ElevatedButton(
+      onPressed: _isLoading ? null : _addVehicle,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: primaryBlue,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: primaryBlue.withOpacity(0.7),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        elevation: 0,
+      ),
+      child: _isLoading
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Colors.white,
+              ),
+            )
+          : const Text(
+              '+ Add Vehicle',
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+              ),
+            ),
+    ),
+  ),
+],
             ),
           ),
         ),

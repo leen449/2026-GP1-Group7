@@ -13,10 +13,12 @@ class VehicleDetailsScreen extends StatelessWidget {
 
   Future<void> _deleteVehicle(BuildContext context) async {
     await FirebaseFirestore.instance
-        .collection('vehicles')
-        .doc(vehicleId)
-        .delete();
-
+    .collection('vehicles')
+    .doc(vehicleId)
+    .update({
+  'isArchived': true,
+  'updatedAt': FieldValue.serverTimestamp(),
+});
     if (!context.mounted) return;
 
     await showDialog(
