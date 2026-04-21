@@ -189,13 +189,15 @@ String? _validateYear(String? value) {
 
   final year = int.tryParse(input);
   final currentYear = DateTime.now().year;
+    final maxYear = currentYear + 1;
+
 
   if (year == null) {
     return 'Invalid year';
   }
 
-  if (year < 1900 || year > currentYear) {
-    return 'Year must be between 1900 and $currentYear';
+  if (year < 1900 || year > maxYear) {
+    return 'Year must be between 1900 and $maxYear';
   }
 
   return null;
@@ -259,7 +261,6 @@ String? _validateRequired(String? value) {
     label: 'Plate Number',
     controller: _plateController,
     validator: _validatePlateNumber,
-      hintText: 'Example: 6987 GTJ',
 
   ),
   const SizedBox(height: 14),
