@@ -80,19 +80,40 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     }
   }
 
+  // ── Format plate number to standard format: "1234 A B C" ──
+  String _formatPlateNumber(String raw) {
+    // Remove all spaces first
+    final cleaned = raw.replaceAll(' ', '').toUpperCase();
+
+    // Extract digits and letters separately
+    final digits  = cleaned.replaceAll(RegExp(r'[^0-9]'), '');
+    final letters = cleaned.replaceAll(RegExp(r'[^A-Z\u0600-\u06FF]'), '');
+
+    if (digits.isEmpty || digits.length > 4 || letters.isEmpty || letters.length > 3) return raw;
+
+    // Format letters with spaces between each: "A B C"
+    final spacedLetters = letters.split('').join(' ');
+
+    return '$digits $spacedLetters';
+  }
+
   // ── Validate all fields before saving ──
   bool _validateFields() {
     final errors = <String, String?>{};
 
-    // Plate Number — must contain letters and numbers
+    // Plate Number — must be 4 digits + 3 letters
     final plate = _plateController.text.trim();
     if (plate.isEmpty) {
       errors['plateNumber'] = 'Plate number is required';
-    } else if (!RegExp(r'[A-Za-z\u0600-\u06FF]').hasMatch(plate) ||
-               !RegExp(r'[0-9]').hasMatch(plate)) {
-      errors['plateNumber'] = 'Plate number must contain both letters and numbers';
     } else {
-      errors['plateNumber'] = null;
+      final cleaned = plate.replaceAll(' ', '').toUpperCase();
+      final digits  = cleaned.replaceAll(RegExp(r'[^0-9]'), '');
+      final letters = cleaned.replaceAll(RegExp(r'[^A-Z\u0600-\u06FF]'), '');
+      if (digits.isEmpty || digits.length > 4 || letters.isEmpty || letters.length > 3) {
+        errors['plateNumber'] = 'Plate number must have 1-4 digits and 1-3 letters';
+      } else {
+        errors['plateNumber'] = null;
+      }
     }
 
     // Make — required
@@ -165,14 +186,17 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
         }
       }
 
+      // Format plate before saving to ensure consistent format in DB
+      final formattedPlate = _formatPlateNumber(_plateController.text.trim());
+
       await FirebaseFirestore.instance.collection('vehicles').add({
         'ownerId':       ownerId,
-        'plateNumber':   _plateController.text.trim(),
+        'plateNumber':   formattedPlate,
         'make':          _makeController.text.trim(),
         'model':         _modelController.text.trim(),
         'year':          _yearController.text.trim(),
         'color':         _colorController.text.trim(),
-        'chassisNumber': _chassisController.text.trim(),
+        'chassisNumber': _chassisController.text.trim().toUpperCase(),
         'isArchived':    false,
         'createdAt':     FieldValue.serverTimestamp(),
         'updatedAt':     FieldValue.serverTimestamp(),
@@ -355,7 +379,8 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildField('Plate Number',   _plateController, fieldKey: 'plateNumber'),
+                          _buildField('Plate Number',   _plateController, fieldKey: 'plateNumber',
+                              hint: 'e.g. 1234 A B C'),
                           _buildField('Make',           _makeController,  fieldKey: 'make'),
                           _buildField('Model',          _modelController, fieldKey: 'model'),
                           _buildField('Year',           _yearController,  fieldKey: 'year',
@@ -416,6 +441,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     TextEditingController controller, {
     required String fieldKey,
     TextInputType keyboardType = TextInputType.text,
+    String? hint,
   }) {
     final errorText = _fieldErrors[fieldKey];
     final hasError  = errorText != null;
@@ -447,6 +473,8 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
             },
             style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A2E)),
             decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 14,
