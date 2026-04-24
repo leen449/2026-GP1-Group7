@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../NavBar/nav_bar.dart';
 import 'read_only_info_field.dart';
+import 'NajmCardInfo.dart';
 import 'dart:ui';
 
 // ─────────────────────────────────────────────
@@ -54,6 +55,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   List<VehicleItem> _vehicles = [];
   VehicleItem? selectedVehicle;
   bool _loadingVehicles = true;
+  String? _verifiedVehicleId;
 
   // ── Najm PDF ──────────────────────────────────────────────────────
   String? najmFileName;
@@ -67,7 +69,10 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
   // ── OCR state ─────────────────────────────────────────────────────
   bool _isRunningOcr = false;
-
+  String _extractedAccidentNumber = '';
+  String _extractedAccidentDate = '';
+  String _extractedDamageLocation = '';
+  bool _showExtractedNajmDetails = false;
   // ── Step 1 validation ─────────────────────────────────────────────
   bool get _canProceedToStep2 =>
       selectedVehicle != null && najmFileName != null && !_isRunningOcr;
@@ -190,6 +195,31 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       if (mounted) {
         setState(() => _loadingVehicles = false);
       }
+    }
+  }
+
+  Future<void> _loadExtractedNajmDetails(String caseId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('accidentCase')
+          .doc(caseId)
+          .get();
+
+      if (!doc.exists) return;
+
+      final data = doc.data() ?? {};
+      final najmReport = (data['najimReport'] as Map<String, dynamic>?) ?? {};
+
+      if (mounted) {
+        setState(() {
+          _extractedAccidentNumber = najmReport['accidentNumber'] ?? '';
+          _extractedAccidentDate = najmReport['accidentDate'] ?? '';
+          _extractedDamageLocation = najmReport['damageLocation'] ?? '';
+          _showExtractedNajmDetails = true;
+        });
+      }
+    } catch (e) {
+      print('❌ Failed to load extracted Najm details: $e');
     }
   }
 
@@ -324,6 +354,11 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       najmFileName = picked.name;
       najmFilePath = picked.path;
       najmFileBytes = picked.size;
+
+      _extractedAccidentNumber = '';
+      _extractedAccidentDate = '';
+      _extractedDamageLocation = '';
+      _showExtractedNajmDetails = false;
     });
   }
 
@@ -624,6 +659,30 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
     }
   }
 
+  bool get _hasVerifiedNajmReport {
+    return _caseId != null &&
+        _caseId!.isNotEmpty &&
+        _extractedAccidentNumber.trim().isNotEmpty &&
+        _extractedAccidentDate.trim().isNotEmpty &&
+        _extractedDamageLocation.trim().isNotEmpty;
+  }
+
+  Future<void> _goToDamageCapture() async {
+    final photos = await Navigator.push<List<File>>(
+      context,
+      MaterialPageRoute(builder: (_) => const GuidedDamageCaptureScreen()),
+    );
+
+    if (!mounted) return;
+
+    if (photos != null && photos.isNotEmpty) {
+      setState(() {
+        capturedPhotos = photos;
+        _currentStep = 2;
+      });
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────────
   // Handle "Next" — upload PDF to storage, run OCR, then advance step
   // ─────────────────────────────────────────────────────────────────
@@ -637,7 +696,10 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       print('❌ Vehicle or Najm PDF missing.');
       return;
     }
-
+    if (_hasVerifiedNajmReport) {
+      await _goToDamageCapture();
+      return;
+    }
     setState(() => _isRunningOcr = true);
 
     try {
@@ -689,7 +751,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       _caseId = caseId;
 
       // 4) Trigger OCR using caseId
-      const backendUrl = 'http://192.168.0.250:8000';
+      const backendUrl = 'http://172.20.10.2:8000';
       final response = await http
           .post(Uri.parse('$backendUrl/ocr/najm/$caseId'))
           .timeout(const Duration(seconds: 60));
@@ -709,27 +771,17 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
       // 5) Poll Firestore for OCR result
       final result = await _waitForCaseStatus(caseId: caseId);
-
+      await _loadExtractedNajmDetails(caseId);
       if (!mounted) return;
 
       if (result == 'approved') {
         setState(() => _isRunningOcr = false);
+        _verifiedVehicleId = selectedVehicle!.docId;
+
         await _showOcrSuccessDialog();
         if (!mounted) return;
 
-        final photos = await Navigator.push<List<File>>(
-          context,
-          MaterialPageRoute(builder: (_) => const GuidedDamageCaptureScreen()),
-        );
-
-        if (!mounted) return;
-
-        if (photos != null && photos.isNotEmpty) {
-          setState(() {
-            capturedPhotos = photos;
-            _currentStep = 2;
-          });
-        }
+        await _goToDamageCapture();
       } else {
         await caseRef.update({
           'status': 'ocr_failed',
@@ -1123,9 +1175,15 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                       onChanged:
                                           (_currentStep > 1 || _isSubmitting)
                                           ? null
-                                          : (value) => setState(
-                                              () => selectedVehicle = value,
-                                            ),
+                                          : (value) => setState(() {
+                                              selectedVehicle = value;
+
+                                              _verifiedVehicleId = null;
+                                              _extractedAccidentNumber = '';
+                                              _extractedAccidentDate = '';
+                                              _extractedDamageLocation = '';
+                                              _showExtractedNajmDetails = false;
+                                            }),
                                       decoration: InputDecoration(
                                         filled: true,
                                         fillColor: Colors.white,
@@ -1331,6 +1389,14 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                                     najmFileName = null;
                                                     najmFilePath = null;
                                                     najmFileBytes = null;
+
+                                                    _extractedAccidentNumber =
+                                                        '';
+                                                    _extractedAccidentDate = '';
+                                                    _extractedDamageLocation =
+                                                        '';
+                                                    _showExtractedNajmDetails =
+                                                        false;
                                                   });
                                                 },
                                           child: const Icon(
@@ -1342,7 +1408,38 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                   ),
                                 ),
                               ],
+                              if (_showExtractedNajmDetails) ...[
+                                const SizedBox(height: 20),
+                                const Text(
+                                  'Extracted Details',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
 
+                                NajmInfoRow(
+                                  label: 'Accident Number',
+                                  value: _extractedAccidentNumber,
+                                  icon: Icons.confirmation_number_outlined,
+                                ),
+                                const SizedBox(height: 10),
+
+                                NajmInfoRow(
+                                  label: 'Accident Date',
+                                  value: _extractedAccidentDate,
+                                  icon: Icons.calendar_today_outlined,
+                                ),
+                                const SizedBox(height: 10),
+
+                                NajmInfoRow(
+                                  label: 'Damage Location',
+                                  value: _extractedDamageLocation,
+                                  icon: Icons.car_repair_outlined,
+                                ),
+                              ],
                               // ── Next button (step 1 only) ─────────
                               if (_currentStep == 1) ...[
                                 const SizedBox(height: 24),

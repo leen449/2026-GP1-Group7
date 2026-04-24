@@ -11,6 +11,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../vehicle/add_vehicle_screen.dart';
 import '../vehicle/vehicle_details_screen.dart';
+import '../submit_case/Case_Details_Screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -544,10 +545,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const Spacer(),
-        GestureDetector(
-          onTap: _openHistory,
-          child: const Icon(Icons.chevron_right, size: 28, color: _textMuted),
-        ),
       ],
     );
   }
@@ -648,8 +645,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 String plate = '';
                 if (vSnap.hasData && vSnap.data!.exists) {
                   final vData = vSnap.data!.data() as Map<String, dynamic>;
-                  carName =
-                      '${vData['make'] ?? ''} ${vData['model'] ?? ''}'.trim();
+                  carName = '${vData['make'] ?? ''} ${vData['model'] ?? ''}'
+                      .trim();
                   plate = vData['plateNumber'] ?? '';
                 }
 
@@ -657,7 +654,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(18),
-                    onTap: _openHistory,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CaseDetailsScreen(caseId: doc.id),
+                        ),
+                      );
+                    },
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(

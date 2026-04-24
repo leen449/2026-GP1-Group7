@@ -223,8 +223,7 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                                           TextSpan(
                                             text: 'one image per damage',
                                             style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFFFFD166),
+                                              fontWeight: FontWeight.w900,
                                             ),
                                           ),
                                           const TextSpan(
