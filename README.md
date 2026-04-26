@@ -80,7 +80,7 @@ flutter run
 
 > Ensure a physical device or emulator is connected.
 
----
+
 
 ### 🔧 Backend API (FastAPI)
 
@@ -91,14 +91,13 @@ uvicorn main:app --reload
 > The backend currently runs on a local IP address.  
 > Make sure the mobile app is configured to use the correct IP.
 
----
 
 ### ☁️ Firebase Configuration
 
 - Firebase is fully integrated for authentication, Firestore, and storage.
 - The Firebase configuration file (google-services.json) is stored locally and excluded from the repository via `.gitignore`.
 
----
+
 
 ### 🤖 Machine Learning Model
 
@@ -106,11 +105,9 @@ uvicorn main:app --reload
 - The trained model is not yet integrated into the backend inference pipeline.
 - Integration will be completed in upcoming sprints.
 
----
+
 
 ## Sprint Information
-
-## Sprint Progress
 
 - **Sprint 0:**
   - Project setup and planning
