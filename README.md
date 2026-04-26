@@ -40,8 +40,10 @@ The project will be developed using the following technologies:
 - **Flutter** – Mobile application development  
 - **Firebase** – Authentication and cloud storage  
 - **Python** – Backend and machine learning development  
-- **CNN Models** – Vehicle damage severity prediction  
-- **FastAPI / Flask** – AI inference service integration  
+- **CNN Models** – Vehicle damage severity prediction
+- **YOLOv8** – Damage detection model 
+- **FastAPI** – AI inference service integration
+- **EasyOCR** – Data extraction and deep-learning-based optical character recognition 
 
 ---
 
