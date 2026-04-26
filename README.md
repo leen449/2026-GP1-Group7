@@ -72,25 +72,70 @@ This repository is organized as follows:
 ---
 
 ## Launch Instructions
+### 📱 Mobile Application (Flutter)
 
-CrashLens is currently in **Sprint 0**, which focuses on project preparation,
-system design, backlog creation, and repository setup.
+cd mobile_app  
+flutter pub get  
+flutter run  
 
-Development and implementation will begin in **Sprint 1**, therefore the system
-is not fully executable at this stage.
+> Ensure a physical device or emulator is connected.
 
-Once implementation starts, the project will be launched through standard tools
-for Flutter and Python-based AI services. Detailed execution and deployment
-instructions will be provided in upcoming sprints as the system components are
-developed.
+---
+
+### 🔧 Backend API (FastAPI)
+
+cd backend_api  
+pip install -r requirements.txt  
+uvicorn main:app --reload  
+
+> The backend currently runs on a local IP address.  
+> Make sure the mobile app is configured to use the correct IP.
+
+---
+
+### ☁️ Firebase Configuration
+
+- Firebase is fully integrated for authentication, Firestore, and storage.
+- The Firebase configuration file (google-services.json) is stored locally and excluded from the repository via `.gitignore`.
+
+---
+
+### 🤖 Machine Learning Model
+
+- Model training is currently conducted using Google Colab.
+- The trained model is not yet integrated into the backend inference pipeline.
+- Integration will be completed in upcoming sprints.
 
 ---
 
 ## Sprint Information
 
-- **Sprint 0:** Setup, architecture, backlog, requirements gathering  
-- **Sprint 1+:** Core implementation of mobile app and AI assessment pipeline  
+## Sprint Progress
 
+- **Sprint 0:**
+  - Project setup and planning
+  - System architecture and requirements
+  - Initial repository structure
+
+- **Sprint 1:**
+  - Mobile application core implementation
+  - Firebase integration (Authentication, Firestore, Storage)
+  - User account management
+  - Vehicle management (manual entry + OCR-based extraction)
+  - Accident case submission workflow
+  - Najm report upload and OCR-based verification
+
+- **Sprint 2 (Current):**
+  - Guided image capture for damage documentation
+  - Development of damage detection model (YOLOv8 baseline)
+  - Preparation for ML model integration with backend
+  - Enhancement of UI/UX and system stability
+
+- **Upcoming:**
+  - Damage detection and classification integration
+  - Report generation
+  - Case history and objection system completion
+  - Backend deployment to cloud
 ---
 
 
