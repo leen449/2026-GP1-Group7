@@ -293,12 +293,46 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _topGreeting(),
               const SizedBox(height: 12),
-              const Text(
-                'Manage Your Vehicles And Reports Easily !',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: _textDark,
+              Align(
+                alignment: Alignment.centerRight,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      'مركباتك بأمان',
+                      textDirection: TextDirection.rtl,
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        color: _textDark,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    RichText(
+                      textDirection: TextDirection.rtl,
+                      text: const TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'نقدّر، نحلل، ',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w400,
+                              color: Color(0xFF9AA5B4),
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'نساعد ✦',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF2563EB),
+                            ),
+                          ),
+                        ], //children
+                      ),
+                    ),
+                  ], // Column children
                 ),
               ),
               const SizedBox(height: 14),
@@ -319,71 +353,94 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _topGreeting() {
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: _showProfileOptions,
-          child: ClipOval(
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(
+        'مرحباً، $_userName!',
+        textDirection: TextDirection.rtl,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: _textDark,
+        ),
+      ),
+      GestureDetector(
+        onTap: _showProfileOptions,
+        child: ClipOval(
+          child: Image.asset(
+            'assets/icons/profile.png',
+            width: 34,
+            height: 34,
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+  Widget _bannerCard() {
+    return Container(
+      // Outer shadow around the banner card for depth
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Banner image
+          ClipRRect(
+            borderRadius: BorderRadius.circular(22),
             child: Image.asset(
-              'assets/icons/profile.png',
-              width: 34,
-              height: 34,
+              'assets/images/home_image.png',
+              width: double.infinity,
               fit: BoxFit.cover,
             ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Text(
-          'Hello $_userName!',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: _textDark,
-          ),
-        ),
-      ],
-    );
-  }
 
-  Widget _bannerCard() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final cardHeight = w * 0.50;
-
-        return SizedBox(
-          height: cardHeight + 30,
-          width: double.infinity,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                bottom: 30,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: _bannerBlue,
-                    borderRadius: BorderRadius.circular(22),
+          // Text overlay on top of the image
+          Positioned(
+            left: 10,
+            top: 40,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                // Main title
+                Text(
+                  'قدر الأضرار أونلاين',
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0A1628),
                   ),
                 ),
-              ),
-              Positioned(
-                left: w * 0.04,
-                right: 0,
-                top: w * 0.02,
-                bottom: 0,
-                child: Image.asset(
-                  'assets/images/orange_car.png',
-                  fit: BoxFit.contain,
-                  alignment: Alignment.bottomCenter,
+                SizedBox(height: 6),
+                // Subtitle
+                SizedBox(
+                  width: 150,
+                  child: Text(
+                    'قم بتقدير أضرار الحادث لمركبتك\nبخطوات بسيطة وسريعة',
+                    textDirection: TextDirection.rtl,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color.fromARGB(255, 0, 0, 0),
+                      height: 1.5,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
