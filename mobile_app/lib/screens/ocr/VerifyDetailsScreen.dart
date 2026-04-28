@@ -323,7 +323,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                       CircularProgressIndicator(color: Color(0xFF1E3A6E)),
                       SizedBox(height: 16),
                       Text(
-                        'جاري قراءة البطاقه .....', // Loading state
+                        ' يقوم النظام بقراءة الصورة الخاصة بك.\nعادةً ما يستغرق ذلك بضع ثوانٍ...', // Loading state
                         style: TextStyle(
                           color: Color(0xFF888888),
                           fontSize: 15,
@@ -461,7 +461,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                                   ),
                                 )
                               : const Text(
-                                  'إضافة مركبة +',
+                                  ' + إضافة مركبة',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 16,

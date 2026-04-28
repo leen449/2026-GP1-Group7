@@ -162,7 +162,7 @@ class _ScanScreenState extends State<ScanScreen> {
                     onPressed: _toggleFlash,
                   ),
                   const Text(
-                    'camera',
+                    'الكاميرا',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -184,7 +184,7 @@ class _ScanScreenState extends State<ScanScreen> {
             left: 0,
             right: 0,
             child: Text(
-              'Fit entire Registration Card inside\nthe frame to capture.',
+              'قم بوضع استمارة المركبة بالكامل داخل الإطار\nلالتقاط صورة واضحة',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white,

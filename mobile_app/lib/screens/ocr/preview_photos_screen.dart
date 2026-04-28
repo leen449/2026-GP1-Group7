@@ -20,7 +20,7 @@ class PreviewPhotoScreen extends StatelessWidget {
  
             // Screen title
             const Text(
-              'Preview Photo',
+              'معاينة الصورة',
               style: TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.bold,
@@ -32,7 +32,7 @@ class PreviewPhotoScreen extends StatelessWidget {
  
             // Subtitle instruction
             const Text(
-              'Make sure your card is clear and readable',
+              'تأكد أن الصورة واضحة وقابلة للقراءة',
               style: TextStyle(fontSize: 13, color: Color(0xFF8899AA)),
             ),
  
@@ -96,7 +96,7 @@ class PreviewPhotoScreen extends StatelessWidget {
                             ),
                             SizedBox(width: 5),
                             Text(
-                              'Registration Card',
+                              'استمارة المركبة',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -138,7 +138,7 @@ class PreviewPhotoScreen extends StatelessWidget {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Ensure all text is sharp and readable before proceeding.',
+                        'تأكد ان جميع النصوص واضحه قبل المتابعة.',
                         style: TextStyle(
                           fontSize: 12,
                           color: Color(0xFF7A6000),
@@ -169,7 +169,7 @@ class PreviewPhotoScreen extends StatelessWidget {
                         color: Color(0xFF1A1A2E),
                       ),
                       label: const Text(
-                        'Retake',
+                        'إعادة الالتقاط',
                         style: TextStyle(
                           color: Color(0xFF1A1A2E),
                           fontSize: 15,
@@ -211,7 +211,7 @@ class PreviewPhotoScreen extends StatelessWidget {
                         color: Colors.white,
                       ),
                       label: const Text(
-                        'Use photo',
+                        'استخدام الصورة',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 15,
