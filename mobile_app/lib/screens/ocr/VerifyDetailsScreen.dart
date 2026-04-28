@@ -210,7 +210,6 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
         'chassisNumber': _chassisController.text.trim().toUpperCase(),
         'isArchived': false,
         'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       if (mounted) _showSuccessDialog();
@@ -326,7 +325,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                         ' يقوم النظام بقراءة الصورة الخاصة بك.\nعادةً ما يستغرق ذلك بضع ثوانٍ...', // Loading state
                         style: TextStyle(
                           color: Color(0xFF888888),
-                          fontSize: 15,
+                          fontSize: 20,
                         ),
                       ),
                     ],
@@ -500,7 +499,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: hasError ? Colors.red : const Color(0xFF333333),
+              color: const Color(0xFF333333),
             ),
           ),
           const SizedBox(height: 6),
@@ -516,35 +515,70 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
             },
             style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A2E)),
             decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFFAAAAAA),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 14,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: hasError ? Colors.red : const Color(0xFF2563EB),
-                  width: hasError ? 1.8 : 1.2,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: hasError ? Colors.red : const Color(0xFF1E3A6E),
-                  width: 1.8,
-                ),
-              ),
-              filled: true,
-              fillColor: hasError ? const Color(0xFFFFF5F5) : Colors.white,
-              // Error message below the field
-              errorText: errorText,
-              errorStyle: const TextStyle(fontSize: 11),
-            ),
+  hintText: hint,
+
+  // Inner padding for the input field
+  contentPadding: const EdgeInsets.symmetric(
+    horizontal: 14,
+    vertical: 14,
+  ),
+
+  // Default border (ensures full box style, not underline)
+  border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(10),
+    borderSide: const BorderSide(
+      color: Color(0xFF2563EB),
+      width: 1.2,
+    ),
+  ),
+
+  // Normal state border (blue or red if error exists)
+  enabledBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(10),
+    borderSide: BorderSide(
+      color: hasError ? Colors.red : const Color(0xFF2563EB),
+      width: 1.4,
+    ),
+  ),
+
+  // Focused state (darker blue or red if error)
+  focusedBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(10),
+    borderSide: BorderSide(
+      color: hasError ? Colors.red : const Color(0xFF1E3A6E),
+      width: 1.8,
+    ),
+  ),
+
+  // Border when validation error exists (no focus)
+  errorBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(10),
+    borderSide: const BorderSide(
+      color: Colors.red,
+      width: 1.6,
+    ),
+  ),
+
+  // Border when focused + error
+  focusedErrorBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(10),
+    borderSide: const BorderSide(
+      color: Colors.red,
+      width: 1.8,
+    ),
+  ),
+
+  // Fill background
+  filled: true,
+  fillColor: Colors.white,
+
+  // Error message text
+  errorText: errorText,
+  errorStyle: const TextStyle(
+    fontSize: 11,
+    color: Colors.red,
+  ),
+),
           ),
         ],
       ),
