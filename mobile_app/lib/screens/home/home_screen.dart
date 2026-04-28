@@ -479,183 +479,189 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _vehiclesHorizontalList() {
-    if (_userDocId.isEmpty) return const SizedBox();
+  if (_userDocId.isEmpty) return const SizedBox();
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('vehicles')
-          .where('ownerId', isEqualTo: _userDocId)
-          .where('isArchived', isEqualTo: false)
-          .limit(3)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(
-            height: 155,
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
+  final screenWidth = MediaQuery.of(context).size.width;
 
-        final vehicles = snapshot.data?.docs ?? [];
+  // Responsive card size
+  final cardWidth = (screenWidth * 0.30).clamp(110.0, 140.0);
+  final listHeight = (screenWidth * 0.44).clamp(165.0, 195.0);
 
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('vehicles')
+        .where('ownerId', isEqualTo: _userDocId)
+        .where('isArchived', isEqualTo: false)
+        .limit(3)
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
         return SizedBox(
-          height: 155,
-          child: Directionality(
-            textDirection: TextDirection.rtl,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: vehicles.length + 1,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, i) {
-                if (i == 0) {
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AllVehiclesScreen(ownerId: _userDocId),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      width: 118,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.06),
-                            blurRadius: 14,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(
-                            Icons.grid_view_rounded,
-                            size: 34,
-                            color: Color(0xFF2563EB),
-                          ),
-                          SizedBox(height: 14),
-                          Text(
-                            'عرض كل\nالمركبات',
-                            textAlign: TextAlign.center,
-                            textDirection: TextDirection.rtl,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: _textDark,
-                              height: 1.3,
-                            ),
-                          ),
-                          SizedBox(height: 12),
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundColor: Color(0xFFEAF2FF),
-                            child: Icon(
-                              Icons.arrow_back_rounded,
-                              color: Color(0xFF2563EB),
-                              size: 24,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
+          height: listHeight,
+          child: const Center(child: CircularProgressIndicator()),
+        );
+      }
 
-                final doc = vehicles[i - 1];
-                final v = doc.data() as Map<String, dynamic>;
-                final name = '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim();
-                final plate = v['plateNumber'] ?? '';
+      final vehicles = snapshot.data?.docs ?? [];
 
+      return SizedBox(
+        height: listHeight,
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: vehicles.length + 1,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, i) {
+              if (i == 0) {
                 return GestureDetector(
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => VehicleDetailsScreen(
-                          vehicleId: doc.id,
-                          vehicleData: v,
-                        ),
+                        builder: (_) => AllVehiclesScreen(ownerId: _userDocId),
                       ),
                     );
                   },
-                  child: Container(
-                    width: 118,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(22),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 14,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
+                  child: _vehicleCardBase(
+                    width: cardWidth,
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Image.asset(
-                          'assets/images/car_card.jpg',
-                          width: 44,
-                          height: 38,
-                          fit: BoxFit.contain,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: const [
+                        Icon(
+                          Icons.grid_view_rounded,
+                          size: 32,
+                          color: Color(0xFF2563EB),
                         ),
-                        const SizedBox(height: 14),
                         Text(
-                          name.isEmpty ? 'مركبة' : name,
+                          'عرض كل\nالمركبات',
                           textAlign: TextAlign.center,
                           textDirection: TextDirection.rtl,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
                             color: _textDark,
+                            height: 1.25,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Directionality(
-                          textDirection: TextDirection.ltr,
-                          child: Text(
-                            plate,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: _textMuted,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const CircleAvatar(
-                          radius: 20,
+                        CircleAvatar(
+                          radius: 18,
                           backgroundColor: Color(0xFFEAF2FF),
                           child: Icon(
                             Icons.arrow_back_rounded,
                             color: Color(0xFF2563EB),
-                            size: 24,
+                            size: 22,
                           ),
                         ),
                       ],
                     ),
                   ),
                 );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
+              }
 
+              final doc = vehicles[i - 1];
+              final v = doc.data() as Map<String, dynamic>;
+              final name = '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim();
+              final plate = v['plateNumber'] ?? '';
+
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => VehicleDetailsScreen(
+                        vehicleId: doc.id,
+                        vehicleData: v,
+                      ),
+                    ),
+                  );
+                },
+                child: _vehicleCardBase(
+                  width: cardWidth,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Image.asset(
+                        'assets/images/car_card.jpg',
+                        width: cardWidth * 0.38,
+                        height: listHeight * 0.22,
+                        fit: BoxFit.contain,
+                      ),
+
+                      Flexible(
+                        child: Text(
+                          name.isEmpty ? 'مركبة' : name,
+                          textAlign: TextAlign.center,
+                          textDirection: TextDirection.rtl,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                            color: _textDark,
+                            height: 1.2,
+                          ),
+                        ),
+                      ),
+
+                      Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Text(
+                          plate,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: _textMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+
+                      const CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Color(0xFFEAF2FF),
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          color: Color(0xFF2563EB),
+                          size: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    },
+  );
+}
+Widget _vehicleCardBase({
+  required double width,
+  required Widget child,
+}) {
+  return Container(
+    width: width,
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.06),
+          blurRadius: 14,
+          offset: const Offset(0, 6),
+        ),
+      ],
+    ),
+    child: child,
+  );
+}
   Widget _reportHistoryHeader() {
     return Row(
       children: [
@@ -874,62 +880,84 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            size: 17,
-                            color: _textDark,
-                          ),
-                          const SizedBox(width: 10),
-                          _reportIcon(status),
-                          const Spacer(),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                carName,
-                                textDirection: TextDirection.rtl,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  color: _textDark,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Directionality(
-                                textDirection: TextDirection.ltr,
-                                child: Text(
-                                  plate,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: _textMuted,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                dateStr,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: _textDark,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 12),
-                          GestureDetector(
-                            onTap: status.toLowerCase() == 'ocr_failed'
-                                ? _showOcrFailedDialog
-                                : null,
-                            child: _statusBadge(status),
-                          ),
-                        ],
-                      ),
+                      child:Directionality(
+  textDirection: TextDirection.ltr,
+  child: Row(
+    children: [
+      // Back arrow (fixed to the far left)
+      const Icon(
+        Icons.arrow_back_ios_new_rounded,
+        size: 17,
+        color: _textDark,
+      ),
+
+      const SizedBox(width: 10),
+
+      // Status badge (placed after the arrow)
+      GestureDetector(
+        onTap: status.toLowerCase() == 'ocr_failed'
+            ? _showOcrFailedDialog
+            : null,
+        child: _statusBadge(status),
+      ),
+
+      const SizedBox(width: 10),
+
+      // Main content (car name, plate, date)
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // Car name (RTL)
+            Text(
+              carName,
+              textDirection: TextDirection.rtl,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: _textDark,
+              ),
+            ),
+
+            const SizedBox(height: 3),
+
+            // Plate number (LTR for correct formatting)
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Text(
+                plate,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: _textMuted,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 3),
+
+            // Report date
+            Text(
+              dateStr,
+              style: const TextStyle(
+                fontSize: 12,
+                color: _textDark,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+
+      const SizedBox(width: 10),
+
+      // Status icon (circle on the right)
+      _reportIcon(status),
+    ],
+  ),
+)
                     ),
                   ),
                 );
