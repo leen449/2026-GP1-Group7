@@ -3,14 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../ocr/scan_screen.dart';
-import '../auth/auth_screen.dart';
 import 'modify_screen.dart';
-import 'dart:ui';
-import '../NavBar/nav_bar.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../vehicle/add_vehicle_screen.dart';
 import '../vehicle/vehicle_details_screen.dart';
+import '../vehicle/all_vehicles_screen.dart';
 import '../submit_case/Case_Details_Screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,14 +18,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const Color _pageBg = Colors.white;
-  static const Color _cardGrey = Color(0xFFF2F3F5);
-  static const Color _textDark = Color(0xFF1E1E1E);
-  static const Color _textMuted = Color(0xFF6B6B6B);
-  static const Color _bannerBlue = Color(0xFF6F8FA7);
+  static const Color _pageBg = Color(0xFFF7FAFF);
+  static const Color _textDark = Color(0xFF071A3D);
+  static const Color _textMuted = Color(0xFF8B97AA);
+  static const Color _primaryBlue = Color(0xFF2563EB);
+  static const Color _navy = Color(0xFF061943);
 
   String _userName = '';
-  String _userDocId = ''; // ✅ الـ UID القديم من Firestore
+  String _userDocId = '';
 
   @override
   void initState() {
@@ -52,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (query.docs.isNotEmpty && mounted) {
       setState(() {
         _userName = query.docs.first.data()['name'] ?? '';
-        _userDocId = query.docs.first.id; // ✅ نحفظ الـ UID القديم
+        _userDocId = query.docs.first.id;
       });
     }
   }
@@ -68,11 +65,11 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -84,36 +81,107 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              const SizedBox(height: 10),
-              ListTile(
-                title: const Text(
-                  'Scan Registration',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ScanScreen()),
-                  );
-                },
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: _addOptionCard(
+                      title: 'إضافة يدوية',
+                      subtitle: 'أدخل بيانات المركبة\nيدويًا خطوة بخطوة',
+                      icon: Icons.edit_outlined,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AddVehicleScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _addOptionCard(
+                      title: 'مسح الاستمارة',
+                      subtitle: 'امسح استمارة المركبة\nواستخرج البيانات تلقائيًا',
+                      icon: Icons.document_scanner_outlined,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ScanScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-              ListTile(
-                title: const Text(
-                  'Add Manually',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AddVehicleScreen()),
-                  );
-                },
-              ),
-              const SizedBox(height: 8),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _addOptionCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE7EEF8)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F8FF),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Icon(icon, color: _primaryBlue, size: 30),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textDirection: TextDirection.rtl,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _textDark,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              subtitle,
+              textDirection: TextDirection.rtl,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _textMuted,
+                fontWeight: FontWeight.w500,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -144,7 +212,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
                 title: const Text(
-                  'Modify personal information',
+                  'تعديل المعلومات الشخصية',
+                  textDirection: TextDirection.rtl,
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 onTap: () {
@@ -158,7 +227,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.red),
                 title: const Text(
-                  'Log out',
+                  'تسجيل الخروج',
+                  textDirection: TextDirection.rtl,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: Colors.red,
@@ -187,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
             backgroundColor: Colors.white,
             elevation: 0,
             title: const Text(
-              'History',
+              'السجل',
               style: TextStyle(color: _textDark, fontWeight: FontWeight.w700),
             ),
             iconTheme: const IconThemeData(color: _textDark),
@@ -211,67 +281,60 @@ class _HomeScreenState extends State<HomeScreen> {
           constraints: BoxConstraints(
             maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85,
           ),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.all(screenWidth * 0.06),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        color: Colors.red,
-                        size: screenWidth * 0.08,
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'Verification Failed',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: screenWidth * 0.045,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
+          child: Padding(
+            padding: EdgeInsets.all(screenWidth * 0.06),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.red,
+                  size: screenWidth * 0.12,
+                ),
+                SizedBox(height: screenWidth * 0.04),
+                Text(
+                  'فشل التحقق',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.045,
+                    fontWeight: FontWeight.bold,
+                    color: _textDark,
                   ),
-                  SizedBox(height: screenWidth * 0.04),
-                  Text(
-                    'We could not verify the uploaded PDF as a valid Najm accident report.\n\nPlease submit a new case and make sure you upload the correct Najm accident report file.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.035,
-                      color: Colors.black87,
-                      height: 1.5,
+                ),
+                SizedBox(height: screenWidth * 0.04),
+                Text(
+                  'لم نتمكن من التحقق من الملف المرفوع كتقرير نجم صحيح.\n\nيرجى إرسال بلاغ جديد والتأكد من رفع تقرير نجم الصحيح.',
+                  textAlign: TextAlign.center,
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.035,
+                    color: Colors.black87,
+                    height: 1.5,
+                  ),
+                ),
+                SizedBox(height: screenWidth * 0.06),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _navy,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        vertical: screenWidth * 0.03,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'حسنًا',
+                      style: TextStyle(fontSize: screenWidth * 0.04),
                     ),
                   ),
-                  SizedBox(height: screenWidth * 0.06),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0B4A7D),
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                          vertical: screenWidth * 0.03,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        elevation: 4,
-                      ),
-                      child: Text(
-                        'Got it',
-                        style: TextStyle(fontSize: screenWidth * 0.04),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -282,6 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: _pageBg,
       body: SafeArea(
@@ -292,58 +356,15 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _topGreeting(),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text(
-                      'مركباتك بأمان',
-                      textDirection: TextDirection.rtl,
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                        color: _textDark,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    RichText(
-                      textDirection: TextDirection.rtl,
-                      text: const TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'نقدّر، نحلل، ',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w400,
-                              color: Color(0xFF9AA5B4),
-                            ),
-                          ),
-                          TextSpan(
-                            text: 'نساعد ✦',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF2563EB),
-                            ),
-                          ),
-                        ], //children
-                      ),
-                    ),
-                  ], // Column children
-                ),
-              ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 18),
               _bannerCard(),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
               _myVehiclesHeader(),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               _vehiclesHorizontalList(),
-              const SizedBox(height: 18),
+              const SizedBox(height: 22),
               _reportHistoryHeader(),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               _reportList(),
             ],
           ),
@@ -353,93 +374,68 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _topGreeting() {
-  return Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(
-        'مرحباً، $_userName!',
-        textDirection: TextDirection.rtl,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: _textDark,
-        ),
-      ),
-      GestureDetector(
-        onTap: _showProfileOptions,
-        child: ClipOval(
-          child: Image.asset(
-            'assets/icons/profile.png',
-            width: 34,
-            height: 34,
-            fit: BoxFit.cover,
-          ),
-        ),
-      ),
-    ],
-  );
-}
-
-  Widget _bannerCard() {
-    return Container(
-      // Outer shadow around the banner card for depth
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.12),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // Banner image
-          ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: Image.asset(
-              'assets/images/home_image.png',
-              width: double.infinity,
-              fit: BoxFit.cover,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Row(
+          textDirection: TextDirection.rtl,
+          children: [
+            GestureDetector(
+              onTap: _showProfileOptions,
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/icons/profile.png',
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                ),
+              ),
             ),
-          ),
-
-          // Text overlay on top of the image
-          Positioned(
-            left: 10,
-            top: 40,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                // Main title
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
                 Text(
-                  'قدر الأضرار أونلاين',
+                  'مرحباً، $_userName!',
                   textDirection: TextDirection.rtl,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0A1628),
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: _textDark,
                   ),
                 ),
-                SizedBox(height: 6),
-                // Subtitle
-                SizedBox(
-                  width: 150,
-                  child: Text(
-                    'قم بتقدير أضرار الحادث لمركبتك\nبخطوات بسيطة وسريعة',
-                    textDirection: TextDirection.rtl,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color.fromARGB(255, 0, 0, 0),
-                      height: 1.5,
-                    ),
+                const SizedBox(height: 2),
+                const Text(
+                  'نسعد بخدمتك',
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: _textMuted,
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _bannerCard() {
+    return Container(
+      height: 210,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF4FF),
+        borderRadius: BorderRadius.circular(26),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: Image.asset(
+          'assets/images/home_image.png',
+          width: double.infinity,
+          fit: BoxFit.cover,
+        ),
       ),
     );
   }
@@ -447,22 +443,35 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _myVehiclesHeader() {
     return Row(
       children: [
-        const Text(
-          'My Vehicles',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: _textDark,
+        GestureDetector(
+          onTap: _showAddOptions,
+          child: Row(
+            children: const [
+              Text(
+                'إضافة مركبة',
+                style: TextStyle(
+                  color: Color(0xFF2563EB),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(width: 8),
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: Color(0xFFEAF2FF),
+                child: Icon(Icons.add, color: Color(0xFF2563EB), size: 22),
+              ),
+            ],
           ),
         ),
         const Spacer(),
-        GestureDetector(
-          onTap: _showAddOptions,
-          child: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(color: _cardGrey, shape: BoxShape.circle),
-            child: const Icon(Icons.add, size: 20, color: _textDark),
+        const Text(
+          'مركباتي',
+          textDirection: TextDirection.rtl,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: _textDark,
           ),
         ),
       ],
@@ -470,121 +479,178 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _vehiclesHorizontalList() {
-    if (_userDocId.isEmpty) return const SizedBox(); // ✅
+    if (_userDocId.isEmpty) return const SizedBox();
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('vehicles')
-          .where('ownerId', isEqualTo: _userDocId) // ✅
+          .where('ownerId', isEqualTo: _userDocId)
           .where('isArchived', isEqualTo: false)
+          .limit(3)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SizedBox(
-            height: 120,
+            height: 155,
             child: Center(child: CircularProgressIndicator()),
           );
         }
 
         final vehicles = snapshot.data?.docs ?? [];
 
-        if (vehicles.isEmpty) {
-          return Container(
-            height: 90,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: _cardGrey,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Text(
-              'No vehicles registered yet.',
-              style: TextStyle(
-                color: _textMuted,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          );
-        }
-
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            const cardHeight = 130.0;
-
-            return SizedBox(
-              height: cardHeight,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: vehicles.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (context, i) {
-                  final v = vehicles[i].data() as Map<String, dynamic>;
-                  final name = '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim();
-                  final plate = v['plateNumber'] ?? '';
-
+        return SizedBox(
+          height: 155,
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: vehicles.length + 1,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, i) {
+                if (i == 0) {
                   return GestureDetector(
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => VehicleDetailsScreen(
-                            vehicleId: vehicles[i].id,
-                            vehicleData: v,
-                          ),
+                          builder: (_) => AllVehiclesScreen(ownerId: _userDocId),
                         ),
                       );
                     },
                     child: Container(
-                      width: 145,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
+                      width: 118,
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _cardGrey,
-                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            'assets/images/car2.png',
-                            width: 76,
-                            height: 52,
-                            fit: BoxFit.contain,
+                        children: const [
+                          Icon(
+                            Icons.grid_view_rounded,
+                            size: 34,
+                            color: Color(0xFF2563EB),
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 14),
                           Text(
-                            name,
+                            'عرض كل\nالمركبات',
                             textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                            textDirection: TextDirection.rtl,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
                               color: _textDark,
+                              height: 1.3,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            plate,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: _textMuted,
-                              fontWeight: FontWeight.w500,
+                          SizedBox(height: 12),
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: Color(0xFFEAF2FF),
+                            child: Icon(
+                              Icons.arrow_back_rounded,
+                              color: Color(0xFF2563EB),
+                              size: 24,
                             ),
                           ),
                         ],
                       ),
                     ),
                   );
-                },
-              ),
-            );
-          },
+                }
+
+                final doc = vehicles[i - 1];
+                final v = doc.data() as Map<String, dynamic>;
+                final name = '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim();
+                final plate = v['plateNumber'] ?? '';
+
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => VehicleDetailsScreen(
+                          vehicleId: doc.id,
+                          vehicleData: v,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 118,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset(
+                          'assets/images/car_card.jpg',
+                          width: 44,
+                          height: 38,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          name.isEmpty ? 'مركبة' : name,
+                          textAlign: TextAlign.center,
+                          textDirection: TextDirection.rtl,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: _textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Text(
+                            plate,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: _textMuted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Color(0xFFEAF2FF),
+                          child: Icon(
+                            Icons.arrow_back_rounded,
+                            color: Color(0xFF2563EB),
+                            size: 24,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         );
       },
     );
@@ -593,64 +659,133 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _reportHistoryHeader() {
     return Row(
       children: [
+        GestureDetector(
+          onTap: _openHistory,
+          child: const Text(
+            'عرض الكل',
+            textDirection: TextDirection.rtl,
+            style: TextStyle(
+              color: _primaryBlue,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          size: 14,
+          color: _primaryBlue,
+        ),
+        const Spacer(),
         const Text(
-          'Recent Report',
+          'التقارير الأخيرة',
+          textDirection: TextDirection.rtl,
           style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
             color: _textDark,
           ),
         ),
-        const Spacer(),
       ],
     );
   }
 
   Widget _statusBadge(String status) {
     final s = status.toLowerCase().trim();
-    final displayStatus = s == 'ocr_failed' ? 'Verification Failed' : status;
 
+    String displayStatus;
     Color bgColor;
     Color textColor;
+    IconData icon;
 
-    if (s == 'approved') {
-      bgColor = const Color(0xFFDFF3E3);
-      textColor = const Color(0xFF2E7D32);
+    if (s == 'approved' || s == 'completed') {
+      displayStatus = 'مكتمل';
+      bgColor = const Color(0xFFE7F8EF);
+      textColor = const Color(0xFF159B55);
+      icon = Icons.check_circle_outline_rounded;
     } else if (s == 'pending') {
-      bgColor = const Color(0xFFE8EDF3);
-      textColor = const Color(0xFF4A6072);
+      displayStatus = 'قيد المراجعة';
+      bgColor = const Color(0xFFEAF1FF);
+      textColor = const Color(0xFF2E63D9);
+      icon = Icons.hourglass_empty_rounded;
     } else if (s == 'ocr_failed') {
-      bgColor = const Color(0xFFFFE7E7);
-      textColor = const Color(0xFFC62828);
+      displayStatus = 'فشل الفحص';
+      bgColor = const Color(0xFFFFEEF0);
+      textColor = const Color(0xFFE33B4E);
+      icon = Icons.warning_amber_rounded;
     } else {
-      bgColor = const Color(0xFFF6E3D8);
-      textColor = const Color(0xFFB35A2A);
+      displayStatus = 'قيد التحليل';
+      bgColor = const Color(0xFFFFF1E6);
+      textColor = const Color(0xFFE27A2E);
+      icon = Icons.access_time_rounded;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Text(
-        displayStatus,
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
-          color: textColor,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: textColor),
+          const SizedBox(width: 5),
+          Text(
+            displayStatus,
+            textDirection: TextDirection.rtl,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+              color: textColor,
+            ),
+          ),
+        ],
       ),
     );
   }
 
+  Widget _reportIcon(String status) {
+    final s = status.toLowerCase().trim();
+
+    Color bgColor;
+    Color iconColor;
+    IconData icon;
+
+    if (s == 'approved' || s == 'completed') {
+      bgColor = const Color(0xFFE7F8EF);
+      iconColor = const Color(0xFF159B55);
+      icon = Icons.verified_user_outlined;
+    } else if (s == 'pending') {
+      bgColor = const Color(0xFFEAF1FF);
+      iconColor = const Color(0xFF2E63D9);
+      icon = Icons.search_rounded;
+    } else if (s == 'ocr_failed') {
+      bgColor = const Color(0xFFFFEEF0);
+      iconColor = const Color(0xFFE33B4E);
+      icon = Icons.gpp_bad_outlined;
+    } else {
+      bgColor = const Color(0xFFFFF1E6);
+      iconColor = const Color(0xFFE27A2E);
+      icon = Icons.description_outlined;
+    }
+
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+      child: Icon(icon, color: iconColor, size: 25),
+    );
+  }
+
   Widget _reportList() {
-    if (_userDocId.isEmpty) return const SizedBox(); // ✅
+    if (_userDocId.isEmpty) return const SizedBox();
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('accidentCase')
-          .where('ownerId', isEqualTo: _userDocId) // ✅
+          .where('ownerId', isEqualTo: _userDocId)
           .orderBy('createdAt', descending: true)
           .limit(3)
           .snapshots(),
@@ -665,16 +800,18 @@ class _HomeScreenState extends State<HomeScreen> {
           return Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: _cardGrey,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE8EEF7)),
             ),
             child: const Center(
               child: Text(
-                'No reports yet.',
+                'لا توجد تقارير حتى الآن',
+                textDirection: TextDirection.rtl,
                 style: TextStyle(
                   color: _textMuted,
                   fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -688,9 +825,8 @@ class _HomeScreenState extends State<HomeScreen> {
             final date = r['createdAt'] != null
                 ? (r['createdAt'] as Timestamp).toDate()
                 : null;
-            final dateStr = date != null
-                ? '${date.day}/${date.month}/${date.year}'
-                : '';
+            final dateStr =
+                date != null ? '${date.day}/${date.month}/${date.year}' : '';
 
             return FutureBuilder<DocumentSnapshot>(
               future: FirebaseFirestore.instance
@@ -700,15 +836,16 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (context, vSnap) {
                 String carName = '';
                 String plate = '';
+
                 if (vSnap.hasData && vSnap.data!.exists) {
                   final vData = vSnap.data!.data() as Map<String, dynamic>;
-                  carName = '${vData['make'] ?? ''} ${vData['model'] ?? ''}'
-                      .trim();
+                  carName =
+                      '${vData['make'] ?? ''} ${vData['model'] ?? ''}'.trim();
                   plate = vData['plateNumber'] ?? '';
                 }
 
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: 10),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(18),
                     onTap: () {
@@ -722,29 +859,49 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
+                        horizontal: 12,
+                        vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: _cardGrey,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFFE8EEF7)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.035),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
                       child: Row(
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  carName,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: _textDark,
-                                  ),
+                          const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 17,
+                            color: _textDark,
+                          ),
+                          const SizedBox(width: 10),
+                          _reportIcon(status),
+                          const Spacer(),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                carName,
+                                textDirection: TextDirection.rtl,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: _textDark,
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
+                              ),
+                              const SizedBox(height: 3),
+                              Directionality(
+                                textDirection: TextDirection.ltr,
+                                child: Text(
                                   plate,
                                   style: const TextStyle(
                                     fontSize: 12,
@@ -752,34 +909,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  dateStr,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: _textDark,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                dateStr,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: _textDark,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              ],
-                            ),
-                          ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _statusBadge(status),
-                              if (status.toLowerCase() == 'ocr_failed') ...[
-                                const SizedBox(width: 8),
-                                GestureDetector(
-                                  onTap: _showOcrFailedDialog,
-                                  child: const Icon(
-                                    Icons.warning_amber_rounded,
-                                    color: Colors.orange,
-                                    size: 22,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ],
+                          ),
+                          const SizedBox(width: 12),
+                          GestureDetector(
+                            onTap: status.toLowerCase() == 'ocr_failed'
+                                ? _showOcrFailedDialog
+                                : null,
+                            child: _statusBadge(status),
                           ),
                         ],
                       ),
