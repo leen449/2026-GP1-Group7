@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../vehicle/all_vehicles_screen.dart';
+
 
 class AddVehicleScreen extends StatefulWidget {
   const AddVehicleScreen({super.key});
@@ -33,306 +35,352 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   }
 
   Future<void> _addVehicle() async {
-  if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return;
 
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('User not logged in')),
-    );
-    return;
-  }
-
-  setState(() => _isLoading = true);
-
-  try {
-    // ✅ نجيب الـ UID القديم من Firestore بالرقم
-    final phone = user.phoneNumber;
-    String ownerId = user.uid;
-
-    if (phone != null) {
-      final query = await FirebaseFirestore.instance
-          .collection('users')
-          .where('phoneNumber', isEqualTo: phone)
-          .limit(1)
-          .get();
-      if (query.docs.isNotEmpty) {
-        ownerId = query.docs.first.id;
-      }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لم يتم تسجيل الدخول')),
+      );
+      return;
     }
 
-    await FirebaseFirestore.instance.collection('vehicles').add({
-'plateNumber': _normalizePlateNumber(_plateController.text),
-      'model': _modelController.text.trim(),
-      'color': _colorController.text.trim(),
-      'make': _makeController.text.trim(),
-      'year': _yearController.text.trim(),
-      'chassisNumber': _chassisController.text.trim(),
-      'ownerId': ownerId, // ✅
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-      'isArchived': false,
-    });
+    setState(() => _isLoading = true);
 
-    if (!mounted) return;
+    try {
+      final phone = user.phoneNumber;
+      String ownerId = user.uid;
 
-    await showDialog(
-      context: context,
-      builder: (_) => const _SuccessDialog(
-        message: 'Your vehicle has been successfully added to your account',
-      ),
-    );
+      if (phone != null) {
+        final query = await FirebaseFirestore.instance
+            .collection('users')
+            .where('phoneNumber', isEqualTo: phone)
+            .limit(1)
+            .get();
 
-    if (!mounted) return;
-    Navigator.pop(context);
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to add vehicle: $e')),
-    );
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
+        if (query.docs.isNotEmpty) {
+          ownerId = query.docs.first.id;
+        }
+      }
+
+      await FirebaseFirestore.instance.collection('vehicles').add({
+        'plateNumber': _normalizePlateNumber(_plateController.text),
+        'model': _modelController.text.trim(),
+        'color': _colorController.text.trim(),
+        'make': _makeController.text.trim(),
+        'year': _yearController.text.trim(),
+        'chassisNumber': _chassisController.text.trim().toUpperCase(),
+        'ownerId': ownerId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'isArchived': false,
+      });
+
+      if (!mounted) return;
+
+      await showDialog(
+        context: context,
+        builder: (_) => const _SuccessDialog(
+          message: 'تمت إضافة المركبة بنجاح',
+        ),
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('فشل إضافة المركبة: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
-}
-  InputDecoration _fieldDecoration() {
+
+  InputDecoration _fieldDecoration({String? hintText}) {
     return InputDecoration(
+      hintText: hintText,
+      hintStyle: const TextStyle(
+        color: Color(0xFF9AA7B8),
+        fontSize: 13,
+      ),
+      filled: true,
+      fillColor: Colors.white,
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF8AA3B8)),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFDDE7F3)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF8AA3B8), width: 1.2),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFF1D7DF2), width: 1.4),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Colors.red),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Colors.red, width: 1.2),
       ),
     );
   }
 
   Widget _buildField({
-  required String label,
-  required TextEditingController controller,
-  TextInputType? keyboardType,
-  String? Function(String?)? validator,
-  String? hintText,
-}) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        label,
-        style: const TextStyle(
-          fontSize: 12,
-          color: Colors.black87,
-          fontWeight: FontWeight.w400,
+    required String label,
+    required TextEditingController controller,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+    String? hintText,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          label,
+          textAlign: TextAlign.right,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Color(0xFF0B2A55),
+            fontWeight: FontWeight.w700,
+          ),
         ),
-      ),
-      const SizedBox(height: 6),
-      TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        validator: validator,
-        decoration: _fieldDecoration().copyWith(
-          hintText: hintText,
+        const SizedBox(height: 8),
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: TextFormField(
+            controller: controller,
+            keyboardType: keyboardType,
+            validator: validator,
+            textAlign: TextAlign.left,
+            decoration: _fieldDecoration(hintText: hintText),
+          ),
         ),
-      ),
-    ],
-  );
-
-}
-String _normalizePlateNumber(String input) {
-  final value = input.trim().toUpperCase().replaceAll(' ', '');
-
-  final lettersOnly = value.replaceAll(RegExp(r'[^A-Z]'), '');
-  final numbersOnly = value.replaceAll(RegExp(r'[^0-9]'), '');
-
-  return '${numbersOnly} ${lettersOnly}'.trim();
-}
-String? _validatePlateNumber(String? value) {
-  if (value == null || value.trim().isEmpty) {
-    return 'Required';
+      ],
+    );
   }
 
-  final input = value.trim().toUpperCase().replaceAll(' ', '');
+  String _normalizePlateNumber(String input) {
+    final value = input.trim().toUpperCase().replaceAll(' ', '');
 
-  if (!RegExp(r'^[A-Z0-9]+$').hasMatch(input)) {
-    return 'Use English letters and digits only';
+    final lettersOnly = value.replaceAll(RegExp(r'[^A-Z]'), '');
+    final numbersOnly = value.replaceAll(RegExp(r'[^0-9]'), '');
+
+    return '${numbersOnly} ${lettersOnly}'.trim();
   }
 
-  final letters = input.replaceAll(RegExp(r'[^A-Z]'), '');
-  final numbers = input.replaceAll(RegExp(r'[^0-9]'), '');
+  String? _validatePlateNumber(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'هذا الحقل مطلوب';
+    }
 
-  if (letters.isEmpty || numbers.isEmpty) {
-    return 'Plate must contain letters and numbers';
+    final input = value.trim().toUpperCase().replaceAll(' ', '');
+
+    if (!RegExp(r'^[A-Z0-9]+$').hasMatch(input)) {
+      return 'استخدم حروف إنجليزية وأرقام فقط';
+    }
+
+    final letters = input.replaceAll(RegExp(r'[^A-Z]'), '');
+    final numbers = input.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (letters.isEmpty || numbers.isEmpty) {
+      return 'رقم اللوحة يجب أن يحتوي على أرقام وحروف';
+    }
+
+    if (letters.length > 3) {
+      return 'الحد الأقصى 3 حروف';
+    }
+
+    if (numbers.length > 4) {
+      return 'الحد الأقصى 4 أرقام';
+    }
+
+    return null;
   }
 
-  if (letters.length > 3) {
-    return 'Maximum 3 letters';
-  }
+  String? _validateYear(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'هذا الحقل مطلوب';
+    }
 
-  if (numbers.length > 4) {
-    return 'Maximum 4 digits';
-  }
+    final input = value.trim();
 
-  return null;
-}
+    if (!RegExp(r'^\d+$').hasMatch(input)) {
+      return 'السنة يجب أن تحتوي على أرقام فقط';
+    }
 
-String? _validateYear(String? value) {
-  if (value == null || value.trim().isEmpty) {
-    return 'Required';
-  }
-
-  final input = value.trim();
-
-  if (!RegExp(r'^\d+$').hasMatch(input)) {
-    return 'Year must contain numbers only';
-  }
-
-  final year = int.tryParse(input);
-  final currentYear = DateTime.now().year;
+    final year = int.tryParse(input);
+    final currentYear = DateTime.now().year;
     final maxYear = currentYear + 1;
 
+    if (year == null) {
+      return 'السنة غير صحيحة';
+    }
 
-  if (year == null) {
-    return 'Invalid year';
+    if (year < 1900 || year > maxYear) {
+      return 'السنة يجب أن تكون بين 1900 و $maxYear';
+    }
+
+    return null;
   }
 
-  if (year < 1900 || year > maxYear) {
-    return 'Year must be between 1900 and $maxYear';
+  String? _validateChassisNumber(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'هذا الحقل مطلوب';
+    }
+
+    final input = value.trim().toUpperCase();
+
+    if (input.length != 17) {
+      return 'رقم الهيكل يجب أن يكون 17 خانة بالضبط';
+    }
+
+    if (!RegExp(r'^[A-Z0-9]{17}$').hasMatch(input)) {
+      return 'استخدمي حروف إنجليزية وأرقام فقط';
+    }
+
+    return null;
   }
 
-  return null;
-}
-
-String? _validateChassisNumber(String? value) {
-  if (value == null || value.trim().isEmpty) {
-    return 'Required';
+  String? _validateRequired(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'هذا الحقل مطلوب';
+    }
+    return null;
   }
-
-  final input = value.trim().toUpperCase();
-
-  if (input.length != 17) {
-    return 'Chassis number must be exactly 17 characters';
-  }
-
-  // اختياري: السماح فقط بحروف إنجليزية وأرقام
-  if (!RegExp(r'^[A-Z0-9]{17}$').hasMatch(input)) {
-    return 'Use English letters and numbers only';
-  }
-
-  return null;
-}
-
-String? _validateRequired(String? value) {
-  if (value == null || value.trim().isEmpty) {
-    return 'Required';
-  }
-  return null;
-}
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryBlue = Color(0xFF0D4D8B);
+    const Color primaryBlue = Color(0xFF1D7DF2);
+    const Color darkBlue = Color(0xFF0B2A55);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        centerTitle: true,
-        surfaceTintColor: Colors.white,
-        title: const Text(
-          'Add Vehicle',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-            child: ListView(
-       children: [
-  _buildField(
-    label: 'Plate Number',
-    controller: _plateController,
-    validator: _validatePlateNumber,
-
-  ),
-  const SizedBox(height: 14),
-
-  _buildField(
-    label: 'Make',
-    controller: _makeController,
-    validator: _validateRequired,
-  ),
-  const SizedBox(height: 14),
-
-  _buildField(
-    label: 'Model',
-    controller: _modelController,
-    validator: _validateRequired,
-  ),
-  const SizedBox(height: 14),
-
-  _buildField(
-    label: 'Year',
-    controller: _yearController,
-    keyboardType: TextInputType.number,
-    validator: _validateYear,
-  ),
-  const SizedBox(height: 14),
-
-  _buildField(
-    label: 'Color',
-    controller: _colorController,
-    validator: _validateRequired,
-  ),
-  const SizedBox(height: 14),
-
-  _buildField(
-    label: 'Chassis Number',
-    controller: _chassisController,
-    validator: _validateChassisNumber,
-  ),
-  const SizedBox(height: 28),
-
-  SizedBox(
-    height: 44,
-    child: ElevatedButton(
-      onPressed: _isLoading ? null : _addVehicle,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: primaryBlue,
-        foregroundColor: Colors.white,
-        disabledBackgroundColor: primaryBlue.withOpacity(0.7),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        elevation: 0,
-      ),
-      child: _isLoading
-          ? const SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: Colors.white,
-              ),
-            )
-          : const Text(
-              '+ Add Vehicle',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
-              ),
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FBFF),
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: const Color(0xFFF8FBFF),
+          centerTitle: true,
+          surfaceTintColor: const Color(0xFFF8FBFF),
+          title: const Text(
+            'إضافة مركبة',
+            style: TextStyle(
+              color: darkBlue,
+              fontWeight: FontWeight.w800,
+              fontSize: 22,
             ),
-    ),
-  ),
-],
+          ),
+          iconTheme: const IconThemeData(color: darkBlue),
+        ),
+        body: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+              child: ListView(
+                children: [
+                  const Text(
+                    'أدخل بيانات المركبة يدويًا خطوة بخطوة',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF8A97A8),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  _buildField(
+                    label: 'رقم اللوحة',
+                    controller: _plateController,
+                    validator: _validatePlateNumber,
+                    
+                  ),
+                  const SizedBox(height: 16),
+
+                  _buildField(
+                    label: 'ماركة المركبة',
+                    controller: _makeController,
+                    validator: _validateRequired,
+                    
+                  ),
+                  const SizedBox(height: 16),
+
+                  _buildField(
+                    label: 'طراز المركبة',
+                    controller: _modelController,
+                    validator: _validateRequired,
+                    
+                  ),
+                  const SizedBox(height: 16),
+
+                  _buildField(
+                    label: 'سنة الصنع',
+                    controller: _yearController,
+                    keyboardType: TextInputType.number,
+                    validator: _validateYear,
+                    
+                  ),
+                  const SizedBox(height: 16),
+
+                  _buildField(
+                    label: 'لون المركبة',
+                    controller: _colorController,
+                    validator: _validateRequired,
+                    
+                  ),
+                  const SizedBox(height: 16),
+
+                  _buildField(
+                    label: 'رقم الهيكل',
+                    controller: _chassisController,
+                    validator: _validateChassisNumber,
+                    
+                  ),
+                  const SizedBox(height: 30),
+
+                  SizedBox(
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _addVehicle,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryBlue,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: primaryBlue.withOpacity(0.7),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add, size: 24),
+                                SizedBox(width: 8),
+                                Text(
+                                  'إضافة مركبة',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                ],
+              ),
             ),
           ),
         ),
@@ -348,37 +396,38 @@ class _SuccessDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryBlue = Color(0xFF0D4D8B);
+    const Color primaryBlue = Color(0xFF1D7DF2);
 
     return Dialog(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFB9C3CF)),
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: Color(0xFFDDE7F3)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const CircleAvatar(
-              radius: 26,
+              radius: 28,
               backgroundColor: Color(0xFF0B8F2F),
-              child: Icon(Icons.check, color: Colors.white, size: 34),
+              child: Icon(Icons.check, color: Colors.white, size: 36),
             ),
             const SizedBox(height: 18),
             Text(
               message,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 15,
                 color: Colors.black87,
                 height: 1.4,
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 20),
             SizedBox(
-              width: 114,
-              height: 40,
+              width: 120,
+              height: 42,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
@@ -390,8 +439,8 @@ class _SuccessDialog extends StatelessWidget {
                   ),
                 ),
                 child: const Text(
-                  'Ok',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                  'حسنًا',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                 ),
               ),
             ),
