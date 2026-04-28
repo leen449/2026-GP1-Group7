@@ -17,10 +17,10 @@ class _AppBottomNavState extends State<AppBottomNav> {
   static const Color _inactiveGrey = Color(0xFF8A8A8A);
 
   static const List<_NavItemData> _items = [
-    _NavItemData(label: 'home', icon: Icons.home_rounded),
-    _NavItemData(label: 'accident', icon: Icons.directions_car),
-    _NavItemData(label: 'history', icon: Icons.description_outlined),
-    _NavItemData(label: 'claim', icon: Icons.assignment_outlined),
+    _NavItemData(label: 'الرئيسية', icon: Icons.home_rounded),
+    _NavItemData(label: 'حادث', icon: Icons.directions_car),
+    _NavItemData(label: 'السجلات', icon: Icons.description_outlined),
+    _NavItemData(label: 'الاعتراضات', icon: Icons.assignment_outlined),
   ];
 
   final List<Widget> _pages = [
