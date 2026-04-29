@@ -885,7 +885,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
     setState(() {
       _isSubmitting = true;
-      _submitStatus = 'Uploading photos...';
+      _submitStatus = 'جاري رفع الصور...';
     });
 
     try {
@@ -902,7 +902,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
         throw Exception('Photo upload failed — check your internet connection');
       }
 
-      setState(() => _submitStatus = 'Saving case...');
+      setState(() => _submitStatus = 'جاري حفظ الطلب...');
 
       await caseRef.update({
         'ownerId': _userDocId!,
@@ -1100,7 +1100,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                           ),
                                         ),
                                         child: const Text(
-                                         'تعذر تحميل المركبات.',
+                                          'تعذر تحميل المركبات',
                                           style: TextStyle(color: Colors.grey),
                                         ),
                                       );
