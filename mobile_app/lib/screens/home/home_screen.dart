@@ -742,9 +742,9 @@ const SizedBox(height: 18),
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       Image.asset(
-                        'assets/images/car_card.PNG',
-                        width: cardWidth * 0.38,
-                        height: listHeight * 0.22,
+                        'assets/images/allcar_card.PNG',
+                        width: cardWidth * 0.60,
+                        height: listHeight * 0.45,
                         fit: BoxFit.contain,
                       ),
 
