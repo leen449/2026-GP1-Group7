@@ -373,7 +373,7 @@ String _toArabicDigits(String input) {
               width: 74,
               height: 74,
               decoration: BoxDecoration(
-                color: const Color(0xFFF3F8FF),
+color: Colors.transparent,
                 borderRadius: BorderRadius.circular(22),
               ),
               child: Padding(
@@ -417,7 +417,7 @@ String _toArabicDigits(String input) {
               width: 38,
               height: 38,
               decoration: const BoxDecoration(
-                color: _softBlue,
+                color: Colors.transparent,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
