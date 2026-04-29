@@ -981,7 +981,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFFFFFFF),
+        backgroundColor: const Color(0xFFF7FAFF),
         body: Stack(
           children: [
             // ── Main scrollable content ─────────────────────────────
@@ -1012,12 +1012,15 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF5F5F5),
-                              borderRadius: BorderRadius.circular(16),
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: const Color(0xFFE8EEF7),
+                              ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 12,
+                                  color: Colors.black.withOpacity(0.035),
+                                  blurRadius: 14,
                                   offset: const Offset(0, 6),
                                 ),
                               ],
@@ -1211,7 +1214,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                               }),
                                         decoration: InputDecoration(
                                           filled: true,
-                                          fillColor: Colors.white,
+                                          fillColor: Color(0xFFF8FAFC),
                                           contentPadding:
                                               const EdgeInsets.symmetric(
                                                 horizontal: 12,
