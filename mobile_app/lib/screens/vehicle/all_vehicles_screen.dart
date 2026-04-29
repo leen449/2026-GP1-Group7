@@ -370,8 +370,8 @@ String _toArabicDigits(String input) {
           textDirection: TextDirection.rtl,
           children: [
             Container(
-              width: 74,
-              height: 74,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
 color: Colors.transparent,
                 borderRadius: BorderRadius.circular(22),
