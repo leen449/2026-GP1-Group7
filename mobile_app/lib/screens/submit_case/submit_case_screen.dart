@@ -508,7 +508,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                   ),
                   SizedBox(height: screenWidth * 0.04),
                   Text(
-                    'تعذر التحقق من ملف PDF المرفوع كتقرير نجم صحيح.\n\nيرجى رفع تقرير نجم الصحيح.',
+                    'تعذر التحقق من الملف المرفوع كتقرير حادث نجم\n\nيرجى التأكد من رفع التقرير الصحيح',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
@@ -754,7 +754,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       _caseId = caseId;
 
       // 4) Trigger OCR using caseId
-      const backendUrl = 'http://192.168.0.12:8000';
+      const backendUrl = 'http://192.168.0.250:8000';
       final response = await http
           .post(Uri.parse('$backendUrl/ocr/najm/$caseId'))
           .timeout(const Duration(seconds: 60));
