@@ -1,8 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../vehicle/all_vehicles_screen.dart';
-
 
 class AddVehicleScreen extends StatefulWidget {
   const AddVehicleScreen({super.key});
@@ -14,7 +12,7 @@ class AddVehicleScreen extends StatefulWidget {
 class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _plateController = TextEditingController();
+  final TextEditingController _arabicPlateController = TextEditingController();
   final TextEditingController _modelController = TextEditingController();
   final TextEditingController _colorController = TextEditingController();
   final TextEditingController _makeController = TextEditingController();
@@ -25,7 +23,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   @override
   void dispose() {
-    _plateController.dispose();
+    _arabicPlateController.dispose();
     _modelController.dispose();
     _colorController.dispose();
     _makeController.dispose();
@@ -40,7 +38,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لم يتم تسجيل الدخول')),
+        const SnackBar(content: Text('User not logged in')),
       );
       return;
     }
@@ -64,12 +62,15 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       }
 
       await FirebaseFirestore.instance.collection('vehicles').add({
-        'plateNumber': _normalizePlateNumber(_plateController.text),
+        'plateNumber': _normalizeArabicPlateNumber(_arabicPlateController.text),
+        'arabicPlateNumber': _normalizeArabicPlateNumber(
+          _arabicPlateController.text,
+        ),
         'model': _modelController.text.trim(),
         'color': _colorController.text.trim(),
         'make': _makeController.text.trim(),
         'year': _yearController.text.trim(),
-        'chassisNumber': _chassisController.text.trim().toUpperCase(),
+        'chassisNumber': _chassisController.text.trim(),
         'ownerId': ownerId,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -89,31 +90,26 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل إضافة المركبة: $e')),
+        SnackBar(content: Text('Failed to add vehicle: $e')),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  InputDecoration _fieldDecoration({String? hintText}) {
+  InputDecoration _fieldDecoration() {
     return InputDecoration(
-      hintText: hintText,
-      hintStyle: const TextStyle(
-        color: Color(0xFF9AA7B8),
-        fontSize: 13,
-      ),
       filled: true,
       fillColor: Colors.white,
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: Color(0xFFDDE7F3)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF1D7DF2), width: 1.4),
+        borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.4),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -121,7 +117,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.red, width: 1.2),
+        borderSide: const BorderSide(color: Colors.red, width: 1.4),
       ),
     );
   }
@@ -132,28 +128,28 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     TextInputType? keyboardType,
     String? Function(String?)? validator,
     String? hintText,
+    TextDirection textDirection = TextDirection.ltr,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
           label,
-          textAlign: TextAlign.right,
+          textDirection: TextDirection.rtl,
           style: const TextStyle(
-            fontSize: 14,
-            color: Color(0xFF0B2A55),
+            fontSize: 13,
+            color: Color(0xFF071A3D),
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 8),
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: TextFormField(
-            controller: controller,
-            keyboardType: keyboardType,
-            validator: validator,
-            textAlign: TextAlign.left,
-            decoration: _fieldDecoration(hintText: hintText),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          validator: validator,
+          textDirection: textDirection,
+          decoration: _fieldDecoration().copyWith(
+            hintText: hintText,
           ),
         ),
       ],
@@ -169,6 +165,15 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     return '${numbersOnly} ${lettersOnly}'.trim();
   }
 
+  String _normalizeArabicPlateNumber(String input) {
+    final value = input.trim().replaceAll(' ', '');
+
+    final lettersOnly = value.replaceAll(RegExp(r'[^ء-ي]'), '');
+    final numbersOnly = value.replaceAll(RegExp(r'[^0-9٠-٩]'), '');
+
+    return '${numbersOnly} ${lettersOnly}'.trim();
+  }
+
   String? _validatePlateNumber(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'هذا الحقل مطلوب';
@@ -177,14 +182,43 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     final input = value.trim().toUpperCase().replaceAll(' ', '');
 
     if (!RegExp(r'^[A-Z0-9]+$').hasMatch(input)) {
-      return 'استخدم حروف إنجليزية وأرقام فقط';
+      return 'Use English letters and digits only';
     }
 
     final letters = input.replaceAll(RegExp(r'[^A-Z]'), '');
     final numbers = input.replaceAll(RegExp(r'[^0-9]'), '');
 
     if (letters.isEmpty || numbers.isEmpty) {
-      return 'رقم اللوحة يجب أن يحتوي على أرقام وحروف';
+      return 'لازم تحتوي اللوحة على حروف وأرقام';
+    }
+
+    if (letters.length > 3) {
+      return 'الحد الأقصى 3 حروف';
+    }
+
+    if (numbers.length > 4) {
+      return 'الحد الأقصى 4 أرقام';
+    }
+
+    return null;
+  }
+
+  String? _validateArabicPlateNumber(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'هذا الحقل مطلوب';
+    }
+
+    final input = value.trim().replaceAll(' ', '');
+
+    if (!RegExp(r'^[ء-ي0-9٠-٩]+$').hasMatch(input)) {
+      return 'استخدم حروف عربية وأرقام فقط';
+    }
+
+    final letters = input.replaceAll(RegExp(r'[^ء-ي]'), '');
+    final numbers = input.replaceAll(RegExp(r'[^0-9٠-٩]'), '');
+
+    if (letters.isEmpty || numbers.isEmpty) {
+      return 'لازم تحتوي اللوحة على حروف وأرقام';
     }
 
     if (letters.length > 3) {
@@ -236,7 +270,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     }
 
     if (!RegExp(r'^[A-Z0-9]{17}$').hasMatch(input)) {
-      return 'استخدمي حروف إنجليزية وأرقام فقط';
+      return 'استخدم حروف إنجليزية وأرقام فقط';
     }
 
     return null;
@@ -251,27 +285,26 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryBlue = Color(0xFF1D7DF2);
-    const Color darkBlue = Color(0xFF0B2A55);
+    const Color primaryBlue = Color(0xFF2563EB);
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FBFF),
+        backgroundColor: const Color(0xFFF7FAFF),
         appBar: AppBar(
           elevation: 0,
-          backgroundColor: const Color(0xFFF8FBFF),
+          backgroundColor: const Color(0xFFF7FAFF),
           centerTitle: true,
-          surfaceTintColor: const Color(0xFFF8FBFF),
+          surfaceTintColor: const Color(0xFFF7FAFF),
           title: const Text(
             'إضافة مركبة',
             style: TextStyle(
-              color: darkBlue,
-              fontWeight: FontWeight.w800,
+              color: Color(0xFF071A3D),
+              fontWeight: FontWeight.w900,
               fontSize: 22,
             ),
           ),
-          iconTheme: const IconThemeData(color: darkBlue),
+          iconTheme: const IconThemeData(color: Color(0xFF071A3D)),
         ),
         body: SafeArea(
           child: Form(
@@ -280,68 +313,49 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
               child: ListView(
                 children: [
-                  const Text(
-                    'أدخل بيانات المركبة يدويًا خطوة بخطوة',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF8A97A8),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
+                  
                   _buildField(
-                    label: 'رقم اللوحة',
-                    controller: _plateController,
-                    validator: _validatePlateNumber,
-                    
+                    label: 'رقم اللوحة بالعربي',
+                    controller: _arabicPlateController,
+                    validator: _validateArabicPlateNumber,
+                    textDirection: TextDirection.rtl,
                   ),
-                  const SizedBox(height: 16),
-
+                  const SizedBox(height: 14),
                   _buildField(
-                    label: 'ماركة المركبة',
+                    label: 'الشركة',
                     controller: _makeController,
                     validator: _validateRequired,
-                    
                   ),
-                  const SizedBox(height: 16),
-
+                  const SizedBox(height: 14),
                   _buildField(
-                    label: 'طراز المركبة',
+                    label: 'الطراز',
                     controller: _modelController,
                     validator: _validateRequired,
-                    
                   ),
-                  const SizedBox(height: 16),
-
+                  const SizedBox(height: 14),
                   _buildField(
-                    label: 'سنة الصنع',
+                    label: 'السنة',
                     controller: _yearController,
                     keyboardType: TextInputType.number,
                     validator: _validateYear,
-                    
+                    textDirection: TextDirection.ltr,
                   ),
-                  const SizedBox(height: 16),
-
+                  const SizedBox(height: 14),
                   _buildField(
-                    label: 'لون المركبة',
+                    label: 'اللون',
                     controller: _colorController,
                     validator: _validateRequired,
-                    
                   ),
-                  const SizedBox(height: 16),
-
+                  const SizedBox(height: 14),
                   _buildField(
                     label: 'رقم الهيكل',
                     controller: _chassisController,
                     validator: _validateChassisNumber,
-                    
+                    textDirection: TextDirection.ltr,
                   ),
-                  const SizedBox(height: 30),
-
+                  const SizedBox(height: 28),
                   SizedBox(
-                    height: 56,
+                    height: 50,
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _addVehicle,
                       style: ElevatedButton.styleFrom(
@@ -349,36 +363,28 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                         foregroundColor: Colors.white,
                         disabledBackgroundColor: primaryBlue.withOpacity(0.7),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        elevation: 2,
+                        elevation: 0,
                       ),
                       child: _isLoading
                           ? const SizedBox(
-                              width: 24,
-                              height: 24,
+                              width: 22,
+                              height: 22,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
                                 color: Colors.white,
                               ),
                             )
-                          : const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.add, size: 24),
-                                SizedBox(width: 8),
-                                Text(
-                                  'إضافة مركبة',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                              ],
+                          : const Text(
+                              'إضافة المركبة',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
                             ),
                     ),
                   ),
-                  const SizedBox(height: 18),
                 ],
               ),
             ),
@@ -396,7 +402,7 @@ class _SuccessDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryBlue = Color(0xFF1D7DF2);
+    const Color primaryBlue = Color(0xFF2563EB);
 
     return Dialog(
       shape: RoundedRectangleBorder(
@@ -404,30 +410,31 @@ class _SuccessDialog extends StatelessWidget {
         side: const BorderSide(color: Color(0xFFDDE7F3)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const CircleAvatar(
-              radius: 28,
+              radius: 26,
               backgroundColor: Color(0xFF0B8F2F),
-              child: Icon(Icons.check, color: Colors.white, size: 36),
+              child: Icon(Icons.check, color: Colors.white, size: 34),
             ),
             const SizedBox(height: 18),
             Text(
               message,
               textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
               style: const TextStyle(
-                fontSize: 15,
-                color: Colors.black87,
+                fontSize: 14,
+                color: Color(0xFF071A3D),
                 height: 1.4,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 20),
             SizedBox(
-              width: 120,
-              height: 42,
+              width: 114,
+              height: 40,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
@@ -440,7 +447,7 @@ class _SuccessDialog extends StatelessWidget {
                 ),
                 child: const Text(
                   'حسنًا',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                 ),
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:ui';
 
 import '../ocr/scan_screen.dart';
 import 'modify_screen.dart';
@@ -26,6 +27,45 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _userName = '';
   String _userDocId = '';
+Widget _centerInfoBox(String title, String value, {bool ltr = false}) {
+  return Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF7FAFF),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFE8EEF7)),
+    ),
+    child: Row(
+      textDirection: TextDirection.rtl,
+      children: [
+        Text(
+          title,
+          textDirection: TextDirection.rtl,
+          style: const TextStyle(
+            color: Color(0xFF8B97AA),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Directionality(
+            textDirection: ltr ? TextDirection.ltr : TextDirection.rtl,
+            child: Text(
+              value.toString().trim().isEmpty ? '—' : value.toString(),
+              textAlign: ltr ? TextAlign.left : TextAlign.right,
+              style: const TextStyle(
+                color: Color(0xFF071A3D),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   @override
   void initState() {
@@ -446,23 +486,25 @@ class _HomeScreenState extends State<HomeScreen> {
         GestureDetector(
           onTap: _showAddOptions,
           child: Row(
-            children: const [
-              Text(
-                'إضافة مركبة',
-                style: TextStyle(
-                  color: Color(0xFF2563EB),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              SizedBox(width: 8),
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: Color(0xFFEAF2FF),
-                child: Icon(Icons.add, color: Color(0xFF2563EB), size: 22),
-              ),
-            ],
-          ),
+  mainAxisSize: MainAxisSize.min,
+  children: const [
+    Text(
+      'إضافة مركبة',
+      textDirection: TextDirection.rtl,
+      style: TextStyle(
+        color: Color(0xFF2563EB),
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+    SizedBox(width: 10),
+    Icon(
+      Icons.add,
+      color: Color(0xFF2563EB),
+      size: 28,
+    ),
+  ],
+),
         ),
         const Spacer(),
         const Text(
@@ -477,6 +519,137 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
+  void _showVehicleCard(BuildContext context, String id, Map<String, dynamic> v) {
+  showGeneralDialog(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'vehicle_details',
+    barrierColor: Colors.black.withOpacity(0.28),
+    pageBuilder: (_, __, ___) {
+      return BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.88,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ),
+                  Center(
+  child: Text(
+    'تفاصيل المركبة',
+    textDirection: TextDirection.rtl,
+    style: TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w900,
+      color: Color(0xFF071A3D),
+    ),
+  ),
+),
+const SizedBox(height: 12),
+                  Center(
+  child: Container(
+    width: 70,
+    height: 70,
+    decoration: BoxDecoration(
+      color: const Color(0xFFEAF2FF),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: const Icon(
+      Icons.directions_car_rounded,
+      color: Color(0xFF2563EB),
+      size: 36,
+    ),
+  ),
+),
+const SizedBox(height: 14),
+                  Text(
+                    '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim(),
+                    textDirection: TextDirection.rtl,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF071A3D),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _centerInfoBox('الشركة', v['make'] ?? ''),
+_centerInfoBox('الطراز', v['model'] ?? ''),
+_centerInfoBox('السنة', v['year'] ?? ''),
+_centerInfoBox('اللون', v['color'] ?? ''),
+_centerInfoBox('اللوحة', v['arabicPlateNumber'] ?? v['plateNumber'] ?? ''),
+_centerInfoBox('رقم الهيكل', v['chassisNumber'] ?? '', ltr: true),
+const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('تأكيد الحذف', textDirection: TextDirection.rtl),
+                            content: const Text('هل تريد حذف المركبة؟', textDirection: TextDirection.rtl),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('إلغاء'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('حذف', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm == true) {
+                          await FirebaseFirestore.instance
+                              .collection('vehicles')
+                              .doc(id)
+                              .update({
+                            'isArchived': true,
+                            'updatedAt': FieldValue.serverTimestamp(),
+                          });
+
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('تم حذف المركبة')),
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('حذف المركبة'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
 
   Widget _vehiclesHorizontalList() {
   if (_userDocId.isEmpty) return const SizedBox();
@@ -510,10 +683,11 @@ class _HomeScreenState extends State<HomeScreen> {
           textDirection: TextDirection.rtl,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
+            reverse:false,
             itemCount: vehicles.length + 1,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, i) {
-              if (i == 0) {
+              if (i == vehicles.length) {
                 return GestureDetector(
                   onTap: () {
                     Navigator.push(
@@ -546,37 +720,21 @@ class _HomeScreenState extends State<HomeScreen> {
                             height: 1.25,
                           ),
                         ),
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: Color(0xFFEAF2FF),
-                          child: Icon(
-                            Icons.arrow_back_rounded,
-                            color: Color(0xFF2563EB),
-                            size: 22,
-                          ),
-                        ),
+                    
                       ],
                     ),
                   ),
                 );
               }
 
-              final doc = vehicles[i - 1];
+              final doc = vehicles[i];
               final v = doc.data() as Map<String, dynamic>;
               final name = '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim();
               final plate = v['plateNumber'] ?? '';
 
               return GestureDetector(
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => VehicleDetailsScreen(
-                        vehicleId: doc.id,
-                        vehicleData: v,
-                      ),
-                    ),
-                  );
+                  _showVehicleCard(context, doc.id, v);
                 },
                 child: _vehicleCardBase(
                   width: cardWidth,
@@ -584,7 +742,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       Image.asset(
-                        'assets/images/car_card.jpg',
+                        'assets/images/car_card.PNG',
                         width: cardWidth * 0.38,
                         height: listHeight * 0.22,
                         fit: BoxFit.contain,
@@ -625,7 +783,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         radius: 18,
                         backgroundColor: Color(0xFFEAF2FF),
                         child: Icon(
-                          Icons.arrow_back_rounded,
+                          Icons.arrow_forward_rounded,
                           color: Color(0xFF2563EB),
                           size: 22,
                         ),
@@ -663,39 +821,45 @@ Widget _vehicleCardBase({
   );
 }
   Widget _reportHistoryHeader() {
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: _openHistory,
-          child: const Text(
-            'عرض الكل',
-            textDirection: TextDirection.rtl,
-            style: TextStyle(
-              color: _primaryBlue,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        const Icon(
-          Icons.arrow_back_ios_new_rounded,
-          size: 14,
-          color: _primaryBlue,
-        ),
-        const Spacer(),
-        const Text(
-          'التقارير الأخيرة',
+  return Row(
+    children: [
+      GestureDetector(
+        onTap: _openHistory,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           textDirection: TextDirection.rtl,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
-            color: _textDark,
-          ),
+          children: const [
+            Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 14,
+              color: _primaryBlue,
+            ),
+            SizedBox(width: 8),
+            Text(
+              'عرض الكل',
+              textDirection: TextDirection.rtl,
+              style: TextStyle(
+                color: _primaryBlue,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
-      ],
-    );
-  }
+      ),
+      const Spacer(),
+      const Text(
+        'التقارير الأخيرة',
+        textDirection: TextDirection.rtl,
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+          color: _textDark,
+        ),
+      ),
+    ],
+  );
+}
 
   Widget _statusBadge(String status) {
     final s = status.toLowerCase().trim();
