@@ -449,7 +449,7 @@ Widget _centerInfoBox(String title, String value, {bool ltr = false}) {
                   'نسعد بخدمتك',
                   textDirection: TextDirection.rtl,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 22,
                     fontWeight: FontWeight.w500,
                     color: _textMuted,
                   ),
