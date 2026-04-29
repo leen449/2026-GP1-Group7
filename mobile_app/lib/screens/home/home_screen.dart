@@ -449,7 +449,7 @@ Widget _centerInfoBox(String title, String value, {bool ltr = false}) {
                   'نسعد بخدمتك',
                   textDirection: TextDirection.rtl,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 22,
                     fontWeight: FontWeight.w500,
                     color: _textMuted,
                   ),
@@ -742,9 +742,9 @@ const SizedBox(height: 18),
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       Image.asset(
-                        'assets/images/car_card.PNG',
-                        width: cardWidth * 0.38,
-                        height: listHeight * 0.22,
+                        'assets/images/allcar_card.PNG',
+                        width: cardWidth * 0.60,
+                        height: listHeight * 0.45,
                         fit: BoxFit.contain,
                       ),
 
