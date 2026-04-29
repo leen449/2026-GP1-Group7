@@ -436,6 +436,41 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
 
     nearby_items.sort(key=lambda x: x["score"], reverse=True)
 
+    # Priority 1: look for Arabic plate line directly
+    for item in nearby_items:
+        raw = item["raw"]
+        normalized = _normalize_text(raw)
+        
+        digits_match = re.search(r'\d{3,4}', normalized)
+        arabic_letters = re.findall(r'[ابتثجحخدذرزسشصضطظعغفقكلمنهوىي]', raw)
+        
+        if digits_match and len(arabic_letters) >= 3:
+            digits = digits_match.group()
+            letters = ' '.join(arabic_letters[:3])
+            return f"{digits} {letters}"
+
+    # Priority 2: combine from separate items
+    arabic_digits_item = None
+    arabic_letters_items = []
+
+    for item in nearby_items:
+        raw = item["raw"]
+        normalized = _normalize_text(raw)
+        
+        digits_match = re.search(r'\d{3,4}', normalized)
+        arabic_letters = re.findall(r'[ابتثجحخدذرزسشصضطظعغفقكلمنهوىي]', raw)
+        
+        if digits_match and not arabic_letters:
+            arabic_digits_item = digits_match.group()
+        
+        if arabic_letters and not digits_match:
+            arabic_letters_items.extend(arabic_letters)
+
+    if arabic_digits_item and len(arabic_letters_items) >= 3:
+        return f"{arabic_digits_item} {' '.join(arabic_letters_items[:3])}"
+
+    number_candidates = []
+
     number_candidates = []
     letter_candidates = []
     single_letter_items = []
@@ -937,7 +972,7 @@ def _extract_color_by_anchor(ocr_items: list, image_width: int) -> str:
         return ""
 
     candidates.sort(key=lambda x: x[0], reverse=True)
-    return _translate_to_english(candidates[0][1])
+    return candidates[0][1]
 
 
 
@@ -1010,7 +1045,7 @@ def _extract_color(texts: list) -> str:
     for text in texts:
         for color in ARABIC_COLORS:
             if color in text:
-                return _translate_to_english(color)
+                return color
     return ""
 
 
@@ -1025,7 +1060,7 @@ def _extract_brand(texts: list) -> str:
                     return "GMC"
                 if brand == "بي ام دبليو":
                     return "BMW"
-                return _translate_to_english(brand)
+                return brand
     return ""
 
 
@@ -1056,13 +1091,13 @@ def _extract_model(texts: list) -> str:
         if "طراز" in text or "طراذ" in text:
             clean_text = re.sub(r'طرا[زذ]\s*(المركبة)?', '', text).strip()
             if is_valid_candidate(clean_text):
-                return _translate_to_english(clean_text)
+                return clean_text
 
             for j in [i - 1, i + 1, i - 2, i + 2]:
                 if 0 <= j < len(texts):
                     candidate = texts[j].strip()
                     if is_valid_candidate(candidate):
-                        return _translate_to_english(candidate)
+                        return candidate
 
     for text in texts:
         for model in COMMON_ARABIC_MODELS:
@@ -1071,7 +1106,7 @@ def _extract_model(texts: list) -> str:
                     return "GXR"
                 if model == "في اكس ار":
                     return "VXR"
-                return _translate_to_english(model)
+                return model
 
     return ""
 
@@ -1105,26 +1140,10 @@ async def process_ocr(file):
         plate_number       = _extract_plate_by_anchor(ocr_items) or _extract_plate_english(normalized_texts)
         manufacturing_year = _extract_year_from_roi(image, ocr_items) or _extract_year(normalized_texts)
 
-        make_raw = _extract_make_by_anchor(ocr_items)
-        if make_raw:
-            if make_raw in {"GMC", "BMW", "MG"}:
-                make = make_raw
-            else:
-                make = _translate_to_english(make_raw)
-        else:
-            make = _extract_brand(normalized_texts)
-
-        model_raw = _extract_model_by_anchor(ocr_items)
-        if model_raw:
-            if model_raw in {"GXR", "VXR"}:
-                model = model_raw
-            else:
-                model = _translate_to_english(model_raw)
-        else:
-            model = _extract_model(normalized_texts)
-
+        make  = _extract_make_by_anchor(ocr_items) or _extract_brand(normalized_texts)
+        model = _extract_model_by_anchor(ocr_items) or _extract_model(normalized_texts)
         image_width = image.shape[1]
-        color       = _extract_color_by_anchor(ocr_items, image_width) or _extract_color(normalized_texts)
+        color = _extract_color_by_anchor(ocr_items, image_width) or _extract_color(normalized_texts)
 
         structured_data = {
             "plateNumber":       plate_number,
