@@ -73,6 +73,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   String _extractedAccidentDate = '';
   String _extractedDamageLocation = '';
   bool _showExtractedNajmDetails = false;
+  bool _najmReportVerified = false;
   // ── Step 1 validation ─────────────────────────────────────────────
   bool get _canProceedToStep2 =>
       selectedVehicle != null && najmFileName != null && !_isRunningOcr;
@@ -359,6 +360,8 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       _extractedAccidentDate = '';
       _extractedDamageLocation = '';
       _showExtractedNajmDetails = false;
+      _verifiedVehicleId = null;
+      _najmReportVerified = false;
     });
   }
 
@@ -660,11 +663,11 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   }
 
   bool get _hasVerifiedNajmReport {
-    return _caseId != null &&
+    return _najmReportVerified &&
+        _caseId != null &&
         _caseId!.isNotEmpty &&
-        _extractedAccidentNumber.trim().isNotEmpty &&
-        _extractedAccidentDate.trim().isNotEmpty &&
-        _extractedDamageLocation.trim().isNotEmpty;
+        selectedVehicle != null &&
+        _verifiedVehicleId == selectedVehicle!.docId;
   }
 
   Future<void> _goToDamageCapture() async {
@@ -751,7 +754,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       _caseId = caseId;
 
       // 4) Trigger OCR using caseId
-      const backendUrl = 'http://192.168.0.250:8000';
+      const backendUrl = 'http://192.168.0.12:8000';
       final response = await http
           .post(Uri.parse('$backendUrl/ocr/najm/$caseId'))
           .timeout(const Duration(seconds: 60));
@@ -775,9 +778,11 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       if (!mounted) return;
 
       if (result == 'approved') {
-        setState(() => _isRunningOcr = false);
-        _verifiedVehicleId = selectedVehicle!.docId;
-
+        setState(() {
+          _isRunningOcr = false;
+          _najmReportVerified = true;
+          _verifiedVehicleId = selectedVehicle!.docId;
+        });
         await _showOcrSuccessDialog();
         if (!mounted) return;
 
@@ -788,7 +793,10 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
           'ocrError': 'OCR validation failed',
         });
 
-        setState(() => _isRunningOcr = false);
+        setState(() {
+          _isRunningOcr = false;
+          _najmReportVerified = false;
+        });
         _showOcrFailedDialog();
       }
     } catch (e) {
@@ -811,7 +819,10 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       }
 
       if (mounted) {
-        setState(() => _isRunningOcr = false);
+        setState(() {
+          _isRunningOcr = false;
+          _najmReportVerified = false;
+        });
         _showBackendConnectionDialog();
       }
     }
@@ -968,566 +979,512 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   @override
   Widget build(BuildContext context) {
     return Directionality(
-    textDirection: TextDirection.rtl,
-    child: Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF),
-      body: Stack(
-        children: [
-          // ── Main scrollable content ─────────────────────────────
-          SafeArea(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 20),
-                    const Text(
-                      'طلب تقدير',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFFFFFFF),
+        body: Stack(
+          children: [
+            // ── Main scrollable content ─────────────────────────────
+            SafeArea(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 20),
+                      const Text(
+                        'طلب تقدير',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 30),
+                      const SizedBox(height: 30),
 
-                    // ── User info card ──────────────────────────────
+                      // ── User info card ──────────────────────────────
 
-                    // ── Main form card ──────────────────────────────
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 500),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF5F5F5),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // ── User info section inside same card ─────────────────
-                              _loadingUser
-                                  ? const Center(
-                                      child: Padding(
-                                        padding: EdgeInsets.all(12),
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                    )
-                                  : Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'ارسال باسم',
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            color: Colors.grey,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 15),
-                                        ReadOnlyInfoField(
-                                          label: 'الاسم',
-                                          value: _userName,
-                                          icon: Icons.person_outline,
-                                        ),
-                                        const SizedBox(height: 14),
-                                        ReadOnlyInfoField(
-                                          label: 'الهوية/ الاقامة',
-                                          value: _nationalID,
-                                          icon: Icons.badge_outlined,
-                                        ),
-                                        const SizedBox(height: 14),
-                                        ReadOnlyInfoField(
-                                          label: 'رقم الجوال',
-                                          value: _phoneNumber,
-                                          icon: Icons.phone_outlined,
-                                        ),
-                                      ],
-                                    ),
-                              const SizedBox(height: 30),
-                              // ════════════════════════════════════
-                              // STEP 1: Vehicle + PDF
-                              // ════════════════════════════════════
-
-                              // ── Vehicle dropdown ─────────────────
-                              const Text('اختر المركبة'),
-                              const SizedBox(height: 8),
-                              if (_userDocId == null || _userDocId!.isEmpty)
-                                const Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(12),
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                )
-                              else
-                                StreamBuilder<QuerySnapshot>(
-                                  stream: FirebaseFirestore.instance
-                                      .collection('vehicles')
-                                      .where('ownerId', isEqualTo: _userDocId!)
-                                      .where('isArchived', isEqualTo: false)
-                                      .snapshots(),
-                                  builder: (context, snapshot) {
-                                    if (snapshot.connectionState ==
-                                        ConnectionState.waiting) {
-                                      return const Center(
+                      // ── Main form card ──────────────────────────────
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 500),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5F5F5),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // ── User info section inside same card ─────────────────
+                                _loadingUser
+                                    ? const Center(
                                         child: Padding(
                                           padding: EdgeInsets.all(12),
                                           child: CircularProgressIndicator(),
                                         ),
-                                      );
-                                    }
-
-                                    if (snapshot.hasError) {
-                                      return Container(
-                                        padding: const EdgeInsets.all(14),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.grey.shade300,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'تعذر تحميل المركبات',
-                                          style: TextStyle(color: Colors.grey),
-                                        ),
-                                      );
-                                    }
-
-                                    final docs = snapshot.data?.docs ?? [];
-
-                                    final vehicles = docs.map((doc) {
-                                      final data =
-                                          doc.data() as Map<String, dynamic>;
-                                      final make = data['make'] ?? '';
-                                      final model = data['model'] ?? '';
-                                      final plate = data['plateNumber'] ?? '';
-
-                                      return VehicleItem(
-                                        docId: doc.id,
-                                        name: '$make $model'.trim(),
-                                        plate: plate,
-                                      );
-                                    }).toList();
-
-                                    // keep selected vehicle valid if the list changes
-                                    if (selectedVehicle != null &&
-                                        !vehicles.any(
-                                          (v) =>
-                                              v.docId == selectedVehicle!.docId,
-                                        )) {
-                                      WidgetsBinding.instance
-                                          .addPostFrameCallback((_) {
-                                            if (mounted) {
-                                              setState(() {
-                                                selectedVehicle = null;
-                                              });
-                                            }
-                                          });
-                                    }
-
-                                    if (vehicles.isEmpty) {
-                                      return Container(
-                                        padding: const EdgeInsets.all(14),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.grey.shade300,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'لا توجد مركبات، يرجى إضافة مركبة أولاً',
-                                          style: TextStyle(color: Colors.grey),
-                                        ),
-                                      );
-                                    }
-
-                                    final currentSelected =
-                                        selectedVehicle != null &&
-                                            vehicles.any(
-                                              (v) =>
-                                                  v.docId ==
-                                                  selectedVehicle!.docId,
-                                            )
-                                        ? vehicles.firstWhere(
-                                            (v) =>
-                                                v.docId ==
-                                                selectedVehicle!.docId,
-                                          )
-                                        : null;
-
-                                    return DropdownButtonFormField<VehicleItem>(
-                                      value: currentSelected,
-                                      isExpanded: true,
-                                      onChanged:
-                                          (_currentStep > 1 || _isSubmitting)
-                                          ? null
-                                          : (value) => setState(() {
-                                              selectedVehicle = value;
-
-                                              _verifiedVehicleId = null;
-                                              _extractedAccidentNumber = '';
-                                              _extractedAccidentDate = '';
-                                              _extractedDamageLocation = '';
-                                              _showExtractedNajmDetails = false;
-                                            }),
-                                      decoration: InputDecoration(
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 14,
+                                      )
+                                    : Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'ارسال باسم',
+                                            style: TextStyle(
+                                              fontSize: 20,
+                                              color: Colors.grey,
+                                              fontWeight: FontWeight.w500,
                                             ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
                                           ),
-                                          borderSide: const BorderSide(
-                                            color: Color(0xFF2F6FED),
-                                            width: 1.5,
+                                          const SizedBox(height: 15),
+                                          ReadOnlyInfoField(
+                                            label: 'الاسم',
+                                            value: _userName,
+                                            icon: Icons.person_outline,
                                           ),
-                                        ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
+                                          const SizedBox(height: 14),
+                                          ReadOnlyInfoField(
+                                            label: 'الهوية/ الاقامة',
+                                            value: _nationalID,
+                                            icon: Icons.badge_outlined,
                                           ),
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade300,
-                                            width: 1.2,
+                                          const SizedBox(height: 14),
+                                          ReadOnlyInfoField(
+                                            label: 'رقم الجوال',
+                                            value: _phoneNumber,
+                                            icon: Icons.phone_outlined,
                                           ),
-                                        ),
-                                        disabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade300,
-                                            width: 1.2,
-                                          ),
-                                        ),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade300,
-                                          ),
-                                        ),
+                                        ],
                                       ),
-                                      hint: const Text('اختيار'),
-                                      icon: const Icon(
-                                        Icons.keyboard_arrow_down,
-                                      ),
-                                      items: vehicles.map((v) {
-                                        return DropdownMenuItem<VehicleItem>(
-                                          value: v,
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  v.name,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Text(
-                                                v.plate,
-                                                style: const TextStyle(
-                                                  color: Colors.grey,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
+                                const SizedBox(height: 30),
+                                // ════════════════════════════════════
+                                // STEP 1: Vehicle + PDF
+                                // ════════════════════════════════════
+
+                                // ── Vehicle dropdown ─────────────────
+                                const Text('اختر المركبة'),
+                                const SizedBox(height: 8),
+                                if (_userDocId == null || _userDocId!.isEmpty)
+                                  const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  )
+                                else
+                                  StreamBuilder<QuerySnapshot>(
+                                    stream: FirebaseFirestore.instance
+                                        .collection('vehicles')
+                                        .where(
+                                          'ownerId',
+                                          isEqualTo: _userDocId!,
+                                        )
+                                        .where('isArchived', isEqualTo: false)
+                                        .snapshots(),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return const Center(
+                                          child: Padding(
+                                            padding: EdgeInsets.all(12),
+                                            child: CircularProgressIndicator(),
                                           ),
                                         );
-                                      }).toList(),
-                                    );
-                                  },
-                                ),
-                              // ── Najm report ──────────────────────
-                              const SizedBox(height: 40),
-                              const Text('رفع تقرير نجم'),
-                              const SizedBox(height: 8),
-                              if (najmFileName == null) ...[
-                                InkWell(
-                                  onTap: (_currentStep > 1 || _isSubmitting)
-                                      ? null
-                                      : pickNajmPdf,
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: DottedBorder(
-                                    color: const Color(0xFF2F6FED),
-                                    dashPattern: const [6, 4],
-                                    strokeWidth: 1.5,
-                                    borderType: BorderType.RRect,
-                                    radius: const Radius.circular(12),
-                                    child: const SizedBox(
-                                      height: 130,
-                                      width: double.infinity,
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.upload_file,
-                                            size: 36,
-                                            color: Colors.black54,
-                                          ),
-                                          SizedBox(height: 6),
-                                          Text(
-                                            'رفع ملف',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w600,
+                                      }
+
+                                      if (snapshot.hasError) {
+                                        return Container(
+                                          padding: const EdgeInsets.all(14),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.grey.shade300,
                                             ),
                                           ),
-                                          SizedBox(height: 2),
-                                          Text(
-                                            'الصيغة المدعومة: PDF',
+                                          child: const Text(
+                                            'تعذر تحميل المركبات',
                                             style: TextStyle(
                                               color: Colors.grey,
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ] else ...[
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF5F5F5),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.grey.shade200,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF5F5F5),
-                                          borderRadius: BorderRadius.circular(
-                                            10,
+                                        );
+                                      }
+
+                                      final docs = snapshot.data?.docs ?? [];
+
+                                      final vehicles = docs.map((doc) {
+                                        final data =
+                                            doc.data() as Map<String, dynamic>;
+                                        final make = data['make'] ?? '';
+                                        final model = data['model'] ?? '';
+                                        final plate = data['plateNumber'] ?? '';
+
+                                        return VehicleItem(
+                                          docId: doc.id,
+                                          name: '$make $model'.trim(),
+                                          plate: plate,
+                                        );
+                                      }).toList();
+
+                                      // keep selected vehicle valid if the list changes
+                                      if (selectedVehicle != null &&
+                                          !vehicles.any(
+                                            (v) =>
+                                                v.docId ==
+                                                selectedVehicle!.docId,
+                                          )) {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              if (mounted) {
+                                                setState(() {
+                                                  selectedVehicle = null;
+                                                });
+                                              }
+                                            });
+                                      }
+
+                                      if (vehicles.isEmpty) {
+                                        return Container(
+                                          padding: const EdgeInsets.all(14),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.grey.shade300,
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'لا توجد مركبات، يرجى إضافة مركبة أولاً',
+                                            style: TextStyle(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        );
+                                      }
+
+                                      final currentSelected =
+                                          selectedVehicle != null &&
+                                              vehicles.any(
+                                                (v) =>
+                                                    v.docId ==
+                                                    selectedVehicle!.docId,
+                                              )
+                                          ? vehicles.firstWhere(
+                                              (v) =>
+                                                  v.docId ==
+                                                  selectedVehicle!.docId,
+                                            )
+                                          : null;
+
+                                      return DropdownButtonFormField<
+                                        VehicleItem
+                                      >(
+                                        value: currentSelected,
+                                        isExpanded: true,
+                                        onChanged:
+                                            (_currentStep > 1 || _isSubmitting)
+                                            ? null
+                                            : (value) => setState(() {
+                                                selectedVehicle = value;
+
+                                                _verifiedVehicleId = null;
+                                                _extractedAccidentNumber = '';
+                                                _extractedAccidentDate = '';
+                                                _extractedDamageLocation = '';
+                                                _showExtractedNajmDetails =
+                                                    false;
+                                                _najmReportVerified = false;
+                                              }),
+                                        decoration: InputDecoration(
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 14,
+                                              ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFF2F6FED),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: Colors.grey.shade300,
+                                              width: 1.2,
+                                            ),
+                                          ),
+                                          disabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: Colors.grey.shade300,
+                                              width: 1.2,
+                                            ),
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: Colors.grey.shade300,
+                                            ),
                                           ),
                                         ),
-                                        child: const Icon(
-                                          Icons.picture_as_pdf,
-                                          size: 20,
+                                        hint: const Text('اختيار'),
+                                        icon: const Icon(
+                                          Icons.keyboard_arrow_down,
                                         ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
+                                        items: vehicles.map((v) {
+                                          return DropdownMenuItem<VehicleItem>(
+                                            value: v,
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    v.name,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Text(
+                                                  v.plate,
+                                                  style: const TextStyle(
+                                                    color: Colors.grey,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                      );
+                                    },
+                                  ),
+                                // ── Najm report ──────────────────────
+                                const SizedBox(height: 40),
+                                const Text('رفع تقرير نجم'),
+                                const SizedBox(height: 8),
+                                if (najmFileName == null) ...[
+                                  InkWell(
+                                    onTap: (_currentStep > 1 || _isSubmitting)
+                                        ? null
+                                        : pickNajmPdf,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: DottedBorder(
+                                      color: const Color(0xFF2F6FED),
+                                      dashPattern: const [6, 4],
+                                      strokeWidth: 1.5,
+                                      borderType: BorderType.RRect,
+                                      radius: const Radius.circular(12),
+                                      child: const SizedBox(
+                                        height: 130,
+                                        width: double.infinity,
                                         child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
+                                            Icon(
+                                              Icons.upload_file,
+                                              size: 36,
+                                              color: Colors.black54,
+                                            ),
+                                            SizedBox(height: 6),
                                             Text(
-                                              najmFileName!,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
+                                              'رفع ملف',
+                                              style: TextStyle(
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
-                                            const SizedBox(height: 2),
+                                            SizedBox(height: 2),
                                             Text(
-                                              'تم الرفع',
+                                              'الصيغة المدعومة: PDF',
                                               style: TextStyle(
-                                                color: Colors.grey.shade500,
-                                                fontSize: 12,
+                                                color: Colors.grey,
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade100,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          najmFileBytes == null
-                                              ? ''
-                                              : formatBytes(najmFileBytes!),
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF5F5F5),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.grey.shade200,
                                       ),
-                                      const SizedBox(width: 10),
-                                      // Only allow removing PDF on step 1
-                                      if (_currentStep == 1)
-                                        InkWell(
-                                          onTap: _isRunningOcr
-                                              ? null
-                                              : () {
-                                                  setState(() {
-                                                    najmFileName = null;
-                                                    najmFilePath = null;
-                                                    najmFileBytes = null;
-
-                                                    _extractedAccidentNumber =
-                                                        '';
-                                                    _extractedAccidentDate = '';
-                                                    _extractedDamageLocation =
-                                                        '';
-                                                    _showExtractedNajmDetails =
-                                                        false;
-                                                  });
-                                                },
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF5F5F5),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
                                           child: const Icon(
-                                            Icons.close,
+                                            Icons.picture_as_pdf,
                                             size: 20,
                                           ),
                                         ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                              if (_showExtractedNajmDetails) ...[
-                                const SizedBox(height: 20),
-                                const Text(
-                                  'البيانات المستخرجة',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                najmFileName!,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                'تم الرفع',
+                                                style: TextStyle(
+                                                  color: Colors.grey.shade500,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade100,
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            najmFileBytes == null
+                                                ? ''
+                                                : formatBytes(najmFileBytes!),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        // Only allow removing PDF on step 1
+                                        if (_currentStep == 1)
+                                          InkWell(
+                                            onTap: _isRunningOcr
+                                                ? null
+                                                : () {
+                                                    setState(() {
+                                                      najmFileName = null;
+                                                      najmFilePath = null;
+                                                      najmFileBytes = null;
 
-                                NajmInfoRow(
-                                  label: 'رقم الحادث',
-                                  value: _extractedAccidentNumber,
-                                  icon: Icons.confirmation_number_outlined,
-                                ),
-                                const SizedBox(height: 10),
-
-                                NajmInfoRow(
-                                  label: 'تاريخ الحادث',
-                                  value: _extractedAccidentDate,
-                                  icon: Icons.calendar_today_outlined,
-                                ),
-                                const SizedBox(height: 10),
-
-                                NajmInfoRow(
-                                  label: 'موقع الضرر',
-                                  value: _extractedDamageLocation,
-                                  icon: Icons.car_repair_outlined,
-                                ),
-                              ],
-                              // ── Next button (step 1 only) ─────────
-                              if (_currentStep == 1) ...[
-                                const SizedBox(height: 24),
-                                Center(
-                                  child: ElevatedButton(
-                                    onPressed: _canProceedToStep2
-                                        ? _handleNext
-                                        : null,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF0B4A7D),
-                                      foregroundColor: Colors.white,
-                                      disabledBackgroundColor:
-                                          Colors.grey.shade300,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 40,
-                                        vertical: 12,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(30),
-                                      ),
-                                      elevation: 6,
+                                                      _extractedAccidentNumber =
+                                                          '';
+                                                      _extractedAccidentDate =
+                                                          '';
+                                                      _extractedDamageLocation =
+                                                          '';
+                                                      _showExtractedNajmDetails =
+                                                          false;
+                                                    });
+                                                  },
+                                            child: const Icon(
+                                              Icons.close,
+                                              size: 20,
+                                            ),
+                                          ),
+                                      ],
                                     ),
-                                    child: const Text(
-                                      'التالي',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 15,
-                                      ),
+                                  ),
+                                ],
+                                if (_showExtractedNajmDetails) ...[
+                                  const SizedBox(height: 20),
+                                  const Text(
+                                    'البيانات المستخرجة',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey,
                                     ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 12),
 
-                              // ════════════════════════════════════
-                              // STEP 2: Photos + Submit
-                              // ════════════════════════════════════
-                              if (_currentStep == 2) ...[
-                                // ── Take Damage Photos ───────────
-                                const SizedBox(height: 40),
-                                const Text('التقاط صور الأضرار'),
-                                const Text(
-                                  'الحد الأقصى 10 صور',
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                                const SizedBox(height: 12),
+                                  NajmInfoRow(
+                                    label: 'رقم الحادث',
+                                    value: _extractedAccidentNumber,
+                                    icon: Icons.confirmation_number_outlined,
+                                  ),
+                                  const SizedBox(height: 10),
 
-                                if (capturedPhotos.isEmpty)
+                                  NajmInfoRow(
+                                    label: 'تاريخ الحادث',
+                                    value: _extractedAccidentDate,
+                                    icon: Icons.calendar_today_outlined,
+                                  ),
+                                  const SizedBox(height: 10),
+
+                                  NajmInfoRow(
+                                    label: 'موقع الضرر',
+                                    value: _extractedDamageLocation,
+                                    icon: Icons.car_repair_outlined,
+                                  ),
+                                ],
+                                // ── Next button (step 1 only) ─────────
+                                if (_currentStep == 1) ...[
+                                  const SizedBox(height: 24),
                                   Center(
-                                    child: ElevatedButton.icon(
-                                      onPressed: _isSubmitting
-                                          ? null
-                                          : () async {
-                                              final result =
-                                                  await Navigator.push<
-                                                    List<File>
-                                                  >(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (_) =>
-                                                          const GuidedDamageCaptureScreen(),
-                                                    ),
-                                                  );
-
-                                              if (result == null ||
-                                                  result.isEmpty)
-                                                return;
-
-                                              setState(() {
-                                                capturedPhotos = result;
-                                              });
-                                            },
-                                      icon: const Icon(
-                                        Icons.camera_alt,
-                                        color: Colors.white,
-                                      ),
-                                      label: const Text(
-                                        'التقاط الصور',
-                                        style: TextStyle(color: Colors.white),
-                                      ),
+                                    child: ElevatedButton(
+                                      onPressed: _canProceedToStep2
+                                          ? _handleNext
+                                          : null,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(
                                           0xFF0B4A7D,
                                         ),
                                         foregroundColor: Colors.white,
+                                        disabledBackgroundColor:
+                                            Colors.grey.shade300,
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 18,
+                                          horizontal: 40,
                                           vertical: 12,
                                         ),
                                         shape: RoundedRectangleBorder(
@@ -1537,230 +1494,308 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                         ),
                                         elevation: 6,
                                       ),
+                                      child: const Text(
+                                        'التالي',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                        ),
+                                      ),
                                     ),
                                   ),
+                                ],
 
-                                if (capturedPhotos.isNotEmpty)
-                                  SizedBox(
-                                    height: 80,
-                                    child: ListView.separated(
-                                      scrollDirection: Axis.horizontal,
-                                      itemCount: capturedPhotos.length,
-                                      separatorBuilder: (_, __) =>
-                                          const SizedBox(width: 10),
-                                      itemBuilder: (context, index) {
-                                        return Stack(
-                                          clipBehavior: Clip.none,
-                                          children: [
-                                            InkWell(
-                                              onTap: () {
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (_) =>
-                                                        PhotoPreviewScreen(
-                                                          imageFile:
-                                                              capturedPhotos[index],
-                                                        ),
-                                                  ),
-                                                );
-                                              },
-                                              child: ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                                child: Image.file(
-                                                  capturedPhotos[index],
-                                                  width: 70,
-                                                  height: 70,
-                                                  fit: BoxFit.cover,
-                                                ),
-                                              ),
-                                            ),
-                                            Positioned(
-                                              top: 4,
-                                              right: 4,
-                                              child: InkWell(
-                                                onTap: _isSubmitting
-                                                    ? null
-                                                    : () => setState(() {
-                                                        capturedPhotos.removeAt(
-                                                          index,
-                                                        );
-                                                      }),
-                                                child: Container(
-                                                  width: 18,
-                                                  height: 18,
-                                                  decoration:
-                                                      const BoxDecoration(
-                                                        color: Colors.white,
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                  child: const Icon(
-                                                    Icons.close,
-                                                    size: 14,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    ),
+                                // ════════════════════════════════════
+                                // STEP 2: Photos + Submit
+                                // ════════════════════════════════════
+                                if (_currentStep == 2) ...[
+                                  // ── Take Damage Photos ───────────
+                                  const SizedBox(height: 40),
+                                  const Text('التقاط صور الأضرار'),
+                                  const Text(
+                                    'الحد الأقصى 10 صور',
+                                    style: TextStyle(color: Colors.grey),
                                   ),
+                                  const SizedBox(height: 12),
 
-                                // ── Confirmation checkbox ─────────
-                                const SizedBox(height: 24),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Checkbox(
-                                        value: _infoConfirmed,
-                                        activeColor: const Color(0xFF0B4A7D),
-                                        onChanged: _isSubmitting
+                                  if (capturedPhotos.isEmpty)
+                                    Center(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _isSubmitting
                                             ? null
-                                            : (value) {
+                                            : () async {
+                                                final result =
+                                                    await Navigator.push<
+                                                      List<File>
+                                                    >(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            const GuidedDamageCaptureScreen(),
+                                                      ),
+                                                    );
+
+                                                if (result == null ||
+                                                    result.isEmpty)
+                                                  return;
+
                                                 setState(() {
-                                                  _infoConfirmed =
-                                                      value ?? false;
+                                                  capturedPhotos = result;
                                                 });
                                               },
+                                        icon: const Icon(
+                                          Icons.camera_alt,
+                                          color: Colors.white,
+                                        ),
+                                        label: const Text(
+                                          'التقاط الصور',
+                                          style: TextStyle(color: Colors.white),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(
+                                            0xFF0B4A7D,
+                                          ),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 18,
+                                            vertical: 12,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              30,
+                                            ),
+                                          ),
+                                          elevation: 6,
+                                        ),
                                       ),
-                                      const SizedBox(width: 4),
-                                      const Expanded(
-                                        child: Padding(
-                                          padding: EdgeInsets.only(top: 10),
-                                          child: Text(
-                                            'أقر بأن جميع المعلومات المدخلة صحيحة.',
-                                            style: TextStyle(
-                                              fontSize: 13.5,
-                                              color: Colors.black87,
-                                              height: 1.4,
+                                    ),
+
+                                  if (capturedPhotos.isNotEmpty)
+                                    SizedBox(
+                                      height: 80,
+                                      child: ListView.separated(
+                                        scrollDirection: Axis.horizontal,
+                                        itemCount: capturedPhotos.length,
+                                        separatorBuilder: (_, __) =>
+                                            const SizedBox(width: 10),
+                                        itemBuilder: (context, index) {
+                                          return Stack(
+                                            clipBehavior: Clip.none,
+                                            children: [
+                                              InkWell(
+                                                onTap: () {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          PhotoPreviewScreen(
+                                                            imageFile:
+                                                                capturedPhotos[index],
+                                                          ),
+                                                    ),
+                                                  );
+                                                },
+                                                child: ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                  child: Image.file(
+                                                    capturedPhotos[index],
+                                                    width: 70,
+                                                    height: 70,
+                                                    fit: BoxFit.cover,
+                                                  ),
+                                                ),
+                                              ),
+                                              Positioned(
+                                                top: 4,
+                                                right: 4,
+                                                child: InkWell(
+                                                  onTap: _isSubmitting
+                                                      ? null
+                                                      : () => setState(() {
+                                                          capturedPhotos
+                                                              .removeAt(index);
+                                                        }),
+                                                  child: Container(
+                                                    width: 18,
+                                                    height: 18,
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                          color: Colors.white,
+                                                          shape:
+                                                              BoxShape.circle,
+                                                        ),
+                                                    child: const Icon(
+                                                      Icons.close,
+                                                      size: 14,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    ),
+
+                                  // ── Confirmation checkbox ─────────
+                                  const SizedBox(height: 24),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Checkbox(
+                                          value: _infoConfirmed,
+                                          activeColor: const Color(0xFF0B4A7D),
+                                          onChanged: _isSubmitting
+                                              ? null
+                                              : (value) {
+                                                  setState(() {
+                                                    _infoConfirmed =
+                                                        value ?? false;
+                                                  });
+                                                },
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Expanded(
+                                          child: Padding(
+                                            padding: EdgeInsets.only(top: 10),
+                                            child: Text(
+                                              'أقر بأن جميع المعلومات المدخلة صحيحة.',
+                                              style: TextStyle(
+                                                fontSize: 13.5,
+                                                color: Colors.black87,
+                                                height: 1.4,
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 20),
+                                  const SizedBox(height: 20),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
                       ),
+
+                      // ── Submit button (step 2 only) ─────────────────
+                      if (_currentStep == 2 && canSubmit) ...[
+                        const SizedBox(height: 24),
+                        Center(
+                          child: ElevatedButton(
+                            onPressed: _showConfirmDialog,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0B4A7D),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 40,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              elevation: 6,
+                            ),
+                            child: const Text(
+                              'ارسال الطلب',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 120),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // ── OCR loading overlay ────────────────────────────────────
+            if (_isRunningOcr)
+              Container(
+                color: Colors.black.withOpacity(0.5),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 24,
                     ),
-
-                    // ── Submit button (step 2 only) ─────────────────
-                    if (_currentStep == 2 && canSubmit) ...[
-                      const SizedBox(height: 24),
-                      Center(
-                        child: ElevatedButton(
-                          onPressed: _showConfirmDialog,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0B4A7D),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 40,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            elevation: 6,
-                          ),
-                          child: const Text(
-                            'ارسال الطلب',
-                            style: TextStyle(color: Colors.white, fontSize: 15),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: Color(0xFF0B4A7D)),
+                        SizedBox(height: 16),
+                        Text(
+                          'جاري التحقق من تقرير نجم...',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 120),
-                  ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
 
-          // ── OCR loading overlay ────────────────────────────────────
-          if (_isRunningOcr)
-            Container(
-              color: Colors.black.withOpacity(0.5),
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 24,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(color: Color(0xFF0B4A7D)),
-                      SizedBox(height: 16),
-                      Text(
-                        'جاري التحقق من تقرير نجم...',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+            // ── Submission loading overlay ─────────────────────────────
+            if (_isSubmitting)
+              Container(
+                color: Colors.black.withOpacity(0.5),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 24,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(
+                          color: Color(0xFF0B4A7D),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-          // ── Submission loading overlay ─────────────────────────────
-          if (_isSubmitting)
-            Container(
-              color: Colors.black.withOpacity(0.5),
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 24,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircularProgressIndicator(color: Color(0xFF0B4A7D)),
-                      const SizedBox(height: 16),
-                      Text(
-                        _submitStatus,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                        const SizedBox(height: 16),
+                        Text(
+                          _submitStatus,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
