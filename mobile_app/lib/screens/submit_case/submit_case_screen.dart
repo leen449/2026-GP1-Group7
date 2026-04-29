@@ -282,7 +282,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          'Connection Failed',
+                          'فشل الاتصال',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: screenWidth * 0.045,
@@ -294,7 +294,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                   ),
                   SizedBox(height: screenWidth * 0.04),
                   Text(
-                    'We could not connect to the OCR server.Please make sure the connection details are correct and try again.',
+                    'تعذر الاتصال بخادم التحقق. يرجى التأكد من إعدادات الاتصال والمحاولة مرة أخرى.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
@@ -319,7 +319,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                         elevation: 4,
                       ),
                       child: Text(
-                        'Got it',
+                        'حسنًا',
                         style: TextStyle(fontSize: screenWidth * 0.04),
                       ),
                     ),
@@ -397,7 +397,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                       const SizedBox(width: 10),
                       Flexible(
                         child: Text(
-                          'File Too Large',
+                          'حجم الملف كبير',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: screenWidth * 0.045,
@@ -412,7 +412,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
-                        'The selected PDF is $sizeMB MB, which exceeds the 5 MB limit.',
+                        'حجم ملف PDF المحدد هو $sizeMB ميجابايت، ويتجاوز الحد المسموح 5 ميجابايت.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: screenWidth * 0.035,
@@ -422,7 +422,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Please compress the file before uploading.',
+                        'يرجى ضغط الملف قبل رفعه.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: screenWidth * 0.035,
@@ -447,7 +447,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                         elevation: 4,
                       ),
                       child: Text(
-                        'Got it',
+                        'حسنًا',
                         style: TextStyle(fontSize: screenWidth * 0.04),
                       ),
                     ),
@@ -493,7 +493,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          'Verification Failed',
+                          'فشل التحقق',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: screenWidth * 0.045,
@@ -505,7 +505,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                   ),
                   SizedBox(height: screenWidth * 0.04),
                   Text(
-                    'We could not verify the uploaded PDF as a valid Najm accident report.\n\nPlease upload the correct Najm accident report file.',
+                    'تعذر التحقق من ملف PDF المرفوع كتقرير نجم صحيح.\n\nيرجى رفع تقرير نجم الصحيح.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
@@ -530,7 +530,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                         elevation: 4,
                       ),
                       child: Text(
-                        'Got it',
+                        'حسنًا',
                         style: TextStyle(fontSize: screenWidth * 0.04),
                       ),
                     ),
@@ -577,7 +577,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          'Report Verified',
+                          'تم التحقق من التقرير',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: screenWidth * 0.045,
@@ -589,7 +589,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                   ),
                   SizedBox(height: screenWidth * 0.04),
                   Text(
-                    'Your Najm accident report has been successfully verified. You may now proceed to take the damage photos.',
+                    'تم التحقق من تقرير نجم بنجاح. يمكنك الآن المتابعة لالتقاط صور الأضرار.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
@@ -614,7 +614,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                         elevation: 4,
                       ),
                       child: Text(
-                        'Continue',
+                        'متابعة',
                         style: TextStyle(fontSize: screenWidth * 0.04),
                       ),
                     ),
@@ -967,7 +967,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Directionality(
+    textDirection: TextDirection.rtl,
+    child: Scaffold(
       backgroundColor: const Color(0xFFFFFFFF),
       body: Stack(
         children: [
@@ -981,7 +983,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                   children: [
                     const SizedBox(height: 20),
                     const Text(
-                      'Submit A Case',
+                      'طلب تقدير',
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -1025,7 +1027,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         const Text(
-                                          'Submitting as',
+                                          'ارسال باسم',
                                           style: TextStyle(
                                             fontSize: 20,
                                             color: Colors.grey,
@@ -1034,19 +1036,19 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                         ),
                                         const SizedBox(height: 15),
                                         ReadOnlyInfoField(
-                                          label: 'Name',
+                                          label: 'الاسم',
                                           value: _userName,
                                           icon: Icons.person_outline,
                                         ),
                                         const SizedBox(height: 14),
                                         ReadOnlyInfoField(
-                                          label: 'National ID',
+                                          label: 'الهوية/ الاقامة',
                                           value: _nationalID,
                                           icon: Icons.badge_outlined,
                                         ),
                                         const SizedBox(height: 14),
                                         ReadOnlyInfoField(
-                                          label: 'Phone Number',
+                                          label: 'رقم الجوال',
                                           value: _phoneNumber,
                                           icon: Icons.phone_outlined,
                                         ),
@@ -1058,7 +1060,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                               // ════════════════════════════════════
 
                               // ── Vehicle dropdown ─────────────────
-                              const Text('Select vehicle'),
+                              const Text('اختر المركبة'),
                               const SizedBox(height: 8),
                               if (_userDocId == null || _userDocId!.isEmpty)
                                 const Center(
@@ -1098,7 +1100,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                           ),
                                         ),
                                         child: const Text(
-                                          'Failed to load vehicles.',
+                                         'تعذر تحميل المركبات.',
                                           style: TextStyle(color: Colors.grey),
                                         ),
                                       );
@@ -1149,7 +1151,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                           ),
                                         ),
                                         child: const Text(
-                                          'No vehicles found. Please add a vehicle first.',
+                                          'لا توجد مركبات، يرجى إضافة مركبة أولاً',
                                           style: TextStyle(color: Colors.grey),
                                         ),
                                       );
@@ -1228,7 +1230,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                           ),
                                         ),
                                       ),
-                                      hint: const Text('Select'),
+                                      hint: const Text('اختيار'),
                                       icon: const Icon(
                                         Icons.keyboard_arrow_down,
                                       ),
@@ -1261,7 +1263,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                 ),
                               // ── Najm report ──────────────────────
                               const SizedBox(height: 40),
-                              const Text('Upload najm report'),
+                              const Text('رفع تقرير نجم'),
                               const SizedBox(height: 8),
                               if (najmFileName == null) ...[
                                 InkWell(
@@ -1289,14 +1291,14 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                           ),
                                           SizedBox(height: 6),
                                           Text(
-                                            'upload file',
+                                            'رفع ملف',
                                             style: TextStyle(
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                           SizedBox(height: 2),
                                           Text(
-                                            'supported format: PDF',
+                                            'الصيغة المدعومة: PDF',
                                             style: TextStyle(
                                               color: Colors.grey,
                                             ),
@@ -1351,7 +1353,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
-                                              'uploaded',
+                                              'تم الرفع',
                                               style: TextStyle(
                                                 color: Colors.grey.shade500,
                                                 fontSize: 12,
@@ -1411,7 +1413,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                               if (_showExtractedNajmDetails) ...[
                                 const SizedBox(height: 20),
                                 const Text(
-                                  'Extracted Details',
+                                  'البيانات المستخرجة',
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
@@ -1421,21 +1423,21 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                 const SizedBox(height: 12),
 
                                 NajmInfoRow(
-                                  label: 'Accident Number',
+                                  label: 'رقم الحادث',
                                   value: _extractedAccidentNumber,
                                   icon: Icons.confirmation_number_outlined,
                                 ),
                                 const SizedBox(height: 10),
 
                                 NajmInfoRow(
-                                  label: 'Accident Date',
+                                  label: 'تاريخ الحادث',
                                   value: _extractedAccidentDate,
                                   icon: Icons.calendar_today_outlined,
                                 ),
                                 const SizedBox(height: 10),
 
                                 NajmInfoRow(
-                                  label: 'Damage Location',
+                                  label: 'موقع الضرر',
                                   value: _extractedDamageLocation,
                                   icon: Icons.car_repair_outlined,
                                 ),
@@ -1463,7 +1465,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                       elevation: 6,
                                     ),
                                     child: const Text(
-                                      'Next',
+                                      'التالي',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 15,
@@ -1479,9 +1481,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                               if (_currentStep == 2) ...[
                                 // ── Take Damage Photos ───────────
                                 const SizedBox(height: 40),
-                                const Text('Take Damage Photos'),
+                                const Text('التقاط صور الأضرار'),
                                 const Text(
-                                  '10 images maximum',
+                                  'الحد الأقصى 10 صور',
                                   style: TextStyle(color: Colors.grey),
                                 ),
                                 const SizedBox(height: 12),
@@ -1516,7 +1518,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                         color: Colors.white,
                                       ),
                                       label: const Text(
-                                        'Take Photos',
+                                        'التقاط الصور',
                                         style: TextStyle(color: Colors.white),
                                       ),
                                       style: ElevatedButton.styleFrom(
@@ -1641,7 +1643,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                         child: Padding(
                                           padding: EdgeInsets.only(top: 10),
                                           child: Text(
-                                            'I confirm that all submitted information are correct.',
+                                            'أقر بأن جميع المعلومات المدخلة صحيحة.',
                                             style: TextStyle(
                                               fontSize: 13.5,
                                               color: Colors.black87,
@@ -1680,7 +1682,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                             elevation: 6,
                           ),
                           child: const Text(
-                            'Submit Case',
+                            'ارسال الطلب',
                             style: TextStyle(color: Colors.white, fontSize: 15),
                           ),
                         ),
@@ -1714,7 +1716,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                       CircularProgressIndicator(color: Color(0xFF0B4A7D)),
                       SizedBox(height: 16),
                       Text(
-                        'Verifying Najm report...',
+                        'جاري التحقق من تقرير نجم...',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -1758,6 +1760,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
               ),
             ),
         ],
+      ),
       ),
     );
   }
