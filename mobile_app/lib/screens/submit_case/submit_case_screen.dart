@@ -751,7 +751,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       _caseId = caseId;
 
       // 4) Trigger OCR using caseId
-      const backendUrl = 'http://172.20.10.2:8000';
+      const backendUrl = 'http://192.168.0.250:8000';
       final response = await http
           .post(Uri.parse('$backendUrl/ocr/najm/$caseId'))
           .timeout(const Duration(seconds: 60));
