@@ -333,7 +333,7 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                                 borderRadius: BorderRadius.circular(30),
                               ),
                             ),
-                            child: const Text('next'),
+                            child: const Text('التالي'),
                           ),
                         ),
                     ],

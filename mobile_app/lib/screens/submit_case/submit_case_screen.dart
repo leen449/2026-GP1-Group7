@@ -243,8 +243,8 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
         print('🔍 OCR status for case $caseId: $status');
 
-        if (status == 'under_analysis') return 'approved';
-        if (status == 'ocr_failed') return 'ocr_failed';
+        if (status == 'قيد التحليل') return 'approved';
+        if (status == 'فشل الفحص') return 'ocr_failed';
       }
 
       await Future.delayed(pollInterval);
@@ -737,7 +737,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
         'caseID': caseId,
         'ownerId': _userDocId!,
         'vehicleId': selectedVehicle!.docId,
-        'status': 'pending',
+        'status': 'قيد المراجعة',
         'isSubmitted': false,
         'createdAt': FieldValue.serverTimestamp(),
         'ocrError': FieldValue.delete(),
@@ -763,7 +763,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
       if (response.statusCode != 200) {
         await caseRef.update({
-          'status': 'ocr_failed',
+          'status': 'فشل الفحص',
           'ocrError': 'Failed to trigger OCR (HTTP ${response.statusCode})',
         });
 
@@ -789,7 +789,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
         await _goToDamageCapture();
       } else {
         await caseRef.update({
-          'status': 'ocr_failed',
+          'status': 'فشل الفحص',
           'ocrError': 'OCR validation failed',
         });
 
@@ -808,7 +808,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
               .collection('accidentCase')
               .doc(_caseId!)
               .update({
-                'status': 'ocr_failed',
+                'status': 'فشل الفحص',
                 'ocrError': 'Connection to OCR server failed: $e',
               });
         } catch (updateError) {
