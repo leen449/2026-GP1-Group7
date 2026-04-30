@@ -13,7 +13,14 @@ class PhotoPreviewScreen extends StatelessWidget {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
+        automaticallyImplyLeading: false,
+        leading: const SizedBox(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
       ),
       body: Center(
         child: InteractiveViewer(
