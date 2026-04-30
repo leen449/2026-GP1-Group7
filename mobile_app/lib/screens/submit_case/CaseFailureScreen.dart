@@ -30,7 +30,7 @@ class CaseFailedScreen extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 40),
               child: Text(
-                'Something Went Wrong !',
+                'حدث خطأ ما!',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 22,
@@ -47,7 +47,7 @@ class CaseFailedScreen extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 50),
               child: Text(
-                'case failed to submit please try again',
+                'فشل إرسال الطلب. يرجى المحاولة مرة أخرى.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13.5,
@@ -83,7 +83,7 @@ class CaseFailedScreen extends StatelessWidget {
                     elevation: 6,
                   ),
                   child: const Text(
-                    'Submit Again',
+                    'تقديم الطلب مرة أخرى',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ),

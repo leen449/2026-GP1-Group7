@@ -30,7 +30,7 @@ class CaseSubmittedScreen extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 40),
               child: Text(
-                'Case Has Been Submitted\nSuccessfully !',
+                'تم إرسال الطلب بنجاح!',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 22,
@@ -47,7 +47,7 @@ class CaseSubmittedScreen extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 50),
               child: Text(
-                'You will be notified of any updates to your case.',
+                'ستصلك تنبيهات بأي تحديثات على طلبك',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13.5,
@@ -82,7 +82,7 @@ class CaseSubmittedScreen extends StatelessWidget {
                     elevation: 6,
                   ),
                   child: const Text(
-                    'Back Home',
+                    'العودة للرئيسية',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ),
