@@ -754,7 +754,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       _caseId = caseId;
 
       // 4) Trigger OCR using caseId
-      const backendUrl = 'http://192.168.0.13:8000';
+      const backendUrl = 'http://172.20.10.2:8000';
       final response = await http
           .post(Uri.parse('$backendUrl/ocr/najm/$caseId'))
           .timeout(const Duration(seconds: 60));
@@ -1521,58 +1521,6 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                   ),
                                   const SizedBox(height: 12),
 
-                                  if (capturedPhotos.isEmpty)
-                                    Center(
-                                      child: ElevatedButton.icon(
-                                        onPressed: _isSubmitting
-                                            ? null
-                                            : () async {
-                                                final result =
-                                                    await Navigator.push<
-                                                      List<File>
-                                                    >(
-                                                      context,
-                                                      MaterialPageRoute(
-                                                        builder: (_) =>
-                                                            const GuidedDamageCaptureScreen(),
-                                                      ),
-                                                    );
-
-                                                if (result == null ||
-                                                    result.isEmpty)
-                                                  return;
-
-                                                setState(() {
-                                                  capturedPhotos = result;
-                                                });
-                                              },
-                                        icon: const Icon(
-                                          Icons.camera_alt,
-                                          color: Colors.white,
-                                        ),
-                                        label: const Text(
-                                          'التقاط الصور',
-                                          style: TextStyle(color: Colors.white),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(
-                                            0xFF0B4A7D,
-                                          ),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 18,
-                                            vertical: 12,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              30,
-                                            ),
-                                          ),
-                                          elevation: 6,
-                                        ),
-                                      ),
-                                    ),
-
                                   if (capturedPhotos.isNotEmpty)
                                     SizedBox(
                                       height: 80,
@@ -1638,6 +1586,61 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                             ],
                                           );
                                         },
+                                      ),
+                                    ),
+
+                                  if (capturedPhotos.length < 10)
+                                    Center(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _isSubmitting
+                                            ? null
+                                            : () async {
+                                                final result =
+                                                    await Navigator.push<
+                                                      List<File>
+                                                    >(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            const GuidedDamageCaptureScreen(),
+                                                      ),
+                                                    );
+
+                                                if (result == null ||
+                                                    result.isEmpty)
+                                                  return;
+
+                                                setState(() {
+                                                  capturedPhotos = [
+                                                    ...capturedPhotos,
+                                                    ...result,
+                                                  ].take(10).toList();
+                                                });
+                                              },
+                                        icon: const Icon(
+                                          Icons.camera_alt,
+                                          color: Colors.white,
+                                        ),
+                                        label: const Text(
+                                          'التقاط الصور',
+                                          style: TextStyle(color: Colors.white),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(
+                                            0xFF0B4A7D,
+                                          ),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 18,
+                                            vertical: 12,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              30,
+                                            ),
+                                          ),
+                                          elevation: 6,
+                                        ),
                                       ),
                                     ),
 
