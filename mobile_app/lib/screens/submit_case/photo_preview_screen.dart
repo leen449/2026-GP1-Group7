@@ -2,8 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 class PhotoPreviewScreen extends StatelessWidget {
-  final File imageFile;
-  const PhotoPreviewScreen({super.key, required this.imageFile});
+  final File? imageFile;
+  final String? imageUrl;
+
+  const PhotoPreviewScreen({super.key, this.imageFile, this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
@@ -11,9 +13,22 @@ class PhotoPreviewScreen extends StatelessWidget {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
+        automaticallyImplyLeading: false,
+        leading: const SizedBox(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
       ),
-      body: Center(child: InteractiveViewer(child: Image.file(imageFile))),
+      body: Center(
+        child: InteractiveViewer(
+          child: imageUrl != null
+              ? Image.network(imageUrl!)
+              : Image.file(imageFile!),
+        ),
+      ),
     );
   }
 }

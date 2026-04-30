@@ -513,7 +513,7 @@ async def process_najm_ocr(case_id: str) -> dict:
         if pdf_bytes is None:
             error_message = "No PDF found for this case (neither Storage path nor base64)"
             case_ref.update({
-                "status": "ocr_failed",
+                "status": "فشل الفحص",
                 "ocrError": error_message,
             })
             return {
@@ -588,7 +588,7 @@ async def process_najm_ocr(case_id: str) -> dict:
         }
 
         if verified:
-            update_data["status"] = "under_analysis"
+            update_data["status"] = "قيد التحليل"
             update_data["ocrError"] = firestore.DELETE_FIELD
             case_ref.update(update_data)
 
@@ -626,7 +626,7 @@ async def process_najm_ocr(case_id: str) -> dict:
 
         error_message = "Najm verification failed: " + ", ".join(errors)
 
-        update_data["status"] = "ocr_failed"
+        update_data["status"] = "فشل الفحص"
         update_data["ocrError"] = error_message
         case_ref.update(update_data)
 
@@ -655,7 +655,7 @@ async def process_najm_ocr(case_id: str) -> dict:
             db = firestore.client()
             case_ref = db.collection("accidentCase").document(case_id)
             case_ref.update({
-                "status": "ocr_failed",
+                "status": "فشل الفحص",
                 "ocrError": error_message,
             })
         except Exception as update_error:

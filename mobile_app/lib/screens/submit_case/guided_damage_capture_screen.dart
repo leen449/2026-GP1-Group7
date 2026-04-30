@@ -28,8 +28,6 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
     final buttonTextSize = (sw * 0.042).clamp(14.0, 18.0);
 
     return Scaffold(
-      // ✅ extendBody ensures scaffold content goes behind system nav bar
-      // This keeps the blur consistent all the way to the bottom edge
       extendBody: true,
       extendBodyBehindAppBar: true,
       body: Stack(
@@ -75,225 +73,242 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
 
           // ── UI content — SafeArea keeps content above system bars ──
           SafeArea(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: sw * 0.05),
-              child: Column(
-                children: [
-                  const SizedBox(height: 8),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: sw * 0.05),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 8),
 
-                  // Back button
-                  Align(
-                    alignment: Alignment.topLeft,
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.20),
-                          border: Border.all(
-                            color: Colors.black.withOpacity(0.6),
-                            width: 1.2,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back,
-                          color: Colors.black,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
+                      SizedBox(height: available * 0.008),
 
-                  SizedBox(height: available * 0.008),
+                      Expanded(
+                        child: Transform.translate(
+                          offset: Offset(0, -available * 0.04),
+                          child: Column(
+                            children: [
+                              // ── Illustration ────────────────────────
+                              Expanded(
+                                flex: 46,
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final imageWidth =
+                                        (constraints.maxWidth * 1.25).clamp(
+                                          320.0,
+                                          620.0,
+                                        );
+                                    final ovalWidth =
+                                        (constraints.maxWidth * 1.36).clamp(
+                                          260.0,
+                                          500.0,
+                                        );
+                                    final ovalHeight = (ovalWidth * 0.243)
+                                        .clamp(60.0, 120.0);
 
-                  Expanded(
-                    child: Transform.translate(
-                      offset: Offset(0, -available * 0.04),
-                      child: Column(
-                        children: [
-                          // ── Illustration ────────────────────────
-                          Expanded(
-                            flex: 46,
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                final imageWidth = (constraints.maxWidth * 1.25)
-                                    .clamp(320.0, 620.0);
-                                final ovalWidth = (constraints.maxWidth * 1.36)
-                                    .clamp(260.0, 500.0);
-                                final ovalHeight = (ovalWidth * 0.243).clamp(
-                                  60.0,
-                                  120.0,
-                                );
-
-                                return SizedBox(
-                                  width: double.infinity,
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      Positioned(
-                                        bottom: constraints.maxHeight * 0.08,
-                                        child: Container(
-                                          width: ovalWidth,
-                                          height: ovalHeight,
-                                          decoration: const ShapeDecoration(
-                                            shape: OvalBorder(),
-                                            shadows: [
-                                              BoxShadow(
-                                                color: Color.fromARGB(
-                                                  66,
-                                                  26,
-                                                  26,
-                                                  26,
+                                    return SizedBox(
+                                      width: double.infinity,
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          Positioned(
+                                            bottom:
+                                                constraints.maxHeight * 0.08,
+                                            child: Container(
+                                              width: ovalWidth,
+                                              height: ovalHeight,
+                                              decoration: const ShapeDecoration(
+                                                shape: OvalBorder(),
+                                                shadows: [
+                                                  BoxShadow(
+                                                    color: Color.fromARGB(
+                                                      66,
+                                                      26,
+                                                      26,
+                                                      26,
+                                                    ),
+                                                    offset: Offset(0, 10),
+                                                    blurRadius: 10,
+                                                  ),
+                                                ],
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topCenter,
+                                                  end: Alignment.bottomCenter,
+                                                  colors: [
+                                                    Color(0xFFFFFFFF),
+                                                    Color(0xFFC8D8E4),
+                                                    Color(0xFF91B1C9),
+                                                  ],
+                                                  stops: [0.0, 0.67, 1.0],
                                                 ),
-                                                offset: Offset(0, 10),
-                                                blurRadius: 10,
                                               ),
-                                            ],
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                Color(0xFFFFFFFF),
-                                                Color(0xFFC8D8E4),
-                                                Color(0xFF91B1C9),
-                                              ],
-                                              stops: [0.0, 0.67, 1.0],
                                             ),
                                           ),
+                                          Positioned(
+                                            bottom:
+                                                constraints.maxHeight * 0.14,
+                                            child: Image.asset(
+                                              'assets/images/ChatGPT Image Mar 2, 2026, 01_20_39 AM.png',
+                                              width: imageWidth,
+                                              fit: BoxFit.contain,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+
+                              // ── Text ────────────────────────────────
+                              Expanded(
+                                flex: 18,
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    top: available * 0.0001,
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'رصد أضرار المركبة',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          shadows: const [
+                                            Shadow(
+                                              offset: Offset(0, 4),
+                                              blurRadius: 6,
+                                              color: Color.fromARGB(
+                                                66,
+                                                26,
+                                                26,
+                                                26,
+                                              ),
+                                            ),
+                                          ],
+                                          color: Colors.white,
+                                          fontSize: titleSize,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      Positioned(
-                                        bottom: constraints.maxHeight * 0.14,
-                                        child: Image.asset(
-                                          'assets/images/ChatGPT Image Mar 2, 2026, 01_20_39 AM.png',
-                                          width: imageWidth,
-                                          fit: BoxFit.contain,
+                                      SizedBox(height: available * 0.012),
+                                      Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: sw * 0.06,
+                                        ),
+                                        child: Text.rich(
+                                          TextSpan(
+                                            text:
+                                                'وثّق الأضرار بالصور ,احرص على تصوير ',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: subtitleSize,
+                                              height: 1.5,
+                                            ),
+                                            children: [
+                                              TextSpan(
+                                                text: 'صورة واحدة لكل ضرر ',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w900,
+                                                ),
+                                              ),
+                                              const TextSpan(
+                                                text: 'للحصول على تقييم دقيق',
+                                              ),
+                                            ],
+                                          ),
+                                          textAlign: TextAlign.center,
                                         ),
                                       ),
                                     ],
                                   ),
-                                );
-                              },
-                            ),
-                          ),
+                                ),
+                              ),
 
-                          // ── Text ────────────────────────────────
-                          Expanded(
-                            flex: 18,
-                            child: Padding(
-                              padding: EdgeInsets.only(top: available * 0.0001),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'رصد أضرار المركبة',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      shadows: const [
-                                        Shadow(
-                                          offset: Offset(0, 4),
-                                          blurRadius: 6,
-                                          color: Color.fromARGB(66, 26, 26, 26),
-                                        ),
-                                      ],
-                                      color: Colors.white,
-                                      fontSize: titleSize,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  SizedBox(height: available * 0.012),
-                                  Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: sw * 0.06,
-                                    ),
-                                    child: Text.rich(
-                                      TextSpan(
-                                        text:
-                                            'وثّق الأضرار بالصور احرص على تصوير ',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w500,
-                                          fontSize: subtitleSize,
-                                          height: 1.5,
-                                        ),
-                                        children: [
-                                          TextSpan(
-                                            text: 'صورة واحدة لكل ضرر ',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w900,
+                              SizedBox(height: available * 0.001),
+
+                              // ── Button ───────────────────────────────
+                              Expanded(
+                                flex: 10,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: sw * 0.56,
+                                      height: 52,
+                                      child: ElevatedButton(
+                                        onPressed: () async {
+                                          final result = await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const GuidedCameraScreen(),
+                                            ),
+                                          );
+                                          if (result != null &&
+                                              result is List<File>) {
+                                            setState(
+                                              () => capturedPhotos = result,
+                                            );
+                                            if (!mounted) return;
+                                            Navigator.pop(context, result);
+                                          }
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(
+                                            0xFF0B4A7D,
+                                          ),
+                                          foregroundColor: Colors.white,
+                                          elevation: 8,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              30,
                                             ),
                                           ),
-                                          const TextSpan(
-                                            text: 'للحصول على تقييم دقيق',
-                                          ),
-                                        ],
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          SizedBox(height: available * 0.001),
-
-                          // ── Button ───────────────────────────────
-                          Expanded(
-                            flex: 10,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: sw * 0.56,
-                                  height: 52,
-                                  child: ElevatedButton(
-                                    onPressed: () async {
-                                      final result = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              const GuidedCameraScreen(),
                                         ),
-                                      );
-                                      if (result != null &&
-                                          result is List<File>) {
-                                        setState(() => capturedPhotos = result);
-                                        if (!mounted) return;
-                                        Navigator.pop(context, result);
-                                      }
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF0B4A7D),
-                                      foregroundColor: Colors.white,
-                                      elevation: 8,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(30),
+                                        child: Text(
+                                          'التالي',
+                                          style: TextStyle(
+                                            fontSize: buttonTextSize,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                    child: Text(
-                                      'التالي',
-                                      style: TextStyle(
-                                        fontSize: buttonTextSize,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
+                                  ],
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
+                      ),
+
+                      SizedBox(height: available * 0.01),
+                    ],
+                  ),
+                ),
+
+                // Back button — floats over content, always top-right
+                Positioned(
+                  top: 8,
+                  right: sw * 0.05,
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+
+                      child: const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Colors.white,
+                        size: 30,
                       ),
                     ),
                   ),
-
-                  SizedBox(height: available * 0.01),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],

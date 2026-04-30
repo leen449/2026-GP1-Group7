@@ -1,29 +1,176 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'photo_preview_screen.dart';
 
 class CaseDetailsScreen extends StatelessWidget {
   final String caseId;
 
   const CaseDetailsScreen({super.key, required this.caseId});
 
-  static const Color _pageBg = Colors.white;
-  static const Color _cardGrey = Color(0xFFF2F3F5);
-  static const Color _textDark = Color(0xFF1E1E1E);
-  static const Color _textMuted = Color(0xFF6B6B6B);
-  static const Color _blue = Color(0xFF0B4A7D);
+  static const Color _pageBg = Color(0xFFF7FAFF);
+  static const Color _textDark = Color(0xFF071A3D);
+  static const Color _textMuted = Color(0xFF8B97AA);
+  static const Color _primaryBlue = Color(0xFF2563EB);
+  static const Color _navy = Color(0xFF061943);
+
+  // ── Matches HomeScreen's _centerInfoBox ──────────────────────────────────
+  Widget _infoBox(String title, String value, {bool ltr = false}) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: _pageBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8EEF7)),
+      ),
+      child: Row(
+        textDirection: TextDirection.rtl,
+        children: [
+          Text(
+            title,
+            textDirection: TextDirection.rtl,
+            style: const TextStyle(
+              color: _textMuted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Directionality(
+              textDirection: ltr ? TextDirection.ltr : TextDirection.rtl,
+              child: Text(
+                value.trim().isEmpty ? '—' : value,
+                textAlign: ltr ? TextAlign.left : TextAlign.right,
+                style: const TextStyle(
+                  color: _textDark,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Section card matching HomeScreen's card style ─────────────────────────
+  Widget _sectionCard({required String title, required List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8EEF7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.035),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            title,
+            textDirection: TextDirection.rtl,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: _textDark,
+            ),
+          ),
+          const SizedBox(height: 14),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  // ── Status badge — same logic as HomeScreen ───────────────────────────────
+  Widget _statusBadge(String status) {
+    final s = status.toLowerCase().trim();
+    String label;
+    Color bg;
+    Color fg;
+    IconData icon;
+
+    if (s == 'approved' || s == 'completed') {
+      label = 'مكتمل';
+      bg = const Color(0xFFE7F8EF);
+      fg = const Color(0xFF159B55);
+      icon = Icons.check_circle_outline_rounded;
+    } else if (s == 'pending') {
+      label = 'قيد المراجعة';
+      bg = const Color(0xFFEAF1FF);
+      fg = const Color(0xFF2E63D9);
+      icon = Icons.hourglass_empty_rounded;
+    } else if (s == 'ocr_failed') {
+      label = 'فشل الفحص';
+      bg = const Color(0xFFFFEEF0);
+      fg = const Color(0xFFE33B4E);
+      icon = Icons.warning_amber_rounded;
+    } else {
+      label = 'قيد التحليل';
+      bg = const Color(0xFFFFF1E6);
+      fg = const Color(0xFFE27A2E);
+      icon = Icons.access_time_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: fg),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            textDirection: TextDirection.rtl,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: _pageBg,
       appBar: AppBar(
         backgroundColor: _pageBg,
         elevation: 0,
-        iconTheme: const IconThemeData(color: _textDark),
+        automaticallyImplyLeading: false, // remove the default left arrow
+        leading: const SizedBox(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.arrow_forward_rounded, color: _textDark),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
         title: const Text(
-          'Case Details',
-          style: TextStyle(color: _textDark, fontWeight: FontWeight.w700),
+          'تفاصيل الطلب',
+          style: TextStyle(
+            color: _textDark,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+          ),
         ),
+        centerTitle: true,
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
@@ -36,7 +183,16 @@ class CaseDetailsScreen extends StatelessWidget {
           }
 
           if (!caseSnap.hasData || !caseSnap.data!.exists) {
-            return const Center(child: Text('Case not found.'));
+            return const Center(
+              child: Text(
+                'لم يتم العثور على الطلب',
+                textDirection: TextDirection.rtl,
+                style: TextStyle(
+                  color: _textMuted,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
           }
 
           final caseData = caseSnap.data!.data() as Map<String, dynamic>;
@@ -44,30 +200,28 @@ class CaseDetailsScreen extends StatelessWidget {
           final ownerId = caseData['ownerId'] ?? '';
           final najmReport =
               (caseData['najimReport'] as Map<String, dynamic>?) ?? {};
+          final status = caseData['status'] ?? '';
 
           final createdAt = caseData['createdAt'] is Timestamp
               ? (caseData['createdAt'] as Timestamp).toDate()
               : null;
-
           final createdAtText = createdAt == null
               ? '-'
               : '${createdAt.day}/${createdAt.month}/${createdAt.year}';
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.fromLTRB(18, 14, 18, bottomPad + 24),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                // ── Request summary ──────────────────────────────────────
                 _sectionCard(
-                  title: 'Case Summary',
-                  children: [
-                    _detailRow('Case ID', caseId),
-                    _detailRow('Status', caseData['status'] ?? '-'),
-                    _detailRow('Created At', createdAtText),
-                  ],
+                  title: 'ملخص الطلب',
+                  children: [_infoBox('رقم الطلب', caseId, ltr: true)],
                 ),
                 const SizedBox(height: 16),
 
+                // ── Personal data ────────────────────────────────────────
                 FutureBuilder<DocumentSnapshot>(
                   future: FirebaseFirestore.instance
                       .collection('users')
@@ -79,45 +233,51 @@ class CaseDetailsScreen extends StatelessWidget {
                         : <String, dynamic>{};
 
                     return _sectionCard(
-                      title: 'User Information',
+                      title: 'البيانات الشخصية',
                       children: [
-                        _detailRow('Name', userData['name'] ?? '-'),
-                        _detailRow(
-                          'National ID',
+                        _infoBox('الاسم', userData['name'] ?? '-'),
+                        _infoBox(
+                          'رقم الهوية',
                           userData['nationalID'] ?? '-',
+                          ltr: true,
                         ),
-                        _detailRow('Phone', userData['phoneNumber'] ?? '-'),
+                        _infoBox(
+                          'رقم الجوال',
+                          userData['phoneNumber'] ?? '-',
+                          ltr: true,
+                        ),
                       ],
                     );
                   },
                 ),
                 const SizedBox(height: 16),
 
+                // ── Vehicle info ─────────────────────────────────────────
                 FutureBuilder<DocumentSnapshot>(
                   future: FirebaseFirestore.instance
                       .collection('vehicles')
                       .doc(vehicleId)
                       .get(),
                   builder: (context, vehicleSnap) {
-                    final vehicleData =
-                        vehicleSnap.hasData && vehicleSnap.data!.exists
+                    final v = vehicleSnap.hasData && vehicleSnap.data!.exists
                         ? vehicleSnap.data!.data() as Map<String, dynamic>
                         : <String, dynamic>{};
 
                     return _sectionCard(
-                      title: 'Vehicle Information',
+                      title: 'معلومات المركبة',
                       children: [
-                        _detailRow('Make', vehicleData['make'] ?? '-'),
-                        _detailRow('Model', vehicleData['model'] ?? '-'),
-                        _detailRow(
-                          'Plate Number',
-                          vehicleData['plateNumber'] ?? '-',
+                        _infoBox('ماركة المركبة', v['make'] ?? '-'),
+                        _infoBox('طراز المركبة', v['model'] ?? '-'),
+                        _infoBox('السنة', v['year']?.toString() ?? '-'),
+                        _infoBox('اللون', v['color'] ?? '-'),
+                        _infoBox(
+                          'رقم اللوحة',
+                          v['arabicPlateNumber'] ?? v['plateNumber'] ?? '-',
                         ),
-                        _detailRow('Year', vehicleData['year'] ?? '-'),
-                        _detailRow('Color', vehicleData['color'] ?? '-'),
-                        _detailRow(
-                          'Chassis Number',
-                          vehicleData['chassisNumber'] ?? '-',
+                        _infoBox(
+                          'رقم الهيكل',
+                          v['chassisNumber'] ?? '-',
+                          ltr: true,
                         ),
                       ],
                     );
@@ -125,26 +285,23 @@ class CaseDetailsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
+                // ── Najm report ──────────────────────────────────────────
                 _sectionCard(
-                  title: 'Najm Report',
+                  title: 'تقرير نجم',
                   children: [
-                    _detailRow(
-                      'Accident Number',
-                      najmReport['accidentNumber'] ?? '-',
+                    _infoBox(
+                      'رقم الحادث',
+                      najmReport['accidentNumber']?.toString() ?? '-',
+                      ltr: true,
                     ),
-                    _detailRow(
-                      'Accident Date',
-                      najmReport['accidentDate'] ?? '-',
-                    ),
-                    _detailRow(
-                      'Damage Location',
-                      najmReport['damageLocation'] ?? '-',
-                    ),
+                    _infoBox('تاريخ الحادث', najmReport['accidentDate'] ?? '-'),
+                    _infoBox('موقع الضرر', najmReport['damageLocation'] ?? '-'),
                   ],
                 ),
                 const SizedBox(height: 16),
 
-                _imagesSection(),
+                // ── Damage images ────────────────────────────────────────
+                _imagesSection(context),
               ],
             ),
           );
@@ -153,71 +310,7 @@ class CaseDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _sectionCard({required String title, required List<Widget> children}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _cardGrey,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: _textDark,
-            ),
-          ),
-          const SizedBox(height: 14),
-          ...children,
-        ],
-      ),
-    );
-  }
-
-  Widget _detailRow(String label, dynamic value) {
-    final displayValue = value == null || value.toString().trim().isEmpty
-        ? '-'
-        : value.toString();
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 125,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                color: _textMuted,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              displayValue,
-              style: const TextStyle(
-                fontSize: 13.5,
-                color: _textDark,
-                fontWeight: FontWeight.w700,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _imagesSection() {
+  Widget _imagesSection(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('accidentCase')
@@ -228,7 +321,7 @@ class CaseDetailsScreen extends StatelessWidget {
       builder: (context, imageSnap) {
         if (imageSnap.connectionState == ConnectionState.waiting) {
           return _sectionCard(
-            title: 'Damage Images',
+            title: 'صور الأضرار',
             children: const [Center(child: CircularProgressIndicator())],
           );
         }
@@ -237,13 +330,20 @@ class CaseDetailsScreen extends StatelessWidget {
 
         if (images.isEmpty) {
           return _sectionCard(
-            title: 'Damage Images',
-            children: const [
-              Text(
-                'No images uploaded.',
-                style: TextStyle(
-                  color: _textMuted,
-                  fontWeight: FontWeight.w500,
+            title: 'صور الأضرار',
+            children: [
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'لا توجد صور مرفوعة',
+                    textDirection: TextDirection.rtl,
+                    style: const TextStyle(
+                      color: _textMuted,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -251,7 +351,7 @@ class CaseDetailsScreen extends StatelessWidget {
         }
 
         return _sectionCard(
-          title: 'Damage Images',
+          title: 'صور الأضرار',
           children: [
             SizedBox(
               height: 92,
@@ -263,20 +363,31 @@ class CaseDetailsScreen extends StatelessWidget {
                   final data = images[index].data() as Map<String, dynamic>;
                   final url = data['downloadUrl'] ?? '';
 
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      url,
-                      width: 90,
-                      height: 90,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                  return GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PhotoPreviewScreen(imageUrl: url),
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        url,
                         width: 90,
                         height: 90,
-                        color: Colors.white,
-                        child: const Icon(
-                          Icons.broken_image_outlined,
-                          color: _blue,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 90,
+                          height: 90,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEAF2FF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.broken_image_outlined,
+                            color: _navy,
+                          ),
                         ),
                       ),
                     ),
