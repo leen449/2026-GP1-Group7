@@ -52,17 +52,19 @@ class _ModifyScreenState extends State<ModifyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _pageBg,
+    return Directionality(
+    textDirection: TextDirection.rtl,
+    child: Scaffold(
+      backgroundColor:  const Color.fromRGBO(247, 250, 255, 1),
       appBar: AppBar(
-        backgroundColor: _pageBg,
+        backgroundColor:  const Color.fromARGB(255, 247, 250, 255),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _textDark),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Personal Information',
+          'المعلومات الشخصية',
           style: TextStyle(
             color: _textDark,
             fontSize: 18,
@@ -126,22 +128,22 @@ class _ModifyScreenState extends State<ModifyScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // الاسم
-                    _fieldLabel('Full Name'),
+                    _fieldLabel('الاسم الكامل'),
                     _readOnlyField(_name),
                     const SizedBox(height: 18),
 
                     // الهوية
-                    _fieldLabel('National / Residence ID'),
+                    _fieldLabel('رقم الهوية / الإقامة'),
                     _readOnlyField(_nationalId),
                     const SizedBox(height: 18),
 
                     // تاريخ الميلاد
-                    _fieldLabel('Date of Birth'),
+                    _fieldLabel('تاريخ الميلاد'),
                     _readOnlyField(_dateOfBirth),
                     const SizedBox(height: 18),
 
                     // رقم الجوال
-                    _fieldLabel('Phone Number'),
+                    _fieldLabel('رقم الجوال'),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
@@ -168,7 +170,7 @@ class _ModifyScreenState extends State<ModifyScreen> {
                         ).then((_) => _loadUserData());
                       },
                       child: const Text(
-                        'Change Phone Number',
+                        'تغيير رقم الجوال',
                         style: TextStyle(
                           color: Color(0xFF0B3B66),
                           fontSize: 13,
@@ -183,6 +185,7 @@ class _ModifyScreenState extends State<ModifyScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -222,13 +225,13 @@ class _ModifyScreenState extends State<ModifyScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.lock_outline, size: 16, color: Colors.grey.shade400),
+            Icon(Icons.lock_outline, size: 16, color:Color(0xFF0B4A7D)),
           ],
         ),
       ),
       const SizedBox(height: 4),
       Text(
-        "Can't change",
+        "لا يمكن التعديل",
         style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
       ),
     ],
