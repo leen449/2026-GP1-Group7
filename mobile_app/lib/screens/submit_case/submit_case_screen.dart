@@ -754,7 +754,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       _caseId = caseId;
 
       // 4) Trigger OCR using caseId
-      const backendUrl = 'http://192.168.0.250:8000';
+      const backendUrl = 'http://192.168.0.13:8000';
       final response = await http
           .post(Uri.parse('$backendUrl/ocr/najm/$caseId'))
           .timeout(const Duration(seconds: 60));
@@ -1341,7 +1341,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                       vertical: 12,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFF5F5F5),
+                                      color: const Color(0xFFF8FAFC),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: Colors.grey.shade200,

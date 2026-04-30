@@ -31,7 +31,7 @@ class QualityResult {
   factory QualityResult.initial() => const QualityResult(
     brightnessOk: false,
     sharpnessOk: false,
-    guidance: 'Point camera at the damage',
+    guidance: 'قم بتوجيه الكاميرا نحو الضرر',
     brightnessValue: 0,
     sharpnessValue: 0,
     overexposedPercentage: 0,
@@ -241,15 +241,15 @@ class QualityController {
   ) {
     if (!brightnessOk) {
       if (brightness < _Thresholds.minBrightness) {
-        return 'Too dark — move to better lighting';
+        return 'معتم جدا — انتقل إلى مكان أكثر اضاءة';
       } else if (overexposedPct > _Thresholds.maxOverexposedPixelPercentage) {
-        return 'Too bright — reduce direct light or adjust angle';
+        return 'الإضاءة شديدة — قلل الضوء المباشر أو غيّر زاوية الإضاءة';
       } else {
-        return 'Too bright — avoid direct light';
+        return 'شديد السطوع — تجنب الضوء المباشر';
       }
     }
-    if (!sharpnessOk) return 'Hold still — image is blurry';
-    return 'Good — tap to capture';
+    if (!sharpnessOk) return 'لا تتحرّك — الصورة غير واضحة';
+    return 'جيد — اضغط لالتقاط الصورة';
   }
 
   void dispose() => _resultController.close();

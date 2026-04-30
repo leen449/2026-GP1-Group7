@@ -184,12 +184,12 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                           Expanded(
                             flex: 18,
                             child: Padding(
-                              padding: EdgeInsets.only(top: available * 0.001),
+                              padding: EdgeInsets.only(top: available * 0.0001),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    'Guided Damage Capture',
+                                    'رصد أضرار المركبة',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       shadows: const [
@@ -212,7 +212,7 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                                     child: Text.rich(
                                       TextSpan(
                                         text:
-                                            'Capture photos of the damage. Make sure to take ',
+                                            'وثّق الأضرار بالصور. احرص على تصوير ',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w500,
@@ -221,13 +221,13 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                                         ),
                                         children: [
                                           TextSpan(
-                                            text: 'one image per damage',
+                                            text: 'صورة واحدة لكل ضرر ',
                                             style: TextStyle(
                                               fontWeight: FontWeight.w900,
                                             ),
                                           ),
                                           const TextSpan(
-                                            text: ' for accurate assessment.',
+                                            text: 'للحصول على تقييم دقيق.',
                                           ),
                                         ],
                                       ),
@@ -239,7 +239,7 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                             ),
                           ),
 
-                          SizedBox(height: available * 0.01),
+                          SizedBox(height: available * 0.001),
 
                           // ── Button ───────────────────────────────
                           Expanded(
@@ -275,7 +275,7 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                                       ),
                                     ),
                                     child: Text(
-                                      'next',
+                                      'التالي',
                                       style: TextStyle(
                                         fontSize: buttonTextSize,
                                         fontWeight: FontWeight.w600,
@@ -291,7 +291,7 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                     ),
                   ),
 
-                  SizedBox(height: available * 0.001),
+                  SizedBox(height: available * 0.01),
                 ],
               ),
             ),
