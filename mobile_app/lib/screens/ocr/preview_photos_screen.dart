@@ -11,7 +11,7 @@ class PreviewPhotoScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor:  const Color(0xFFF7FAFF),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
