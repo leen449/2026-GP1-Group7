@@ -53,139 +53,147 @@ class _ModifyScreenState extends State<ModifyScreen> {
   @override
   Widget build(BuildContext context) {
     return Directionality(
-    textDirection: TextDirection.rtl,
-    child: Scaffold(
-      backgroundColor:  const Color.fromRGBO(247, 250, 255, 1),
-      appBar: AppBar(
-        backgroundColor:  const Color.fromARGB(255, 247, 250, 255),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _textDark),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'المعلومات الشخصية',
-          style: TextStyle(
-            color: _textDark,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color.fromRGBO(247, 250, 255, 1),
+        appBar: AppBar(
+          backgroundColor: const Color.fromARGB(255, 247, 250, 255),
+          elevation: 0,
+          automaticallyImplyLeading: false,
+
+          actions: [
+            Transform.rotate(
+              angle: 3.1416, // يقلب السهم 180 درجة
+              child: const BackButton(color: _textDark),
+            ),
+          ],
+          title: const Text(
+            'المعلومات الشخصية',
+            style: TextStyle(
+              color: _textDark,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
           ),
+          centerTitle: true,
         ),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // صورة البروفايل
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.grey.shade200,
-                      ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          'assets/icons/profile.png',
-                          fit: BoxFit.cover,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // صورة البروفايل
+                Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 90,
+                        height: 90,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.grey.shade200,
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _name,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: _textDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: _cardGrey,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // الاسم
-                    _fieldLabel('الاسم الكامل'),
-                    _readOnlyField(_name),
-                    const SizedBox(height: 18),
-
-                    // الهوية
-                    _fieldLabel('رقم الهوية / الإقامة'),
-                    _readOnlyField(_nationalId),
-                    const SizedBox(height: 18),
-
-                    // تاريخ الميلاد
-                    _fieldLabel('تاريخ الميلاد'),
-                    _readOnlyField(_dateOfBirth),
-                    const SizedBox(height: 18),
-
-                    // رقم الجوال
-                    _fieldLabel('رقم الجوال'),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '+966 $_phone',
-                        style: const TextStyle(
-                            fontSize: 14, color: Color(0xFF1E1E1E)),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const ChangePhoneScreen(returnToHome: true),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/icons/profile.png',
+                            fit: BoxFit.cover,
                           ),
-                        ).then((_) => _loadUserData());
-                      },
-                      child: const Text(
-                        'تغيير رقم الجوال',
-                        style: TextStyle(
-                          color: Color(0xFF0B3B66),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.underline,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        _name,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: _textDark,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 28),
+
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: _cardGrey,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // الاسم
+                      _fieldLabel('الاسم الكامل'),
+                      _readOnlyField(_name),
+                      const SizedBox(height: 18),
+
+                      // الهوية
+                      _fieldLabel('رقم الهوية / الإقامة'),
+                      _readOnlyField(_nationalId),
+                      const SizedBox(height: 18),
+
+                      // تاريخ الميلاد
+                      _fieldLabel('تاريخ الميلاد'),
+                      _readOnlyField(_dateOfBirth),
+                      const SizedBox(height: 18),
+
+                      // رقم الجوال
+                      _fieldLabel('رقم الجوال'),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '+966 $_phone',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF1E1E1E),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const ChangePhoneScreen(returnToHome: true),
+                            ),
+                          ).then((_) => _loadUserData());
+                        },
+                        child: const Text(
+                          'تغيير رقم الجوال',
+                          style: TextStyle(
+                            color: Color(0xFF0B3B66),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -205,36 +213,39 @@ class _ModifyScreenState extends State<ModifyScreen> {
   }
 
   Widget _readOnlyField(String value) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(
-                value.isEmpty ? '—' : value,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF1E1E1E)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  value.isEmpty ? '—' : value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF1E1E1E),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Icon(Icons.lock_outline, size: 16, color:Color(0xFF0B4A7D)),
-          ],
+              const SizedBox(width: 8),
+              Icon(Icons.lock_outline, size: 16, color: Color(0xFF0B4A7D)),
+            ],
+          ),
         ),
-      ),
-      const SizedBox(height: 4),
-      Text(
-        "لا يمكن التعديل",
-        style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
-      ),
-    ],
-  );
-}
+        const SizedBox(height: 4),
+        Text(
+          "لا يمكن التعديل",
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+        ),
+      ],
+    );
+  }
 }
