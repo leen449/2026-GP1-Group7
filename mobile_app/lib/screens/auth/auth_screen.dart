@@ -15,10 +15,7 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   bool isLogin = true;
 
-  // Controllers (Login)
   final TextEditingController _loginPhoneController = TextEditingController();
-
-  // Controllers (Sign up)
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _nationalIdController = TextEditingController();
@@ -27,7 +24,6 @@ class _AuthScreenState extends State<AuthScreen> {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Error messages
   String? _firstNameError;
   String? _lastNameError;
   String? _nationalIdError;
@@ -44,7 +40,14 @@ class _AuthScreenState extends State<AuthScreen> {
     super.dispose();
   }
 
-  // ── Validation ──────────────────────────────────────────────
+  String _convertToEnglishNumbers(String val) {
+    return val
+        .replaceAll('٠', '0').replaceAll('١', '1')
+        .replaceAll('٢', '2').replaceAll('٣', '3')
+        .replaceAll('٤', '4').replaceAll('٥', '5')
+        .replaceAll('٦', '6').replaceAll('٧', '7')
+        .replaceAll('٨', '8').replaceAll('٩', '9');
+  }
 
   String? _validateFirstName(String val) {
     if (val.trim().isEmpty) return 'يرجى إدخال الاسم الأول';
@@ -85,6 +88,9 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   bool _validateSignup() {
+    _nationalIdController.text = _convertToEnglishNumbers(_nationalIdController.text);
+    _signupPhoneController.text = _convertToEnglishNumbers(_signupPhoneController.text);
+
     final firstErr = _validateFirstName(_firstNameController.text);
     final lastErr = _validateLastName(_lastNameController.text);
     final idErr = _validateNationalId(_nationalIdController.text);
@@ -103,12 +109,11 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   bool _validateLogin() {
+    _loginPhoneController.text = _convertToEnglishNumbers(_loginPhoneController.text);
     final phoneErr = _validatePhone(_loginPhoneController.text);
     setState(() => _phoneError = phoneErr);
     return phoneErr == null;
   }
-
-  // ── Date Picker ──────────────────────────────────────────────
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
@@ -121,7 +126,7 @@ class _AuthScreenState extends State<AuthScreen> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF0B3B66),
+              primary: Color(0xFF2563EB),
             ),
           ),
           child: child!,
@@ -135,8 +140,6 @@ class _AuthScreenState extends State<AuthScreen> {
       });
     }
   }
-
-  // ── Firebase: إرسال OTP ──────────────────────────────────────
 
   Future<void> _sendOTP({required bool isSignUp}) async {
     final phone = isSignUp
@@ -225,8 +228,6 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  // ── حفظ بيانات المستخدم في Firestore ────────────────────────
-
   Future<void> _saveUserToFirestore(String phone) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -245,24 +246,22 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
-  // ── UI Helpers ───────────────────────────────────────────────
-
   TextStyle _textStyle({double fontSize = 14, Color color = Colors.black}) {
     return TextStyle(fontSize: fontSize, color: color);
   }
 
   Widget _label(String text) {
-     return Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Align(
-      alignment: Alignment.centerRight, // 
-      child: Text(
-        text,
-        textAlign: TextAlign.right, 
-        style: _textStyle(fontSize: 14, color: Colors.black87),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Text(
+          text,
+          textAlign: TextAlign.right,
+          style: _textStyle(fontSize: 14, color: Colors.black87),
+        ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _inputField({
@@ -272,7 +271,6 @@ class _AuthScreenState extends State<AuthScreen> {
     String? errorText,
     int? maxLength,
     bool isNationalId = false,
-    
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,33 +286,33 @@ class _AuthScreenState extends State<AuthScreen> {
             filled: true,
             fillColor: Colors.white,
             counterText: '',
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14), // ✅
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14), // ✅
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14), // ✅
               borderSide: errorText != null
                   ? const BorderSide(color: Colors.red, width: 1.5)
-                  : BorderSide.none,
+                  : const BorderSide(color: Color(0xFFDDE7F3)), // ✅
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14), // ✅
               borderSide: errorText != null
                   ? const BorderSide(color: Colors.red, width: 1.5)
-                  : const BorderSide(color: Color(0xFF0B3B66), width: 1.5),
+                  : const BorderSide(color: Color(0xFF2563EB), width: 1.4), // ✅
             ),
           ),
           onChanged: (val) {
             if (isNationalId) {
               setState(() => _nationalIdError =
-                'ID must start with 1 (Saudi) or 2 (Resident) and be 10 digits');
+                'يجب أن يبدأ الرقم بـ 1 (سعودي) أو 2 (مقيم) ويكون مكون من 10 أرقام');
               if (val.length == 10 && (val.startsWith('1') || val.startsWith('2'))) {
                 setState(() => _nationalIdError = null);
               }
             } else if (keyboardType == TextInputType.phone && val.startsWith('0')) {
-              setState(() => _phoneError = 'Phone number should not start with 0');
+              setState(() => _phoneError = 'يجب ألا يبدأ رقم الجوال بـ 0');
             } else {
               setState(() {
                 _firstNameError = null;
@@ -342,13 +340,13 @@ class _AuthScreenState extends State<AuthScreen> {
           onTap: _pickDate,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14), // ✅
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14), // ✅
               border: _dateError != null
                   ? Border.all(color: Colors.red, width: 1.5)
-                  : Border.all(color: Colors.transparent),
+                  : Border.all(color: const Color(0xFFDDE7F3)), // ✅
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -362,7 +360,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     color: _selectedDate != null ? Colors.black87 : Colors.black38,
                   ),
                 ),
-                const Icon(Icons.calendar_today, size: 18, color: Color(0xFF0B3B66)),
+                const Icon(Icons.calendar_today, size: 18, color: Color(0xFF2563EB)), // ✅
               ],
             ),
           ),
@@ -383,10 +381,10 @@ class _AuthScreenState extends State<AuthScreen> {
       child: ElevatedButton(
         onPressed: onTap,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0B3B66),
+          backgroundColor: const Color(0xFF0B4A7D),
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), // ✅
         ),
         child: Text(text, style: _textStyle(fontSize: 16, color: Colors.white)),
       ),
@@ -472,7 +470,7 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
         const SizedBox(height: 24),
         _primaryButton(
-          text: 'إنشاء حساب',
+          text: 'تسجيل دخول',
           onTap: () {
             if (_validateLogin()) _sendOTP(isSignUp: false);
           },
@@ -489,7 +487,7 @@ class _AuthScreenState extends State<AuthScreen> {
             child: const Text(
               'لا يمكنك الوصول لرقمك؟ قم بتغييره',
               style: TextStyle(
-                color: Color(0xFF0B3B66),
+                color: Color(0xFF2563EB),
                 fontSize: 13,
                 decoration: TextDecoration.underline,
               ),
@@ -553,7 +551,7 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F6),
+      backgroundColor: const Color(0xFFF7FAFF),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),

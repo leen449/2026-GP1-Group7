@@ -96,7 +96,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     if (_otpCode.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter the complete 6-digit code.'),
+          content: Text('الرجاء إدخال الرمز المكون من 6 أرقام'),
           backgroundColor: Colors.red,
         ),
       );
@@ -120,7 +120,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
       }
 
       if (widget.isSignUp) {
-        // Sign up — نتحقق بالـ UID
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
@@ -128,33 +127,34 @@ class _VerificationScreenState extends State<VerificationScreen> {
         if (!userDoc.exists) {
           await _saveUserToFirestore();
         }
-     } else if (widget.onVerified == null) {
-  final query = await FirebaseFirestore.instance
-      .collection('users')
-      .where('phoneNumber', isEqualTo: widget.phone)
-      .limit(1)
-      .get();
+      } else if (widget.onVerified == null) {
+        final query = await FirebaseFirestore.instance
+            .collection('users')
+            .where('phoneNumber', isEqualTo: widget.phone)
+            .limit(1)
+            .get();
 
-  if (query.docs.isEmpty) {
-    await FirebaseAuth.instance.signOut();
-    setState(() => _isLoading = false);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('No account found. Please sign up first.'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-}
+        if (query.docs.isEmpty) {
+          await FirebaseAuth.instance.signOut();
+          setState(() => _isLoading = false);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('لا يوجد حساب بهذا الرقم. الرجاء إنشاء حساب جديد'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+
       if (!mounted) return;
       _navigateAfterVerification();
     } on FirebaseAuthException catch (e) {
       setState(() => _isLoading = false);
-      String msg = 'Incorrect code. Please try again.';
+      String msg = 'رمز غير صحيح. حاول مرة أخرى';
       if (e.code == 'session-expired') {
-        msg = 'Code expired. Please request a new one.';
+        msg = 'انتهت صلاحية الرمز. اطلب رمزاً جديداً';
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -164,19 +164,19 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 
   Future<void> _saveUserToFirestore() async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return;
-  await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-    'userID': user.uid,
-    'name': widget.name,
-    'nationalID': widget.nationalId,
-    'phoneNumber': widget.phone,
-    'dateOfBirth': widget.dateOfBirth, // ✅ جديد
-    'nationalIDLocked': false,
-    'createdAt': FieldValue.serverTimestamp(),
-    'updatedAt': FieldValue.serverTimestamp(),
-  });
-}
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'userID': user.uid,
+      'name': widget.name,
+      'nationalID': widget.nationalId,
+      'phoneNumber': widget.phone,
+      'dateOfBirth': widget.dateOfBirth,
+      'nationalIDLocked': false,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
 
   Future<void> _resendOTP() async {
     if (!_canResend) return;
@@ -193,7 +193,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.message ?? 'Error resending code.'),
+            content: Text(e.message ?? 'حدث خطأ. حاول مرة أخرى'),
             backgroundColor: Colors.red,
           ),
         );
@@ -206,7 +206,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         _startTimer();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Code resent successfully ✅')),
+          const SnackBar(content: Text('تم إعادة إرسال الرمز بنجاح ✅')),
         );
       },
       codeAutoRetrievalTimeout: (_) {},
@@ -224,7 +224,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final boxGap = (boxSize * 0.2).clamp(6.0, 12.0);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+     backgroundColor: const Color(0xFFF7FAFF),
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: SingleChildScrollView(
@@ -250,7 +250,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     SizedBox(height: isKeyboard ? 10 : 18),
                     Center(
                       child: Text(
-                        'Verify your phone\nnumber',
+                        'تحقق من رقم\nجوالك',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: (sw * 0.082).clamp(26.0, 38.0),
@@ -263,8 +263,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     SizedBox(height: isKeyboard ? 8 : 14),
                     Center(
                       child: Text(
-                        "We've sent an SMS with an activation\n"
-                        "code to your phone  ${widget.phone}",
+                        'تم إرسال رمز التحقق\nإلى رقم جوالك ${widget.phone}',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: (sw * 0.036).clamp(12.0, 16.0),
@@ -291,7 +290,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         spacing: 8,
                         children: [
                           Text(
-                            "I didn't receive a code",
+                            'لم يصلك الرمز؟',
                             style: TextStyle(
                               fontSize: (sw * 0.036).clamp(12.0, 15.0),
                               color: Colors.black.withOpacity(0.55),
@@ -302,8 +301,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
                             onTap: _canResend ? _resendOTP : null,
                             child: Text(
                               _canResend
-                                  ? 'Resend'
-                                  : 'Resend (00:${_seconds.toString().padLeft(2, '0')})',
+                                  ? 'إعادة الإرسال'
+                                  : 'إعادة الإرسال (00:${_seconds.toString().padLeft(2, '0')})',
                               style: TextStyle(
                                 fontSize: (sw * 0.036).clamp(12.0, 15.0),
                                 fontWeight: FontWeight.w700,
@@ -321,7 +320,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _verifyOtp,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0A3D62),
+                        backgroundColor: const Color(0xFF0B4A7D),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -330,7 +329,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         child: _isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
                             : const Text(
-                                'Verify',
+                                'تحقق',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w600,

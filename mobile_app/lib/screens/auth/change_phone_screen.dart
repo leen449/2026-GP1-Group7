@@ -4,8 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import './verification_screen.dart';
 
 class ChangePhoneScreen extends StatefulWidget {
-final bool returnToHome;
-const ChangePhoneScreen({super.key, this.returnToHome = false});
+  final bool returnToHome;
+  const ChangePhoneScreen({super.key, this.returnToHome = false});
 
   @override
   State<ChangePhoneScreen> createState() => _ChangePhoneScreenState();
@@ -28,26 +28,40 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
     super.dispose();
   }
 
+  // ✅ تحويل الأرقام العربية لإنجليزية
+  String _convertToEnglishNumbers(String val) {
+    return val
+        .replaceAll('٠', '0').replaceAll('١', '1')
+        .replaceAll('٢', '2').replaceAll('٣', '3')
+        .replaceAll('٤', '4').replaceAll('٥', '5')
+        .replaceAll('٦', '6').replaceAll('٧', '7')
+        .replaceAll('٨', '8').replaceAll('٩', '9');
+  }
+
   String? _validateNationalId(String val) {
-    if (val.trim().isEmpty) return 'Please enter your National/Residence ID';
-    if (val.length != 10) return 'ID must be exactly 10 digits';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'ID must contain digits only';
+    if (val.trim().isEmpty) return 'يرجى إدخال رقم الهوية / الإقامة';
+    if (val.length != 10) return 'يجب أن يكون رقم الهوية مكون من 10 أرقام';
+    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'يجب أن يحتوي رقم الهوية على أرقام فقط';
     if (!val.startsWith('1') && !val.startsWith('2')) {
-      return 'ID must start with 1 (Saudi) or 2 (Resident)';
+      return 'يجب أن يبدأ الرقم بـ 1 (سعودي) أو 2 (مقيم)';
     }
     return null;
   }
 
   String? _validatePhone(String val) {
-    if (val.trim().isEmpty) return 'Please enter your new phone number';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Phone must contain digits only';
-    if (val.startsWith('0')) return 'Phone number should not start with 0';
-    if (val.length != 9) return 'Phone number must be 9 digits';
-    if (!val.startsWith('5')) return 'Phone number must start with 5';
+    if (val.trim().isEmpty) return 'يرجى إدخال رقم الجوال الجديد';
+    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'يجب أن يحتوي رقم الجوال على أرقام فقط';
+    if (val.startsWith('0')) return 'يجب ألا يبدأ رقم الجوال بـ 0';
+    if (val.length != 9) return 'يجب أن يكون رقم الجوال 9 أرقام';
+    if (!val.startsWith('5')) return 'يجب أن يبدأ رقم الجوال بـ 5';
     return null;
   }
 
   bool _validate() {
+    // ✅ تحويل الأرقام العربية لإنجليزية قبل التحقق
+    _nationalIdController.text = _convertToEnglishNumbers(_nationalIdController.text);
+    _newPhoneController.text = _convertToEnglishNumbers(_newPhoneController.text);
+
     final idErr = _validateNationalId(_nationalIdController.text);
     final phoneErr = _validatePhone(_newPhoneController.text);
     setState(() {
@@ -70,7 +84,7 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
         .get();
 
     if (query.docs.isEmpty) {
-      setState(() => _nationalIdError = 'No account found with this ID');
+      setState(() => _nationalIdError = 'لا يوجد حساب بهذا الرقم');
       return;
     }
 
@@ -85,9 +99,9 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
       },
 
       verificationFailed: (FirebaseAuthException e) {
-        String msg = 'An error occurred. Please try again.';
-        if (e.code == 'invalid-phone-number') msg = 'Invalid phone number.';
-        if (e.code == 'too-many-requests') msg = 'Too many requests. Try again later.';
+        String msg = 'حدث خطأ، حاول مرة أخرى';
+        if (e.code == 'invalid-phone-number') msg = 'رقم الجوال غير صحيح';
+        if (e.code == 'too-many-requests') msg = 'تم تجاوز الحد المسموح من المحاولات. حاول لاحقًا';
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), backgroundColor: Colors.red),
@@ -118,28 +132,29 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
   }
 
   Future<void> _updatePhone(String newPhone) async {
-  if (_userId == null) return;
+    if (_userId == null) return;
 
-  await FirebaseFirestore.instance.collection('users').doc(_userId).update({
-    'phoneNumber': newPhone,
-    'updatedAt': FieldValue.serverTimestamp(),
-  });
+    await FirebaseFirestore.instance.collection('users').doc(_userId).update({
+      'phoneNumber': newPhone,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
 
-  if (!mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text('Phone number updated successfully!'),
-      backgroundColor: Colors.green,
-    ),
-  );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('تم تحديث رقم الجوال بنجاح!'),
+        backgroundColor: Colors.green,
+      ),
+    );
 
-  if (widget.returnToHome) {
-    Navigator.pop(context);
-    Navigator.pop(context); // يرجع للموديفاي
-  } else {
-    Navigator.popUntil(context, (route) => route.isFirst); // يرجع للوق إن
+    if (widget.returnToHome) {
+      Navigator.pop(context);
+      Navigator.pop(context);
+    } else {
+      Navigator.popUntil(context, (route) => route.isFirst);
+    }
   }
-}
+
   TextStyle _textStyle({double fontSize = 14, Color color = Colors.black}) {
     return TextStyle(fontSize: fontSize, color: color);
   }
@@ -157,7 +172,7 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
     TextInputType keyboardType = TextInputType.text,
     String? errorText,
     int? maxLength,
-    bool isNationalId = false, // ✅
+    bool isNationalId = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,33 +186,33 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
             filled: true,
             fillColor: Colors.white,
             counterText: '',
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14), // ✅
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14), // ✅
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14), // ✅
               borderSide: errorText != null
                   ? const BorderSide(color: Colors.red, width: 1.5)
-                  : BorderSide.none,
+                  : const BorderSide(color: Color(0xFFDDE7F3)), // ✅
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14), // ✅
               borderSide: errorText != null
                   ? const BorderSide(color: Colors.red, width: 1.5)
-                  : const BorderSide(color: Color(0xFF0B3B66), width: 1.5),
+                  : const BorderSide(color: Color(0xFF2563EB), width: 1.4), // ✅
             ),
           ),
           onChanged: (val) {
             if (isNationalId) {
               setState(() => _nationalIdError =
-                'ID must start with 1 (Saudi) or 2 (Resident) and be 10 digits');
+                'يجب أن يبدأ الرقم بـ 1 (سعودي) أو 2 (مقيم) ويكون مكون من 10 أرقام');
               if (val.length == 10 && (val.startsWith('1') || val.startsWith('2'))) {
                 setState(() => _nationalIdError = null);
               }
             } else if (keyboardType == TextInputType.phone && val.startsWith('0')) {
-              setState(() => _phoneError = 'Phone number should not start with 0');
+              setState(() => _phoneError = 'يجب ألا يبدأ رقم الجوال بـ 0');
             } else {
               setState(() {
                 _nationalIdError = null;
@@ -218,46 +233,43 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F6),
+      backgroundColor: const Color(0xFFF7FAFF), // ✅
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ✅ هيدر بدون AppBar
               Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF0B3B66)),
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Change Phone Number',
-                    style: _textStyle(fontSize: 18, color: const Color(0xFF0B3B66)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 70),
+  children: [
+    BackButton(
+      color: const Color(0xFF0B4A7D),
+      onPressed: () => Navigator.pop(context),
+    ),
+    const SizedBox(width: 4),
+    Text(
+      'تغيير رقم الجوال',
+      style: _textStyle(fontSize: 18, color: const Color(0xFF0B4A7D)),
+    ),
+  ],
+),
+              const SizedBox(height: 40),
               Text(
-                'Enter your National ID and new phone number to update your account.',
-                style: _textStyle(fontSize: 14, color: Colors.black54),
+                'أدخل رقم هويتك ورقم الجوال الجديد لتحديث حسابك.', // ✅
+                style: _textStyle(fontSize: 22, color: Colors.black54),
               ),
-              const SizedBox(height: 50),
-              _label('National / Residence ID'),
+              const SizedBox(height: 30),
+              _label('رقم الهوية / الإقامة'), // ✅
               _inputField(
                 controller: _nationalIdController,
-                hint: 'As shown on your ID card',
+                hint: 'كما هو موضح في بطاقة الهوية', // ✅
                 keyboardType: TextInputType.number,
                 errorText: _nationalIdError,
                 maxLength: 10,
-                isNationalId: true, // ✅
+                isNationalId: true,
               ),
               const SizedBox(height: 40),
-              _label('New Phone Number'),
+              _label('رقم الجوال الجديد'), // ✅
               _inputField(
                 controller: _newPhoneController,
                 hint: '5XXXXXXXX',
@@ -272,15 +284,15 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
                 child: ElevatedButton(
                   onPressed: _verifyAndSendOTP,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0B3B66),
+                    backgroundColor: const Color(0xFF0B4A7D), // ✅
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14), // ✅
                     ),
                   ),
                   child: Text(
-                    'Send Verification Code',
+                    'إرسال رمز التحقق', // ✅
                     style: _textStyle(fontSize: 16, color: Colors.white),
                   ),
                 ),

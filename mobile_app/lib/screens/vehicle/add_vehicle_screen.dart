@@ -359,9 +359,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _addVehicle,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryBlue,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: primaryBlue.withOpacity(0.7),
+  backgroundColor: const Color(0xFF0B4A7D), // ✅
+  foregroundColor: Colors.white,
+  disabledBackgroundColor: const Color(0xFF0B4A7D).withOpacity(0.7),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
