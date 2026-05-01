@@ -488,7 +488,7 @@ class _AuthScreenState extends State<AuthScreen> {
               'لا يمكنك الوصول لرقمك؟ قم بتغييره',
               style: TextStyle(
                 color: Color(0xFF2563EB),
-                fontSize: 13,
+                fontSize: 16,
                 decoration: TextDecoration.underline,
               ),
             ),
