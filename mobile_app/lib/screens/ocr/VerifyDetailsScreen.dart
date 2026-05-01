@@ -109,7 +109,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     // Plate Number — must be 4 digits + 3 letters
     final plate = _plateController.text.trim();
     if (plate.isEmpty) {
-      errors['plateNumber'] = 'رقم اللوحة مطلوب';
+      errors['plateNumber'] = 'يرجى إدخال رقم اللوحة';
     } else {
       final cleaned = plate.replaceAll(' ', '').toUpperCase();
       final digits = cleaned.replaceAll(RegExp(r'[^0-9]'), '');
@@ -127,16 +127,16 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
 
     // Make — required
     final make = _makeController.text.trim();
-    errors['make'] = make.isEmpty ? 'ماركة المركبة مطلوبة' : null;
+    errors['make'] = make.isEmpty ? 'يرجى إدخال ماركة المركبة' : null;
 
     // Model — required
     final model = _modelController.text.trim();
-    errors['model'] = model.isEmpty ? 'طراز المركبه مطلوب' : null;
+    errors['model'] = model.isEmpty ? 'يرجى إدخال طراز المركبة' : null;
 
     // Year — required, between 1900 and 2027
     final yearStr = _yearController.text.trim();
     if (yearStr.isEmpty) {
-      errors['year'] = 'السنة مطلوبة';
+      errors['year'] ='يرجى إدخال السنة';
     } else {
       final year = int.tryParse(yearStr);
       if (year == null) {
@@ -150,12 +150,12 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
 
     // Color — required
     final color = _colorController.text.trim();
-    errors['color'] = color.isEmpty ? 'اللون مطلوب' : null;
+    errors['color'] = color.isEmpty ? 'يرجى إدخال لون المركبة' : null;
 
     // Chassis Number — required, exactly 17 alphanumeric characters
     final chassis = _chassisController.text.trim();
     if (chassis.isEmpty) {
-      errors['chassisNumber'] = 'رقم الهيكل مطلوب';
+      errors['chassisNumber'] = 'يرجى إدخال رقم الهيكل';
     } else if (!RegExp(r'^[A-Za-z0-9]{17}$').hasMatch(chassis)) {
       errors['chassisNumber'] = 'رقم الهيكل يجب أن يتكون من 17 حرفًا أو رقمًا';
     } else {
@@ -311,7 +311,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
       // Force RTL layout for Arabic
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor:  const Color(0xFFF7FAFF),
         body: SafeArea(
           child: _isLoading
               // Show loading spinner while OCR is running
@@ -526,17 +526,14 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
   // Default border (ensures full box style, not underline)
   border: OutlineInputBorder(
     borderRadius: BorderRadius.circular(10),
-    borderSide: const BorderSide(
-      color: Color(0xFF2563EB),
-      width: 1.2,
-    ),
+    borderSide: BorderSide.none,
   ),
 
   // Normal state border (blue or red if error exists)
   enabledBorder: OutlineInputBorder(
     borderRadius: BorderRadius.circular(10),
     borderSide: BorderSide(
-      color: hasError ? Colors.red : const Color(0xFF2563EB),
+      color: Colors.grey.shade300,
       width: 1.4,
     ),
   ),
@@ -545,7 +542,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
   focusedBorder: OutlineInputBorder(
     borderRadius: BorderRadius.circular(10),
     borderSide: BorderSide(
-      color: hasError ? Colors.red : const Color(0xFF1E3A6E),
+      color: Color(0xFF1E3A6E), 
       width: 1.8,
     ),
   ),
