@@ -339,7 +339,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                     const Text(
                       'تأكيد البيانات',
                       style: TextStyle(
-                        fontSize: 22,
+                        fontSize: 25,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF1A1A2E),
                       ),
@@ -349,7 +349,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                     // Subtitle
                     const Text(
                       'تأكد من البيانات أو عدّلها عند الحاجة',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF2563EB)),
+                      style: TextStyle(fontSize: 15, color: Color(0xFF2563EB)),
                     ),
 
                     // Warning banner shown if OCR failed
@@ -371,14 +371,14 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                               const Icon(
                                 Icons.warning_amber_rounded,
                                 color: Color(0xFFF59E0B),
-                                size: 16,
+                                size: 18,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   _errorMsg!,
                                   style: const TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 15,
                                     color: Color(0xFF7A5000),
                                   ),
                                 ),
@@ -463,7 +463,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                                   ' + إضافة مركبة',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 16,
+                                    fontSize: 17,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -497,7 +497,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
           Text(
             label,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 16,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF333333),
             ),
