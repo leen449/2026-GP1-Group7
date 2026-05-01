@@ -47,40 +47,40 @@ class _AuthScreenState extends State<AuthScreen> {
   // ── Validation ──────────────────────────────────────────────
 
   String? _validateFirstName(String val) {
-    if (val.trim().isEmpty) return 'Please enter your first name';
-    if (val.trim().length < 2) return 'First name must be at least 2 characters';
+    if (val.trim().isEmpty) return 'يرجى إدخال الاسم الأول';
+    if (val.trim().length < 2) return 'يجب أن يكون الاسم الأول مكون من حرفين على الأقل';
     return null;
   }
 
   String? _validateLastName(String val) {
-    if (val.trim().isEmpty) return 'Please enter your last name';
-    if (val.trim().length < 2) return 'Last name must be at least 2 characters';
+    if (val.trim().isEmpty) return 'يرجى إدخال اسم العائلة';
+    if (val.trim().length < 2) return 'يجب أن يكون اسم العائلة مكون من حرفين على الأقل';
     return null;
   }
 
   String? _validateNationalId(String val) {
-    if (val.trim().isEmpty) return 'Please enter your National/Residence ID';
-    if (val.length != 10) return 'ID must be exactly 10 digits';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'ID must contain digits only';
+    if (val.trim().isEmpty) return 'يرجى إدخال رقم الهوية / الإقامة';
+    if (val.length != 10) return 'يجب أن يكون رقم الهوية مكون من 10 أرقام';
+    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'يجب أن يحتوي رقم الهوية على أرقام فقط';
     if (!val.startsWith('1') && !val.startsWith('2')) {
-      return 'ID must start with 1 (Saudi) or 2 (Resident)';
+      return 'يجب أن يبدأ الرقم بـ 1 (سعودي) أو 2 (مقيم)';
     }
     return null;
   }
 
   String? _validatePhone(String val) {
-    if (val.trim().isEmpty) return 'Please enter your phone number';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'Phone must contain digits only';
-    if (val.startsWith('0')) return 'Phone number should not start with 0';
-    if (val.length != 9) return 'Phone number must be 9 digits';
-    if (!val.startsWith('5')) return 'Phone number must start with 5';
+    if (val.trim().isEmpty) return 'يرجى إدخال رقم الجوال';
+    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'يجب أن يحتوي رقم الجوال على أرقام فقط';
+    if (val.startsWith('0')) return 'يجب ألا يبدأ رقم الجوال بـ 0';
+    if (val.length != 9) return 'يجب أن يكون رقم الجوال 9 أرقام';
+    if (!val.startsWith('5')) return 'يجب أن يبدأ رقم الجوال بـ 5';
     return null;
   }
 
   String? _validateDate() {
-    if (_selectedDate == null) return 'Please select your date of birth';
+    if (_selectedDate == null) return 'يرجى اختيار تاريخ الميلاد';
     final age = DateTime.now().difference(_selectedDate!).inDays ~/ 365;
-    if (age < 18) return 'You must be at least 18 years old';
+    if (age < 18) return 'يجب أن يكون عمرك 18 سنة على الأقل';
     return null;
   }
 
@@ -165,7 +165,7 @@ class _AuthScreenState extends State<AuthScreen> {
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('No account found. Please sign up first.'),
+                  content: Text('لا يوجد حساب، يرجى التسجيل أولاً'),
                   backgroundColor: Colors.red,
                 ),
               );
@@ -181,15 +181,15 @@ class _AuthScreenState extends State<AuthScreen> {
         } catch (e) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Authentication failed: $e'), backgroundColor: Colors.red),
+            SnackBar(content: Text('فشل التحقق: $e'), backgroundColor: Colors.red),
           );
         }
       },
 
       verificationFailed: (FirebaseAuthException e) {
-        String msg = 'An error occurred. Please try again.';
-        if (e.code == 'invalid-phone-number') msg = 'Invalid phone number.';
-        if (e.code == 'too-many-requests') msg = 'Too many requests. Try again later.';
+        String msg = 'حدث خطأ، حاول مرة أخرى';
+        if (e.code == 'invalid-phone-number') msg = 'رقم الجوال غير صحيح';
+        if (e.code == 'too-many-requests') msg = 'تم تجاوز الحد المسموح من المحاولات. حاول لاحقًا';
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), backgroundColor: Colors.red),
@@ -252,10 +252,17 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Widget _label(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text, style: _textStyle(fontSize: 14, color: Colors.black87)),
-    );
+     return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Align(
+      alignment: Alignment.centerRight, // 
+      child: Text(
+        text,
+        textAlign: TextAlign.right, 
+        style: _textStyle(fontSize: 14, color: Colors.black87),
+      ),
+    ),
+  );
   }
 
   Widget _inputField({
@@ -265,6 +272,7 @@ class _AuthScreenState extends State<AuthScreen> {
     String? errorText,
     int? maxLength,
     bool isNationalId = false,
+    
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,6 +281,8 @@ class _AuthScreenState extends State<AuthScreen> {
           controller: controller,
           keyboardType: keyboardType,
           maxLength: maxLength,
+          textAlign: TextAlign.right,
+          textDirection: TextDirection.rtl,
           decoration: InputDecoration(
             hintText: hint,
             filled: true,
@@ -346,7 +356,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 Text(
                   _selectedDate != null
                       ? '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}'
-                      : 'YYYY-MM-DD',
+                      : 'يوم - شهر - سنة',
                   style: TextStyle(
                     fontSize: 14,
                     color: _selectedDate != null ? Colors.black87 : Colors.black38,
@@ -412,7 +422,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  'Sign up',
+                  'إنشاء حساب',
                   style: _textStyle(fontSize: 14, color: isLogin ? Colors.black54 : Colors.black87),
                 ),
               ),
@@ -437,7 +447,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  'Log in',
+                  'تسجيل الدخول',
                   style: _textStyle(fontSize: 14, color: isLogin ? Colors.black87 : Colors.black54),
                 ),
               ),
@@ -452,7 +462,7 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('Phone Number'),
+        _label('رقم الجوال'),
         _inputField(
           controller: _loginPhoneController,
           hint: '5XXXXXXXX',
@@ -462,7 +472,7 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
         const SizedBox(height: 24),
         _primaryButton(
-          text: 'Log in',
+          text: 'إنشاء حساب',
           onTap: () {
             if (_validateLogin()) _sendOTP(isSignUp: false);
           },
@@ -477,7 +487,7 @@ class _AuthScreenState extends State<AuthScreen> {
               );
             },
             child: const Text(
-              "Can't access your number? Change it",
+              'لا يمكنك الوصول لرقمك؟ قم بتغييره',
               style: TextStyle(
                 color: Color(0xFF0B3B66),
                 fontSize: 13,
@@ -494,34 +504,34 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('First Name'),
+        _label('الاسم الأول'),
         _inputField(
           controller: _firstNameController,
-          hint: 'First Name',
+          hint: 'الاسم الأول',
           errorText: _firstNameError,
         ),
         const SizedBox(height: 14),
-        _label('Last Name'),
+        _label('اسم العائلة'),
         _inputField(
           controller: _lastNameController,
-          hint: 'Last Name',
+          hint: 'اسم العائلة',
           errorText: _lastNameError,
         ),
         const SizedBox(height: 14),
-        _label('National / Residence ID'),
+        _label('رقم الهوية / الإقامة'),
         _inputField(
           controller: _nationalIdController,
-          hint: 'As shown on your ID card',
+          hint: 'كما هو موضح في بطاقة الهوية',
           keyboardType: TextInputType.number,
           errorText: _nationalIdError,
           maxLength: 10,
           isNationalId: true,
         ),
         const SizedBox(height: 14),
-        _label('Date of Birth'),
+        _label('تاريخ الميلاد'),
         _dateField(),
         const SizedBox(height: 14),
-        _label('Phone Number'),
+        _label('رقم الجوال'),
         _inputField(
           controller: _signupPhoneController,
           hint: '5XXXXXXXX',
@@ -531,7 +541,7 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
         const SizedBox(height: 40),
         _primaryButton(
-          text: 'Sign up',
+          text: 'إنشاء حساب',
           onTap: () {
             if (_validateSignup()) _sendOTP(isSignUp: true);
           },
@@ -554,7 +564,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 height: 140,
                 child: Center(
                   child: isLogin
-                      ? Text('Welcome Back', style: _textStyle(fontSize: 34, color: Colors.black))
+                      ? Text('مرحبًا بعودتك', style: _textStyle(fontSize: 34, color: Colors.black))
                       : Image.asset('assets/icons/logo.png', height: 120, fit: BoxFit.contain),
                 ),
               ),
