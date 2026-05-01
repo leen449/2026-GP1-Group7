@@ -162,7 +162,14 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
   Widget _label(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text, style: _textStyle(fontSize: 14, color: Colors.black87)),
+      child: Align(
+        alignment: Alignment.centerRight, // ✅
+        child: Text(
+          text,
+          textAlign: TextAlign.right, // ✅
+          style: _textStyle(fontSize: 14, color: Colors.black87),
+        ),
+      ),
     );
   }
 
@@ -181,6 +188,8 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
           controller: controller,
           keyboardType: keyboardType,
           maxLength: maxLength,
+          textAlign: TextAlign.right, // ✅
+  textDirection: TextDirection.rtl, // ✅
           decoration: InputDecoration(
             hintText: hint,
             filled: true,
