@@ -11,9 +11,13 @@ class ModifyScreen extends StatefulWidget {
 }
 
 class _ModifyScreenState extends State<ModifyScreen> {
-  static const Color _pageBg = Color(0xFFF6F6F6);
-  static const Color _textDark = Color(0xFF1E1E1E);
-  static const Color _cardGrey = Color(0xFFFFFFFF);
+  // ── Colors — consistent with the rest of the app ──────────────────
+  static const Color _pageBg = Color(0xFFF7FAFF);
+  static const Color _textDark = Color(0xFF071A3D);
+  static const Color _textMuted = Color(0xFF8B97AA);
+  static const Color _primaryBlue = Color(0xFF2563EB);
+  static const Color _navy = Color(0xFF0B4A7D);
+  static const Color _borderColor = Color(0xFFE8EEF7);
 
   String _name = '';
   String _nationalId = '';
@@ -52,198 +56,226 @@ class _ModifyScreenState extends State<ModifyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: const Color.fromRGBO(247, 250, 255, 1),
-        appBar: AppBar(
-          backgroundColor: const Color.fromARGB(255, 247, 250, 255),
-          elevation: 0,
-          automaticallyImplyLeading: false,
+    final bottomPad = MediaQuery.of(context).padding.bottom;
 
-          actions: [
-            Transform.rotate(
-              angle: 3.1416, // يقلب السهم 180 درجة
-              child: const BackButton(color: _textDark),
-            ),
-          ],
-          title: const Text(
-            'المعلومات الشخصية',
-            style: TextStyle(
-              color: _textDark,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
+    return Scaffold(
+      backgroundColor: _pageBg,
+      appBar: AppBar(
+        backgroundColor: _pageBg,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: const SizedBox(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.arrow_forward_rounded, color: _textDark),
+            onPressed: () => Navigator.pop(context),
           ),
-          centerTitle: true,
+        ],
+        title: const Text(
+          'المعلومات الشخصية',
+          style: TextStyle(
+            color: _textDark,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
         ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // صورة البروفايل
-                Center(
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 90,
-                        height: 90,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.grey.shade200,
-                        ),
-                        child: ClipOval(
-                          child: Image.asset(
-                            'assets/icons/profile.png',
-                            fit: BoxFit.cover,
-                          ),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(18, 14, 18, bottomPad + 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // ── Profile avatar + name ──────────────────────────────
+              Center(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 90,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFFEAF2FF),
+                        border: Border.all(color: _borderColor, width: 2),
+                      ),
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/icons/profile.png',
+                          fit: BoxFit.cover,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: _textDark,
-                        ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      _name,
+                      textDirection: TextDirection.rtl,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: _textDark,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 28),
+              ),
+              const SizedBox(height: 28),
 
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: _cardGrey,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
+              // ── Info card ──────────────────────────────────────────
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: _borderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.035),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // الاسم
+                    _fieldLabel('الاسم الكامل'),
+                    _readOnlyField(_name),
+                    const SizedBox(height: 18),
+
+                    // الهوية
+                    _fieldLabel('رقم الهوية / الإقامة'),
+                    _readOnlyField(_nationalId),
+                    const SizedBox(height: 18),
+
+                    // تاريخ الميلاد
+                    _fieldLabel('تاريخ الميلاد'),
+                    _readOnlyField(_dateOfBirth),
+                    const SizedBox(height: 18),
+
+                    // رقم الجوال
+                    _fieldLabel('رقم الجوال'),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // الاسم
-                      _fieldLabel('الاسم الكامل'),
-                      _readOnlyField(_name),
-                      const SizedBox(height: 18),
-
-                      // الهوية
-                      _fieldLabel('رقم الهوية / الإقامة'),
-                      _readOnlyField(_nationalId),
-                      const SizedBox(height: 18),
-
-                      // تاريخ الميلاد
-                      _fieldLabel('تاريخ الميلاد'),
-                      _readOnlyField(_dateOfBirth),
-                      const SizedBox(height: 18),
-
-                      // رقم الجوال
-                      _fieldLabel('رقم الجوال'),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '+966 $_phone',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF1E1E1E),
-                          ),
-                        ),
+                      decoration: BoxDecoration(
+                        color: _pageBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _borderColor),
                       ),
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const ChangePhoneScreen(returnToHome: true),
+                      child: Row(
+                        textDirection: TextDirection.rtl,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '+966 $_phone',
+                            textDirection: TextDirection.ltr,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: _textDark,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ).then((_) => _loadUserData());
-                        },
-                        child: const Text(
-                          'تغيير رقم الجوال',
-                          style: TextStyle(
-                            color: Color(0xFF0B3B66),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
                           ),
+                          const Icon(
+                            Icons.lock_outline,
+                            size: 16,
+                            color: _navy,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const ChangePhoneScreen(returnToHome: true),
+                          ),
+                        ).then((_) => _loadUserData());
+                      },
+                      child: const Text(
+                        'تغيير رقم الجوال',
+                        textDirection: TextDirection.rtl,
+                        style: TextStyle(
+                          color: _primaryBlue,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
+  // ── Field label — RTL aligned ──────────────────────────────────────
   Widget _fieldLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
+        textDirection: TextDirection.rtl,
         style: const TextStyle(
           fontSize: 14,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: _textDark,
         ),
       ),
     );
   }
 
+  // ── Read-only field — matches app's bordered card style ───────────
   Widget _readOnlyField(String value) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(12),
+            color: _pageBg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _borderColor),
           ),
           child: Row(
+            textDirection: TextDirection.rtl,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Text(
                   value.isEmpty ? '—' : value,
+                  textDirection: TextDirection.rtl,
                   style: const TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF1E1E1E),
+                    color: _textDark,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.lock_outline, size: 16, color: Color(0xFF0B4A7D)),
+              const Icon(Icons.lock_outline, size: 16, color: _navy),
             ],
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          "لا يمكن التعديل",
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+          'لا يمكن التعديل',
+          textDirection: TextDirection.rtl,
+          style: const TextStyle(fontSize: 11, color: _textMuted),
         ),
       ],
     );

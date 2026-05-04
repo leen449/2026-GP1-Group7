@@ -91,59 +91,6 @@ class CaseDetailsScreen extends StatelessWidget {
   }
 
   // ── Status badge — same logic as HomeScreen ───────────────────────────────
-  Widget _statusBadge(String status) {
-    final s = status.toLowerCase().trim();
-    String label;
-    Color bg;
-    Color fg;
-    IconData icon;
-
-    if (s == 'approved' || s == 'completed') {
-      label = 'مكتمل';
-      bg = const Color(0xFFE7F8EF);
-      fg = const Color(0xFF159B55);
-      icon = Icons.check_circle_outline_rounded;
-    } else if (s == 'pending') {
-      label = 'قيد المراجعة';
-      bg = const Color(0xFFEAF1FF);
-      fg = const Color(0xFF2E63D9);
-      icon = Icons.hourglass_empty_rounded;
-    } else if (s == 'ocr_failed') {
-      label = 'فشل الفحص';
-      bg = const Color(0xFFFFEEF0);
-      fg = const Color(0xFFE33B4E);
-      icon = Icons.warning_amber_rounded;
-    } else {
-      label = 'قيد التحليل';
-      bg = const Color(0xFFFFF1E6);
-      fg = const Color(0xFFE27A2E);
-      icon = Icons.access_time_rounded;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: fg),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            textDirection: TextDirection.rtl,
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 12,
-              color: fg,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
