@@ -523,15 +523,15 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     vertical: 14,
   ),
 
-  // Default border (ensures full box style, not underline)
+  // Default border 
   border: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(10),
+    borderRadius: BorderRadius.circular(14),
     borderSide: BorderSide.none,
   ),
 
   // Normal state border (blue or red if error exists)
   enabledBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(10),
+    borderRadius: BorderRadius.circular(14),
     borderSide: BorderSide(
       color: Colors.grey.shade300,
       width: 1.4,
@@ -540,7 +540,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
 
   // Focused state (darker blue or red if error)
   focusedBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(10),
+    borderRadius: BorderRadius.circular(14),
     borderSide: BorderSide(
       color: Color(0xFF1E3A6E), 
       width: 1.8,
@@ -549,7 +549,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
 
   // Border when validation error exists (no focus)
   errorBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(10),
+    borderRadius: BorderRadius.circular(14),
     borderSide: const BorderSide(
       color: Colors.red,
       width: 1.6,
@@ -558,7 +558,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
 
   // Border when focused + error
   focusedErrorBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(10),
+    borderRadius: BorderRadius.circular(14),
     borderSide: const BorderSide(
       color: Colors.red,
       width: 1.8,

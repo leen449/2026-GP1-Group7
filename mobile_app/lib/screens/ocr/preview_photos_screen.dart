@@ -22,7 +22,7 @@ class PreviewPhotoScreen extends StatelessWidget {
             const Text(
               'معاينة الصورة',
               style: TextStyle(
-                fontSize: 26,
+                fontSize: 27,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF1A1A2E),
                 letterSpacing: -0.5,
@@ -33,7 +33,7 @@ class PreviewPhotoScreen extends StatelessWidget {
             // Subtitle instruction
             const Text(
               'تأكد أن الصورة واضحة وقابلة للقراءة',
-              style: TextStyle(fontSize: 13, color: Color(0xFF8899AA)),
+              style: TextStyle(fontSize: 15, color: Color(0xFF8899AA)),
             ),
  
             const SizedBox(height: 24),
@@ -129,6 +129,7 @@ class PreviewPhotoScreen extends StatelessWidget {
                   border: Border.all(color: const Color(0xFFFFE082)),
                 ),
                 child: const Row(
+                  textDirection: TextDirection.rtl,
                   children: [
                     Icon(
                       Icons.info_outline,
@@ -139,8 +140,9 @@ class PreviewPhotoScreen extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'تأكد ان جميع النصوص واضحه قبل المتابعة.',
+                        textDirection: TextDirection.rtl,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 15,
                           color: Color(0xFF7A6000),
                           height: 1.4,
                         ),
