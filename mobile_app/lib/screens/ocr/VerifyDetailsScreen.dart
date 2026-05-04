@@ -81,22 +81,34 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     }
   }
 
+  // Converts English numbers (0-9) to Arabic numbers (٠-٩)
+  String _convertToArabicNumbers(String input) {
+    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    const arabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+
+    for (int i = 0; i < 10; i++) {
+      input = input.replaceAll(english[i], arabic[i]);
+    }
+
+    return input;
+  }
+
   // ── Format plate number to standard format: "1234 A B C" ──
   String _formatPlateNumber(String raw) {
-    // Remove all spaces first
-    final cleaned = raw.replaceAll(' ', '').toUpperCase();
+    // Convert any English digits to Arabic first
+    final converted = _convertToArabicNumbers(raw);
+    final cleaned = converted.replaceAll(' ', '').toUpperCase();
 
-    // Extract digits and letters separately
-    final digits = cleaned.replaceAll(RegExp(r'[^0-9]'), '');
-    final letters = cleaned.replaceAll(RegExp(r'[^A-Z\u0600-\u06FF]'), '');
-
+    final digits = cleaned.replaceAll(RegExp(r'[^0-9٠-٩۰-۹]'), '');
+    final letters = cleaned.replaceAll(RegExp(r'[^A-Zء-ي]'), '');
+    // Basic validation
     if (digits.isEmpty ||
         digits.length > 4 ||
         letters.isEmpty ||
-        letters.length > 3)
-      return raw;
-
-    // Format letters with spaces between each: "A B C"
+        letters.length > 3) {
+      return converted;
+    }
+    // Add space between each letter
     final spacedLetters = letters.split('').join(' ');
 
     return '$digits $spacedLetters';
@@ -111,9 +123,11 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     if (plate.isEmpty) {
       errors['plateNumber'] = 'يرجى إدخال رقم اللوحة';
     } else {
-      final cleaned = plate.replaceAll(' ', '').toUpperCase();
-      final digits = cleaned.replaceAll(RegExp(r'[^0-9]'), '');
-      final letters = cleaned.replaceAll(RegExp(r'[^A-Z\u0600-\u06FF]'), '');
+      final cleaned = _convertToArabicNumbers(
+        plate,
+      ).replaceAll(' ', '').toUpperCase();
+      final digits = cleaned.replaceAll(RegExp(r'[^0-9٠-٩۰-۹]'), '');
+      final letters = cleaned.replaceAll(RegExp(r'[^A-Zء-ي]'), '');
       if (digits.isEmpty ||
           digits.length > 4 ||
           letters.isEmpty ||
@@ -136,7 +150,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     // Year — required, between 1900 and 2027
     final yearStr = _yearController.text.trim();
     if (yearStr.isEmpty) {
-      errors['year'] ='يرجى إدخال السنة';
+      errors['year'] = 'يرجى إدخال السنة';
     } else {
       final year = int.tryParse(yearStr);
       if (year == null) {
@@ -311,7 +325,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
       // Force RTL layout for Arabic
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor:  const Color(0xFFF7FAFF),
+        backgroundColor: const Color(0xFFF7FAFF),
         body: SafeArea(
           child: _isLoading
               // Show loading spinner while OCR is running
@@ -508,74 +522,75 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
             controller: controller,
             keyboardType: keyboardType,
             // Clear error when user starts typing
-            onChanged: (_) {
+            onChanged: (val) {
+              // Apply only on plate number field
+              if (fieldKey == 'plateNumber') {
+                final converted = _convertToArabicNumbers(val);
+
+                // If user typed English numbers → convert to Arabic instantly
+                if (val != converted) {
+                  controller.value = TextEditingValue(
+                    text: converted,
+                    selection: TextSelection.collapsed(
+                      offset: converted.length,
+                    ),
+                  );
+                }
+              }
+
+              // Clear error when user starts typing
               if (_fieldErrors[fieldKey] != null) {
                 setState(() => _fieldErrors[fieldKey] = null);
               }
             },
             style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A2E)),
             decoration: InputDecoration(
-  hintText: hint,
+              hintText: hint,
 
-  // Inner padding for the input field
-  contentPadding: const EdgeInsets.symmetric(
-    horizontal: 14,
-    vertical: 14,
-  ),
+              // Inner padding for the input field
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
 
-  // Default border 
-  border: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(14),
-    borderSide: BorderSide.none,
-  ),
+              // Default border
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
 
-  // Normal state border 
-  enabledBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(14),
-    borderSide: BorderSide(
-      color: Colors.grey.shade300,
-      width: 1.4,
-    ),
-  ),
+              // Normal state border
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Colors.grey.shade300, width: 1.4),
+              ),
 
-  // Focused state (darker blue or red if error)
-  focusedBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(14),
-    borderSide: BorderSide(
-      color: Color(0xFF2563EB), 
-      width: 1.8,
-    ),
-  ),
+              // Focused state (darker blue or red if error)
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Color(0xFF2563EB), width: 1.8),
+              ),
 
-  // Border when validation error exists (no focus)
-  errorBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(14),
-    borderSide: const BorderSide(
-      color: Colors.red,
-      width: 1.6,
-    ),
-  ),
+              // Border when validation error exists (no focus)
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Colors.red, width: 1.6),
+              ),
 
-  // Border when focused + error
-  focusedErrorBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(14),
-    borderSide: const BorderSide(
-      color: Colors.red,
-      width: 1.8,
-    ),
-  ),
+              // Border when focused + error
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Colors.red, width: 1.8),
+              ),
 
-  // Fill background
-  filled: true,
-  fillColor: Colors.white,
+              // Fill background
+              filled: true,
+              fillColor: Colors.white,
 
-  // Error message text
-  errorText: errorText,
-  errorStyle: const TextStyle(
-    fontSize: 11,
-    color: Colors.red,
-  ),
-),
+              // Error message text
+              errorText: errorText,
+              errorStyle: const TextStyle(fontSize: 11, color: Colors.red),
+            ),
           ),
         ],
       ),
