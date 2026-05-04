@@ -5,6 +5,7 @@ from fastapi import FastAPI
 # Import routers
 from routes.ocr import router as ocr_router
 from routes.najm import router as najm_router
+from routes.detection import router as detection_router
 
 
 # ──────────────S───────────────────────────────────────────────────────
@@ -29,7 +30,7 @@ app = FastAPI(
 # Include routers
 app.include_router(ocr_router,  prefix="/ocr",       tags=["OCR"])
 app.include_router(najm_router, prefix="/ocr/najm",  tags=["Najm OCR"])
-
+app.include_router(detection_router, prefix="/damage", tags=["Damage Detection"])
 
 @app.get("/")
 def root():

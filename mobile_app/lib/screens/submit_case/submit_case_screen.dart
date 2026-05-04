@@ -81,7 +81,10 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   // ── Step 2 submit validation ──────────────────────────────────────
   bool get canSubmit =>
       capturedPhotos.isNotEmpty && _infoConfirmed && !_isSubmitting;
-
+  // ─────────────────────────────────────────────────────────────────
+  //backend URL (used for OCR trigger)
+  static const backendUrl = 'http://172.20.10.2:8000';
+  // ─────────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
@@ -754,7 +757,6 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       _caseId = caseId;
 
       // 4) Trigger OCR using caseId
-      const backendUrl = 'http://172.20.10.2:8000';
       final response = await http
           .post(Uri.parse('$backendUrl/ocr/najm/$caseId'))
           .timeout(const Duration(seconds: 60));
@@ -929,7 +931,26 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
           'uploadedAt': FieldValue.serverTimestamp(),
         });
       }
+      setState(() => _submitStatus = 'جاري تحليل الأضرار بالذكاء الاصطناعي...');
 
+      try {
+        // Using the same backend URL you defined in your OCR step
+        final response = await http
+            .post(Uri.parse('$backendUrl/damage/analyze/$_caseId'))
+            .timeout(
+              const Duration(seconds: 120),
+            ); // 2 minutes timeout for image processing
+
+        if (response.statusCode == 200) {
+          print('✅ AI Detection completed successfully');
+        } else {
+          print('⚠️ AI Detection returned status code: ${response.statusCode}');
+        }
+      } catch (apiError) {
+        // We catch this separately so a timeout doesn't delete the user's submission.
+        // The images are safe in Firebase even if the local AI server takes too long.
+        print('❌ Failed to trigger backend detection: $apiError');
+      }
       if (mounted) {
         _caseId = null;
         Navigator.push(

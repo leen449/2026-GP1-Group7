@@ -120,7 +120,7 @@ app.*.symbols
 
 #firebase related
 serviceAccountKey.json
-
+weight
 #env related 
 venv/
 __pycache__/

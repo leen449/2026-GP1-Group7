@@ -27,45 +27,45 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _userName = '';
   String _userDocId = '';
-Widget _centerInfoBox(String title, String value, {bool ltr = false}) {
-  return Container(
-    width: double.infinity,
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF7FAFF),
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: const Color(0xFFE8EEF7)),
-    ),
-    child: Row(
-      textDirection: TextDirection.rtl,
-      children: [
-        Text(
-          title,
-          textDirection: TextDirection.rtl,
-          style: const TextStyle(
-            color: Color(0xFF8B97AA),
-            fontWeight: FontWeight.w700,
+  Widget _centerInfoBox(String title, String value, {bool ltr = false}) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FAFF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8EEF7)),
+      ),
+      child: Row(
+        textDirection: TextDirection.rtl,
+        children: [
+          Text(
+            title,
+            textDirection: TextDirection.rtl,
+            style: const TextStyle(
+              color: Color(0xFF8B97AA),
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Directionality(
-            textDirection: ltr ? TextDirection.ltr : TextDirection.rtl,
-            child: Text(
-              value.toString().trim().isEmpty ? '—' : value.toString(),
-              textAlign: ltr ? TextAlign.left : TextAlign.right,
-              style: const TextStyle(
-                color: Color(0xFF071A3D),
-                fontWeight: FontWeight.w800,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Directionality(
+              textDirection: ltr ? TextDirection.ltr : TextDirection.rtl,
+              child: Text(
+                value.toString().trim().isEmpty ? '—' : value.toString(),
+                textAlign: ltr ? TextAlign.left : TextAlign.right,
+                style: const TextStyle(
+                  color: Color(0xFF071A3D),
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -144,7 +144,8 @@ Widget _centerInfoBox(String title, String value, {bool ltr = false}) {
                   Expanded(
                     child: _addOptionCard(
                       title: 'مسح الاستمارة',
-                      subtitle: 'امسح استمارة المركبة\nواستخرج البيانات تلقائيًا',
+                      subtitle:
+                          'امسح استمارة المركبة\nواستخرج البيانات تلقائيًا',
                       icon: Icons.document_scanner_outlined,
                       onTap: () {
                         Navigator.pop(context);
@@ -486,25 +487,21 @@ Widget _centerInfoBox(String title, String value, {bool ltr = false}) {
         GestureDetector(
           onTap: _showAddOptions,
           child: Row(
-  mainAxisSize: MainAxisSize.min,
-  children: const [
-    Text(
-      'إضافة مركبة',
-      textDirection: TextDirection.rtl,
-      style: TextStyle(
-        color: Color(0xFF2563EB),
-        fontSize: 18,
-        fontWeight: FontWeight.w800,
-      ),
-    ),
-    SizedBox(width: 10),
-    Icon(
-      Icons.add,
-      color: Color(0xFF2563EB),
-      size: 28,
-    ),
-  ],
-),
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Text(
+                'إضافة مركبة',
+                textDirection: TextDirection.rtl,
+                style: TextStyle(
+                  color: Color(0xFF2563EB),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(width: 10),
+              Icon(Icons.add, color: Color(0xFF2563EB), size: 28),
+            ],
+          ),
         ),
         const Spacer(),
         const Text(
@@ -519,372 +516,397 @@ Widget _centerInfoBox(String title, String value, {bool ltr = false}) {
       ],
     );
   }
-  void _showVehicleCard(BuildContext context, String id, Map<String, dynamic> v) {
-  showGeneralDialog(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: 'vehicle_details',
-    barrierColor: Colors.black.withOpacity(0.28),
-    pageBuilder: (_, __, ___) {
-      return BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Center(
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.88,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(26),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Align(
-                    alignment: Alignment.topLeft,
-                    child: IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ),
-                  Center(
-  child: Text(
-    'تفاصيل المركبة',
-    textDirection: TextDirection.rtl,
-    style: TextStyle(
-      fontSize: 18,
-      fontWeight: FontWeight.w900,
-      color: Color(0xFF071A3D),
-    ),
-  ),
-),
-const SizedBox(height: 12),
-                  Center(
-  child: Container(
-    width: 70,
-    height: 70,
-    decoration: BoxDecoration(
-      color: const Color(0xFFEAF2FF),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: const Icon(
-      Icons.directions_car_rounded,
-      color: Color(0xFF2563EB),
-      size: 36,
-    ),
-  ),
-),
-const SizedBox(height: 14),
-                  Text(
-                    '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim(),
-                    textDirection: TextDirection.rtl,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF071A3D),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _centerInfoBox('الشركة', v['make'] ?? ''),
-_centerInfoBox('الطراز', v['model'] ?? ''),
-_centerInfoBox('السنة', v['year'] ?? ''),
-_centerInfoBox('اللون', v['color'] ?? ''),
-_centerInfoBox('اللوحة', v['arabicPlateNumber'] ?? v['plateNumber'] ?? ''),
-_centerInfoBox('رقم الهيكل', v['chassisNumber'] ?? '', ltr: true),
-const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (_) => AlertDialog(
-                            title: const Text('تأكيد الحذف', textDirection: TextDirection.rtl),
-                            content: const Text('هل تريد حذف المركبة؟', textDirection: TextDirection.rtl),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('إلغاء'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text('حذف', style: TextStyle(color: Colors.red)),
-                              ),
-                            ],
-                          ),
-                        );
 
-                        if (confirm == true) {
-                          await FirebaseFirestore.instance
-                              .collection('vehicles')
-                              .doc(id)
-                              .update({
-                            'isArchived': true,
-                            'updatedAt': FieldValue.serverTimestamp(),
-                          });
-
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('تم حذف المركبة')),
-                            );
-                          }
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
+  void _showVehicleCard(
+    BuildContext context,
+    String id,
+    Map<String, dynamic> v,
+  ) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'vehicle_details',
+      barrierColor: Colors.black.withOpacity(0.28),
+      pageBuilder: (_, __, ___) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.88,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(26),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Align(
+                      alignment: Alignment.topLeft,
+                      child: IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
                       ),
-                      child: const Text('حذف المركبة'),
                     ),
-                  ),
-                ],
+                    Center(
+                      child: Text(
+                        'تفاصيل المركبة',
+                        textDirection: TextDirection.rtl,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF071A3D),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Container(
+                        width: 70,
+                        height: 70,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEAF2FF),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(
+                          Icons.directions_car_rounded,
+                          color: Color(0xFF2563EB),
+                          size: 36,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim(),
+                      textDirection: TextDirection.rtl,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF071A3D),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _centerInfoBox('الشركة', v['make'] ?? ''),
+                    _centerInfoBox('الطراز', v['model'] ?? ''),
+                    _centerInfoBox('السنة', v['year'] ?? ''),
+                    _centerInfoBox('اللون', v['color'] ?? ''),
+                    _centerInfoBox(
+                      'اللوحة',
+                      v['arabicPlateNumber'] ?? v['plateNumber'] ?? '',
+                    ),
+                    _centerInfoBox(
+                      'رقم الهيكل',
+                      v['chassisNumber'] ?? '',
+                      ltr: true,
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: const Text(
+                                'تأكيد الحذف',
+                                textDirection: TextDirection.rtl,
+                              ),
+                              content: const Text(
+                                'هل تريد حذف المركبة؟',
+                                textDirection: TextDirection.rtl,
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text('إلغاء'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text(
+                                    'حذف',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirm == true) {
+                            await FirebaseFirestore.instance
+                                .collection('vehicles')
+                                .doc(id)
+                                .update({
+                                  'isArchived': true,
+                                  'updatedAt': FieldValue.serverTimestamp(),
+                                });
+
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('تم حذف المركبة')),
+                              );
+                            }
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('حذف المركبة'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      );
-    },
-  );
-}
-
+        );
+      },
+    );
+  }
 
   Widget _vehiclesHorizontalList() {
-  if (_userDocId.isEmpty) return const SizedBox();
+    if (_userDocId.isEmpty) return const SizedBox();
 
-  final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.of(context).size.width;
 
-  // Responsive card size
-  final cardWidth = (screenWidth * 0.30).clamp(110.0, 140.0);
-  final listHeight = (screenWidth * 0.44).clamp(165.0, 195.0);
+    // Responsive card size
+    final cardWidth = (screenWidth * 0.30).clamp(110.0, 140.0);
+    final listHeight = (screenWidth * 0.44).clamp(165.0, 195.0);
 
-  return StreamBuilder<QuerySnapshot>(
-    stream: FirebaseFirestore.instance
-        .collection('vehicles')
-        .where('ownerId', isEqualTo: _userDocId)
-        .where('isArchived', isEqualTo: false)
-        .limit(3)
-        .snapshots(),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('vehicles')
+          .where('ownerId', isEqualTo: _userDocId)
+          .where('isArchived', isEqualTo: false)
+          .limit(3)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return SizedBox(
+            height: listHeight,
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final vehicles = snapshot.data?.docs ?? [];
+
         return SizedBox(
           height: listHeight,
-          child: const Center(child: CircularProgressIndicator()),
-        );
-      }
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              reverse: false,
+              itemCount: vehicles.length + 1,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, i) {
+                if (i == vehicles.length) {
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              AllVehiclesScreen(ownerId: _userDocId),
+                        ),
+                      );
+                    },
+                    child: _vehicleCardBase(
+                      width: cardWidth,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: const [
+                          Icon(
+                            Icons.grid_view_rounded,
+                            size: 32,
+                            color: Color(0xFF2563EB),
+                          ),
+                          Text(
+                            'عرض كل\nالمركبات',
+                            textAlign: TextAlign.center,
+                            textDirection: TextDirection.rtl,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: _textDark,
+                              height: 1.25,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
 
-      final vehicles = snapshot.data?.docs ?? [];
+                final doc = vehicles[i];
+                final v = doc.data() as Map<String, dynamic>;
+                final name = '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim();
+                final plate = v['plateNumber'] ?? '';
 
-      return SizedBox(
-        height: listHeight,
-        child: Directionality(
-          textDirection: TextDirection.rtl,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            reverse:false,
-            itemCount: vehicles.length + 1,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, i) {
-              if (i == vehicles.length) {
                 return GestureDetector(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => AllVehiclesScreen(ownerId: _userDocId),
-                      ),
-                    );
+                    _showVehicleCard(context, doc.id, v);
                   },
                   child: _vehicleCardBase(
                     width: cardWidth,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: const [
-                        Icon(
-                          Icons.grid_view_rounded,
-                          size: 32,
-                          color: Color(0xFF2563EB),
+                      children: [
+                        Image.asset(
+                          'assets/images/allcar_card.PNG',
+                          width: cardWidth * 0.60,
+                          height: listHeight * 0.45,
+                          fit: BoxFit.contain,
                         ),
-                        Text(
-                          'عرض كل\nالمركبات',
-                          textAlign: TextAlign.center,
-                          textDirection: TextDirection.rtl,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: _textDark,
-                            height: 1.25,
+
+                        Flexible(
+                          child: Text(
+                            name.isEmpty ? 'مركبة' : name,
+                            textAlign: TextAlign.center,
+                            textDirection: TextDirection.rtl,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                              color: _textDark,
+                              height: 1.2,
+                            ),
                           ),
                         ),
-                    
+
+                        Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Text(
+                            plate,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: _textMuted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+
+                        const CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Color(0xFFEAF2FF),
+                          child: Icon(
+                            Icons.arrow_forward_rounded,
+                            color: Color(0xFF2563EB),
+                            size: 22,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 );
-              }
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
 
-              final doc = vehicles[i];
-              final v = doc.data() as Map<String, dynamic>;
-              final name = '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim();
-              final plate = v['plateNumber'] ?? '';
+  Widget _vehicleCardBase({required double width, required Widget child}) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
 
-              return GestureDetector(
-                onTap: () {
-                  _showVehicleCard(context, doc.id, v);
-                },
-                child: _vehicleCardBase(
-                  width: cardWidth,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      Image.asset(
-                        'assets/images/allcar_card.PNG',
-                        width: cardWidth * 0.60,
-                        height: listHeight * 0.45,
-                        fit: BoxFit.contain,
-                      ),
-
-                      Flexible(
-                        child: Text(
-                          name.isEmpty ? 'مركبة' : name,
-                          textAlign: TextAlign.center,
-                          textDirection: TextDirection.rtl,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
-                            color: _textDark,
-                            height: 1.2,
-                          ),
-                        ),
-                      ),
-
-                      Directionality(
-                        textDirection: TextDirection.ltr,
-                        child: Text(
-                          plate,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            color: _textMuted,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-
-                      const CircleAvatar(
-                        radius: 18,
-                        backgroundColor: Color(0xFFEAF2FF),
-                        child: Icon(
-                          Icons.arrow_forward_rounded,
-                          color: Color(0xFF2563EB),
-                          size: 22,
-                        ),
-                      ),
-                    ],
-                  ),
+  Widget _reportHistoryHeader() {
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: _openHistory,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            textDirection: TextDirection.rtl,
+            children: const [
+              Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 14,
+                color: _primaryBlue,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'عرض الكل',
+                textDirection: TextDirection.rtl,
+                style: TextStyle(
+                  color: _primaryBlue,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                 ),
-              );
-            },
+              ),
+            ],
           ),
         ),
-      );
-    },
-  );
-}
-Widget _vehicleCardBase({
-  required double width,
-  required Widget child,
-}) {
-  return Container(
-    width: width,
-    padding: const EdgeInsets.all(10),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(22),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.06),
-          blurRadius: 14,
-          offset: const Offset(0, 6),
+        const Spacer(),
+        const Text(
+          'التقارير الأخيرة',
+          textDirection: TextDirection.rtl,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: _textDark,
+          ),
         ),
       ],
-    ),
-    child: child,
-  );
-}
-  Widget _reportHistoryHeader() {
-  return Row(
-    children: [
-      GestureDetector(
-        onTap: _openHistory,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          textDirection: TextDirection.rtl,
-          children: const [
-            Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 14,
-              color: _primaryBlue,
-            ),
-            SizedBox(width: 8),
-            Text(
-              'عرض الكل',
-              textDirection: TextDirection.rtl,
-              style: TextStyle(
-                color: _primaryBlue,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-      const Spacer(),
-      const Text(
-        'التقارير الأخيرة',
-        textDirection: TextDirection.rtl,
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w900,
-          color: _textDark,
-        ),
-      ),
-    ],
-  );
-}
+    );
+  }
 
   Widget _statusBadge(String status) {
-    final s = status.toLowerCase().trim();
+    final s = status.trim();
 
     String displayStatus;
     Color bgColor;
     Color textColor;
     IconData icon;
 
-    if (s == 'approved' || s == 'completed') {
-      displayStatus = 'مكتمل';
-      bgColor = const Color(0xFFE7F8EF);
-      textColor = const Color(0xFF159B55);
+    // We now check directly for the exact Arabic strings generated by our Python backend
+    if (s == 'مكتمل' ||
+        s == 'تم الفحص' ||
+        s == 'approved' ||
+        s == 'completed') {
+      displayStatus = 'تم الفحص'; // Final state after AI finishes successfully
+      bgColor = const Color(0xFFFFF1E6);
+      textColor = const Color(0xFFE27A2E);
       icon = Icons.check_circle_outline_rounded;
-    } else if (s == 'pending') {
-      displayStatus = 'قيد المراجعة';
+    } else if (s == 'قيد المراجعة' || s == 'pending') {
+      displayStatus = 'قيد المراجعة'; // Initial state before Najm OCR
       bgColor = const Color(0xFFEAF1FF);
       textColor = const Color(0xFF2E63D9);
       icon = Icons.hourglass_empty_rounded;
-    } else if (s == 'ocr_failed') {
-      displayStatus = 'فشل الفحص';
+    } else if (s == 'فشل الفحص' || s == 'ocr_failed') {
+      displayStatus = 'فشل الفحص'; // Failed OCR or Failed AI
       bgColor = const Color(0xFFFFEEF0);
       textColor = const Color(0xFFE33B4E);
       icon = Icons.warning_amber_rounded;
     } else {
+      // Default / 'قيد التحليل' (While AI is currently processing)
       displayStatus = 'قيد التحليل';
       bgColor = const Color(0xFFFFF1E6);
       textColor = const Color(0xFFE27A2E);
@@ -917,25 +939,29 @@ Widget _vehicleCardBase({
   }
 
   Widget _reportIcon(String status) {
-    final s = status.toLowerCase().trim();
+    final s = status.trim();
 
     Color bgColor;
     Color iconColor;
     IconData icon;
 
-    if (s == 'approved' || s == 'completed') {
-      bgColor = const Color(0xFFE7F8EF);
-      iconColor = const Color(0xFF159B55);
+    if (s == 'مكتمل' ||
+        s == 'تم الفحص' ||
+        s == 'approved' ||
+        s == 'completed') {
+      bgColor = const Color(0xFFFFF1E6);
+      iconColor = const Color(0xFFE27A2E);
       icon = Icons.verified_user_outlined;
-    } else if (s == 'pending') {
+    } else if (s == 'قيد المراجعة' || s == 'pending') {
       bgColor = const Color(0xFFEAF1FF);
       iconColor = const Color(0xFF2E63D9);
       icon = Icons.search_rounded;
-    } else if (s == 'ocr_failed') {
+    } else if (s == 'فشل الفحص' || s == 'ocr_failed') {
       bgColor = const Color(0xFFFFEEF0);
       iconColor = const Color(0xFFE33B4E);
       icon = Icons.gpp_bad_outlined;
     } else {
+      // Default / 'قيد التحليل'
       bgColor = const Color(0xFFFFF1E6);
       iconColor = const Color(0xFFE27A2E);
       icon = Icons.description_outlined;
@@ -995,8 +1021,9 @@ Widget _vehicleCardBase({
             final date = r['createdAt'] != null
                 ? (r['createdAt'] as Timestamp).toDate()
                 : null;
-            final dateStr =
-                date != null ? '${date.day}/${date.month}/${date.year}' : '';
+            final dateStr = date != null
+                ? '${date.day}/${date.month}/${date.year}'
+                : '';
 
             return FutureBuilder<DocumentSnapshot>(
               future: FirebaseFirestore.instance
@@ -1009,8 +1036,8 @@ Widget _vehicleCardBase({
 
                 if (vSnap.hasData && vSnap.data!.exists) {
                   final vData = vSnap.data!.data() as Map<String, dynamic>;
-                  carName =
-                      '${vData['make'] ?? ''} ${vData['model'] ?? ''}'.trim();
+                  carName = '${vData['make'] ?? ''} ${vData['model'] ?? ''}'
+                      .trim();
                   plate = vData['plateNumber'] ?? '';
                 }
 
@@ -1044,84 +1071,84 @@ Widget _vehicleCardBase({
                           ),
                         ],
                       ),
-                      child:Directionality(
-  textDirection: TextDirection.ltr,
-  child: Row(
-    children: [
-      // Back arrow (fixed to the far left)
-      const Icon(
-        Icons.arrow_back_ios_new_rounded,
-        size: 17,
-        color: _textDark,
-      ),
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Row(
+                          children: [
+                            // Back arrow (fixed to the far left)
+                            const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              size: 17,
+                              color: _textDark,
+                            ),
 
-      const SizedBox(width: 10),
+                            const SizedBox(width: 10),
 
-      // Status badge (placed after the arrow)
-      GestureDetector(
-        onTap: status.toLowerCase() == 'ocr_failed'
-            ? _showOcrFailedDialog
-            : null,
-        child: _statusBadge(status),
-      ),
+                            // Status badge (placed after the arrow)
+                            GestureDetector(
+                              onTap: status.toLowerCase() == 'ocr_failed'
+                                  ? _showOcrFailedDialog
+                                  : null,
+                              child: _statusBadge(status),
+                            ),
 
-      const SizedBox(width: 10),
+                            const SizedBox(width: 10),
 
-      // Main content (car name, plate, date)
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            // Car name (RTL)
-            Text(
-              carName,
-              textDirection: TextDirection.rtl,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: _textDark,
-              ),
-            ),
+                            // Main content (car name, plate, date)
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  // Car name (RTL)
+                                  Text(
+                                    carName,
+                                    textDirection: TextDirection.rtl,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: _textDark,
+                                    ),
+                                  ),
 
-            const SizedBox(height: 3),
+                                  const SizedBox(height: 3),
 
-            // Plate number (LTR for correct formatting)
-            Directionality(
-              textDirection: TextDirection.ltr,
-              child: Text(
-                plate,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: _textMuted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+                                  // Plate number (LTR for correct formatting)
+                                  Directionality(
+                                    textDirection: TextDirection.ltr,
+                                    child: Text(
+                                      plate,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: _textMuted,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
 
-            const SizedBox(height: 3),
+                                  const SizedBox(height: 3),
 
-            // Report date
-            Text(
-              dateStr,
-              style: const TextStyle(
-                fontSize: 12,
-                color: _textDark,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
+                                  // Report date
+                                  Text(
+                                    dateStr,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: _textDark,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
 
-      const SizedBox(width: 10),
+                            const SizedBox(width: 10),
 
-      // Status icon (circle on the right)
-      _reportIcon(status),
-    ],
-  ),
-)
+                            // Status icon (circle on the right)
+                            _reportIcon(status),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 );
