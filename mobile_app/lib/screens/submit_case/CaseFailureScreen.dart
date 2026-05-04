@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'submit_case_screen.dart';
+import '../NavBar/nav_bar.dart'; // Make sure this path is correct for your project structure
 
 class CaseFailedScreen extends StatelessWidget {
   const CaseFailedScreen({super.key});
@@ -66,10 +66,9 @@ class CaseFailedScreen extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
+                    // Navigate back to the App Bottom Nav to restore the Navigation Bar
                     Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                        builder: (_) => const SubmitCaseScreen(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const AppBottomNav()),
                       (route) => false,
                     );
                   },
@@ -83,7 +82,7 @@ class CaseFailedScreen extends StatelessWidget {
                     elevation: 6,
                   ),
                   child: const Text(
-                    'تقديم الطلب مرة أخرى',
+                    'العودة للرئيسية للمحاولة مجدداً', // Updated text to reflect returning to the main menu
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ),

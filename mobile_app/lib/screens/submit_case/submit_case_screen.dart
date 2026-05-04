@@ -945,12 +945,27 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
           print('✅ AI Detection completed successfully');
         } else {
           print('⚠️ AI Detection returned status code: ${response.statusCode}');
+          await caseRef.update({
+            'status': 'فشل الفحص',
+            'detectionError': 'Server returned ${response.statusCode}',
+          });
+          // NEW: Stop the function and trigger the failure screen
+          throw Exception('AI Server Error');
         }
       } catch (apiError) {
-        // We catch this separately so a timeout doesn't delete the user's submission.
-        // The images are safe in Firebase even if the local AI server takes too long.
         print('❌ Failed to trigger backend detection: $apiError');
+
+        await caseRef.update({
+          'status': 'فشل الفحص',
+          'detectionError': 'Connection failed: $apiError',
+        });
+
+        // NEW: Stop the function and trigger the failure screen
+        throw Exception('AI Connection Timeout');
       }
+      // ─────────────────────────────────────────────────────────────────
+
+      // The code will ONLY reach here if the AI request returned a 200 OK!
       if (mounted) {
         _caseId = null;
         Navigator.push(
