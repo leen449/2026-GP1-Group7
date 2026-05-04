@@ -529,7 +529,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     borderSide: BorderSide.none,
   ),
 
-  // Normal state border (blue or red if error exists)
+  // Normal state border 
   enabledBorder: OutlineInputBorder(
     borderRadius: BorderRadius.circular(14),
     borderSide: BorderSide(
@@ -542,7 +542,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
   focusedBorder: OutlineInputBorder(
     borderRadius: BorderRadius.circular(14),
     borderSide: BorderSide(
-      color: Color(0xFF1E3A6E), 
+      color: Color(0xFF2563EB), 
       width: 1.8,
     ),
   ),
