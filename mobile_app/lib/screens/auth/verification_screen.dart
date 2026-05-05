@@ -33,7 +33,8 @@ class VerificationScreen extends StatefulWidget {
 
 class _VerificationScreenState extends State<VerificationScreen> {
   final List<TextEditingController> _controllers = List.generate(
-    6, (_) => TextEditingController(),
+    6,
+    (_) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
@@ -54,6 +55,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
       if (mounted) _focusNodes[0].requestFocus();
     });
     _startTimer();
+    // Update UI when OTP field focus changes
+    for (final node in _focusNodes) {
+      node.addListener(() {
+        if (mounted) setState(() {});
+      });
+    }
   }
 
   @override
@@ -157,9 +164,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
         msg = 'انتهت صلاحية الرمز. اطلب رمزاً جديداً';
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.red),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
     }
   }
 
@@ -224,14 +231,15 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final boxGap = (boxSize * 0.2).clamp(6.0, 12.0);
 
     return Scaffold(
-     backgroundColor: const Color(0xFFF7FAFF),
+      backgroundColor: const Color(0xFFF7FAFF),
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const ClampingScrollPhysics(),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: sh -
+              minHeight:
+                  sh -
                   MediaQuery.of(context).padding.top -
                   MediaQuery.of(context).padding.bottom,
             ),
@@ -262,15 +270,45 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     ),
                     SizedBox(height: isKeyboard ? 8 : 14),
                     Center(
-                      child: Text(
-                        'تم إرسال رمز التحقق\nإلى رقم جوالك ${widget.phone}',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: (sw * 0.036).clamp(12.0, 16.0),
-                          height: 1.35,
-                          color: Colors.black.withOpacity(0.55),
-                          fontWeight: FontWeight.w500,
-                        ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'تم إرسال رمز التحقق',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: (sw * 0.036).clamp(12.0, 16.0),
+                              height: 1.35,
+                              color: Colors.black.withOpacity(0.55),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            textDirection: TextDirection.rtl,
+                            children: [
+                              Text(
+                                'إلى رقم جوالك  ',
+                                style: TextStyle(
+                                  fontSize: (sw * 0.036).clamp(12.0, 16.0),
+                                  color: Colors.black.withOpacity(0.55),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Directionality(
+                                textDirection: TextDirection.ltr,
+                                child: Text(
+                                  widget.phone,
+                                  style: TextStyle(
+                                    fontSize: (sw * 0.036).clamp(12.0, 16.0),
+                                    color: Colors.black.withOpacity(0.55),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                     SizedBox(height: isKeyboard ? 16 : 28),
@@ -278,16 +316,16 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(
-                          6, (i) => _otpBox(i, boxSize, boxGap),
+                          6,
+                          (i) => _otpBox(i, boxSize, boxGap),
                         ),
                       ),
                     ),
                     SizedBox(height: isKeyboard ? 14 : 26),
                     Center(
-                      child: Wrap(
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        textDirection: TextDirection.rtl,
                         children: [
                           Text(
                             'لم يصلك الرمز؟',
@@ -297,6 +335,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
+
+                          const SizedBox(width: 8),
+
                           GestureDetector(
                             onTap: _canResend ? _resendOTP : null,
                             child: Text(
@@ -306,7 +347,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               style: TextStyle(
                                 fontSize: (sw * 0.036).clamp(12.0, 15.0),
                                 fontWeight: FontWeight.w700,
-                                color: _canResend ? Colors.black87 : Colors.black38,
+                                color: _canResend
+                                    ? const Color(0xFF2563EB)
+                                    : Colors.black38,
                               ),
                             ),
                           ),
@@ -320,14 +363,16 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _verifyOtp,
                         style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0B4A7D),
+                          backgroundColor: const Color(0xFF0B4A7D),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
                             : const Text(
                                 'تحقق',
                                 style: TextStyle(
@@ -358,12 +403,22 @@ class _VerificationScreenState extends State<VerificationScreen> {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.55),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withOpacity(0.08)),
+        border: Border.all(
+          color: _focusNodes[index].hasFocus
+              ? const Color(0xFF2563EB)
+              : Colors.black.withOpacity(0.08),
+          width: _focusNodes[index].hasFocus ? 1.5 : 1,
+        ),
       ),
       child: TextField(
         controller: _controllers[index],
         focusNode: _focusNodes[index],
+        onTap: () {
+          setState(() {}); // Rebuild to update focused border color
+        },
+
         textAlign: TextAlign.center,
+        textAlignVertical: TextAlignVertical.center, // Center number vertically
         style: TextStyle(
           fontSize: size * 0.44,
           fontWeight: FontWeight.w600,
@@ -376,7 +431,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         ],
         decoration: const InputDecoration(
           border: InputBorder.none,
-          contentPadding: EdgeInsets.only(bottom: 2),
+          contentPadding: EdgeInsets.zero,
         ),
         onChanged: (val) {
           if (val.isNotEmpty) {
