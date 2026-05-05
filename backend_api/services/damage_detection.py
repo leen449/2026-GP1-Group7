@@ -10,7 +10,7 @@ import urllib.parse
 
 
 # Load model ONCE (very important)
-model = YOLO("weight/best.pt")
+model = YOLO("../ml_model/weight/best.pt")
 
 def _ensure_firebase_initialized():
     # Reusing the exact same initialization logic 
