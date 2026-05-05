@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AddVehicleScreen extends StatefulWidget {
   const AddVehicleScreen({super.key});
@@ -61,11 +62,12 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         }
       }
 
+      final normalizedArabicPlate =
+          _normalizeArabicPlateNumber(_arabicPlateController.text);
+
       await FirebaseFirestore.instance.collection('vehicles').add({
-        'plateNumber': _normalizeArabicPlateNumber(_arabicPlateController.text),
-        'arabicPlateNumber': _normalizeArabicPlateNumber(
-          _arabicPlateController.text,
-        ),
+        'plateNumber': normalizedArabicPlate,
+        'arabicPlateNumber': normalizedArabicPlate,
         'model': _modelController.text.trim(),
         'color': _colorController.text.trim(),
         'make': _makeController.text.trim(),
@@ -128,18 +130,23 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     TextInputType? keyboardType,
     String? Function(String?)? validator,
     String? hintText,
-    TextDirection textDirection = TextDirection.ltr,
+    TextDirection textDirection = TextDirection.rtl,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(
-          label,
-          textDirection: TextDirection.rtl,
-          style: const TextStyle(
-            fontSize: 13,
-            color: Color(0xFF071A3D),
-            fontWeight: FontWeight.w700,
+        SizedBox(
+          width: double.infinity,
+          child: Text(
+            label,
+            textAlign: TextAlign.right,
+            textDirection: TextDirection.rtl,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF071A3D),
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
         const SizedBox(height: 6),
@@ -147,60 +154,37 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           controller: controller,
           keyboardType: keyboardType,
           validator: validator,
+          inputFormatters: inputFormatters,
+          textAlign: TextAlign.right,
+          textAlignVertical: TextAlignVertical.center,
           textDirection: textDirection,
           decoration: _fieldDecoration().copyWith(
             hintText: hintText,
+            hintTextDirection: TextDirection.rtl,
           ),
         ),
       ],
     );
   }
 
-  String _normalizePlateNumber(String input) {
-    final value = input.trim().toUpperCase().replaceAll(' ', '');
+  String _toArabicDigits(String input) {
+    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    const arabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
 
-    final lettersOnly = value.replaceAll(RegExp(r'[^A-Z]'), '');
-    final numbersOnly = value.replaceAll(RegExp(r'[^0-9]'), '');
-
-    return '${numbersOnly} ${lettersOnly}'.trim();
+    for (int i = 0; i < english.length; i++) {
+      input = input.replaceAll(english[i], arabic[i]);
+    }
+    return input;
   }
 
   String _normalizeArabicPlateNumber(String input) {
-    final value = input.trim().replaceAll(' ', '');
+    final value = _toArabicDigits(input.trim().replaceAll(' ', ''));
 
+    final numbersOnly = value.replaceAll(RegExp(r'[^٠-٩]'), '');
     final lettersOnly = value.replaceAll(RegExp(r'[^ء-ي]'), '');
-    final numbersOnly = value.replaceAll(RegExp(r'[^0-9٠-٩]'), '');
 
-    return '${numbersOnly} ${lettersOnly}'.trim();
-  }
-
-  String? _validatePlateNumber(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'هذا الحقل مطلوب';
-    }
-
-    final input = value.trim().toUpperCase().replaceAll(' ', '');
-
-    if (!RegExp(r'^[A-Z0-9]+$').hasMatch(input)) {
-      return 'Use English letters and digits only';
-    }
-
-    final letters = input.replaceAll(RegExp(r'[^A-Z]'), '');
-    final numbers = input.replaceAll(RegExp(r'[^0-9]'), '');
-
-    if (letters.isEmpty || numbers.isEmpty) {
-      return 'لازم تحتوي اللوحة على حروف وأرقام';
-    }
-
-    if (letters.length > 3) {
-      return 'الحد الأقصى 3 حروف';
-    }
-
-    if (numbers.length > 4) {
-      return 'الحد الأقصى 4 أرقام';
-    }
-
-    return null;
+    return '${numbersOnly.split('').join(' ')} ${lettersOnly.split('').join(' ')}'
+        .trim();
   }
 
   String? _validateArabicPlateNumber(String? value) {
@@ -285,27 +269,42 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryBlue = Color(0xFF2563EB);
-
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF7FAFF),
         appBar: AppBar(
-          elevation: 0,
-          backgroundColor: const Color(0xFFF7FAFF),
-          centerTitle: true,
-          surfaceTintColor: const Color(0xFFF7FAFF),
-          title: const Text(
-            'إضافة مركبة',
-            style: TextStyle(
-              color: Color(0xFF071A3D),
-              fontWeight: FontWeight.w900,
-              fontSize: 22,
-            ),
-          ),
-          iconTheme: const IconThemeData(color: Color(0xFF071A3D)),
-        ),
+  automaticallyImplyLeading: false,
+
+  // 👇 هذا هو الحل
+  leading: Transform(
+    alignment: Alignment.center,
+    transform: Matrix4.rotationY(3.1416), // يعكس السهم
+    child: IconButton(
+      icon: const Icon(
+        Icons.arrow_forward_ios_rounded,
+        color: Color(0xFF071A3D),
+        size: 22,
+      ),
+      onPressed: () => Navigator.pop(context),
+    ),
+  ),
+
+  elevation: 0,
+  backgroundColor: const Color(0xFFF7FAFF),
+  centerTitle: true,
+  surfaceTintColor: const Color(0xFFF7FAFF),
+
+  title: const Text(
+    'إضافة مركبة',
+    textDirection: TextDirection.rtl,
+    style: TextStyle(
+      color: Color(0xFF071A3D),
+      fontWeight: FontWeight.w900,
+      fontSize: 22,
+    ),
+  ),
+),
         body: SafeArea(
           child: Form(
             key: _formKey,
@@ -313,24 +312,40 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
               child: ListView(
                 children: [
-                  
                   _buildField(
-                    label: 'رقم اللوحة بالعربي',
+                    label: 'رقم اللوحة',
                     controller: _arabicPlateController,
                     validator: _validateArabicPlateNumber,
+                    textDirection: TextDirection.rtl,
+                    keyboardType: TextInputType.text,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'[ء-ي0-9٠-٩]'),
+                      ),
+                      TextInputFormatter.withFunction((oldValue, newValue) {
+                        final converted = _toArabicDigits(newValue.text);
+                        return TextEditingValue(
+                          text: converted,
+                          selection: TextSelection.collapsed(
+                            offset: converted.length,
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _buildField(
+                    label: 'ماركة المركبة',
+                    controller: _makeController,
+                    validator: _validateRequired,
                     textDirection: TextDirection.rtl,
                   ),
                   const SizedBox(height: 14),
                   _buildField(
-                    label: 'الشركة',
-                    controller: _makeController,
-                    validator: _validateRequired,
-                  ),
-                  const SizedBox(height: 14),
-                  _buildField(
-                    label: 'الطراز',
+                    label: 'طراز المركبة',
                     controller: _modelController,
                     validator: _validateRequired,
+                    textDirection: TextDirection.rtl,
                   ),
                   const SizedBox(height: 14),
                   _buildField(
@@ -345,6 +360,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                     label: 'اللون',
                     controller: _colorController,
                     validator: _validateRequired,
+                    textDirection: TextDirection.rtl,
                   ),
                   const SizedBox(height: 14),
                   _buildField(
@@ -359,9 +375,10 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _addVehicle,
                       style: ElevatedButton.styleFrom(
-  backgroundColor: const Color(0xFF0B4A7D), // ✅
-  foregroundColor: Colors.white,
-  disabledBackgroundColor: const Color(0xFF0B4A7D).withOpacity(0.7),
+                        backgroundColor: const Color(0xFF0B4A7D),
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            const Color(0xFF0B4A7D).withOpacity(0.7),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -377,7 +394,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                               ),
                             )
                           : const Text(
-                              'إضافة المركبة',
+                              ' + إضافة مركبة',
+                              textDirection: TextDirection.rtl,
                               style: TextStyle(
                                 fontWeight: FontWeight.w800,
                                 fontSize: 16,

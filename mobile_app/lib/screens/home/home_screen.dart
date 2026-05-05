@@ -571,17 +571,17 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: const Color(0xFFEAF2FF),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Icon(
-                          Icons.directions_car_rounded,
-                          color: Color(0xFF2563EB),
-                          size: 36,
-                        ),
+                        child: Image.asset(
+                    'assets/images/allcar_card.PNG',
+                    fit: BoxFit.contain,
+                  ),
                       ),
                     ),
                     const SizedBox(height: 14),
                     Text(
                       '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim(),
-                      textDirection: TextDirection.rtl,
+                                              textDirection: TextDirection.rtl,
+                            textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
@@ -589,18 +589,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _centerInfoBox('الشركة', v['make'] ?? ''),
-                    _centerInfoBox('الطراز', v['model'] ?? ''),
+                    _centerInfoBox('ماركة المركبة', v['make'] ?? ''),
+                    _centerInfoBox('طراز المركبة', v['model'] ?? ''),
                     _centerInfoBox('السنة', v['year'] ?? ''),
                     _centerInfoBox('اللون', v['color'] ?? ''),
                     _centerInfoBox(
-                      'اللوحة',
+                      'رقم اللوحة',
                       v['arabicPlateNumber'] ?? v['plateNumber'] ?? '',
                     ),
                     _centerInfoBox(
                       'رقم الهيكل',
                       v['chassisNumber'] ?? '',
-                      ltr: true,
+                      
                     ),
                     const SizedBox(height: 18),
                     SizedBox(
@@ -653,7 +653,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           }
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
+                          backgroundColor: const Color(0xFFE33B4E),
                           foregroundColor: Colors.white,
                         ),
                         child: const Text('حذف المركبة'),
@@ -683,9 +683,18 @@ class _HomeScreenState extends State<HomeScreen> {
           .collection('vehicles')
           .where('ownerId', isEqualTo: _userDocId)
           .where('isArchived', isEqualTo: false)
+            .orderBy('createdAt', descending: true)
+
           .limit(3)
           .snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+  return Text(
+    snapshot.error.toString(),
+    textDirection: TextDirection.ltr,
+    style: const TextStyle(color: Colors.red, fontSize: 12),
+  );
+}
         if (snapshot.connectionState == ConnectionState.waiting) {
           return SizedBox(
             height: listHeight,
