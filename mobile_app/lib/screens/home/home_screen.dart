@@ -386,13 +386,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
-
+    final screenWidth = MediaQuery.of(context).size.width;
     return Scaffold(
       backgroundColor: _pageBg,
       body: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(18, 14, 18, bottomPad + 90),
+          padding: EdgeInsets.fromLTRB(screenWidth * 0.045, 14, screenWidth * 0.045, bottomPad + 90),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -465,7 +465,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _bannerCard() {
     return Container(
-      height: 210,
+      height: MediaQuery.of(context).size.height * 0.22,
       decoration: BoxDecoration(
         color: const Color(0xFFEAF4FF),
         borderRadius: BorderRadius.circular(26),
