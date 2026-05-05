@@ -41,7 +41,7 @@ class CaseDetailsScreen extends StatelessWidget {
               textDirection: ltr ? TextDirection.ltr : TextDirection.rtl,
               child: Text(
                 value.trim().isEmpty ? '—' : value,
-                textAlign: ltr ? TextAlign.left : TextAlign.right,
+                textAlign: TextAlign.right,
                 style: const TextStyle(
                   color: _textDark,
                   fontWeight: FontWeight.w800,
