@@ -33,8 +33,7 @@ class VerificationScreen extends StatefulWidget {
 
 class _VerificationScreenState extends State<VerificationScreen> {
   final List<TextEditingController> _controllers = List.generate(
-    6,
-    (_) => TextEditingController(),
+    6, (_) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
@@ -55,7 +54,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
       if (mounted) _focusNodes[0].requestFocus();
     });
     _startTimer();
-    // Update UI when OTP field focus changes
     for (final node in _focusNodes) {
       node.addListener(() {
         if (mounted) setState(() {});
@@ -86,6 +84,22 @@ class _VerificationScreenState extends State<VerificationScreen> {
     });
   }
 
+  // ✅ دالة مشتركة للـ SnackBar
+  void _showSnackBar(String msg, {bool isSuccess = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [Text(msg)],
+        ),
+        backgroundColor: isSuccess ? Colors.green : Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 800),
+      ),
+    );
+  }
+
   String get _otpCode => _controllers.map((c) => c.text).join();
 
   void _navigateAfterVerification() {
@@ -101,12 +115,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   Future<void> _verifyOtp() async {
     if (_otpCode.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('الرجاء إدخال الرمز المكون من 6 أرقام'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackBar('الرجاء إدخال الرمز المكون من 6 أرقام');
       return;
     }
 
@@ -145,12 +154,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           await FirebaseAuth.instance.signOut();
           setState(() => _isLoading = false);
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('لا يوجد حساب بهذا الرقم. الرجاء إنشاء حساب جديد'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          _showSnackBar('لا يوجد حساب بهذا الرقم. الرجاء إنشاء حساب جديد');
           return;
         }
       }
@@ -164,9 +168,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         msg = 'انتهت صلاحية الرمز. اطلب رمزاً جديداً';
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+      _showSnackBar(msg);
     }
   }
 
@@ -198,12 +200,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       },
       verificationFailed: (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.message ?? 'حدث خطأ. حاول مرة أخرى'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackBar(e.message ?? 'حدث خطأ. حاول مرة أخرى');
       },
       codeSent: (newId, newToken) {
         setState(() {
@@ -212,9 +209,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         });
         _startTimer();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم إعادة إرسال الرمز بنجاح ✅')),
-        );
+        _showSnackBar('تم إعادة إرسال الرمز بنجاح ', isSuccess: true);
       },
       codeAutoRetrievalTimeout: (_) {},
       timeout: const Duration(seconds: 60),
@@ -238,8 +233,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           physics: const ClampingScrollPhysics(),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight:
-                  sh -
+              minHeight: sh -
                   MediaQuery.of(context).padding.top -
                   MediaQuery.of(context).padding.bottom,
             ),
@@ -282,7 +276,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             textDirection: TextDirection.rtl,
@@ -316,8 +309,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(
-                          6,
-                          (i) => _otpBox(i, boxSize, boxGap),
+                          6, (i) => _otpBox(i, boxSize, boxGap),
                         ),
                       ),
                     ),
@@ -335,9 +327,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-
                           const SizedBox(width: 8),
-
                           GestureDetector(
                             onTap: _canResend ? _resendOTP : null,
                             child: Text(
@@ -370,9 +360,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           ),
                         ),
                         child: _isLoading
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
+                            ? const CircularProgressIndicator(color: Colors.white)
                             : const Text(
                                 'تحقق',
                                 style: TextStyle(
@@ -413,12 +401,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
       child: TextField(
         controller: _controllers[index],
         focusNode: _focusNodes[index],
-        onTap: () {
-          setState(() {}); // Rebuild to update focused border color
-        },
-
+        onTap: () => setState(() {}),
         textAlign: TextAlign.center,
-        textAlignVertical: TextAlignVertical.center, // Center number vertically
+        textAlignVertical: TextAlignVertical.center,
         style: TextStyle(
           fontSize: size * 0.44,
           fontWeight: FontWeight.w600,

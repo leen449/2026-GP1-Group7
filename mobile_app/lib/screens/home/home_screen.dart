@@ -392,7 +392,12 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(screenWidth * 0.045, 14, screenWidth * 0.045, bottomPad + 90),
+          padding: EdgeInsets.fromLTRB(
+            screenWidth * 0.045,
+            14,
+            screenWidth * 0.045,
+            bottomPad + 90,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -572,16 +577,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Image.asset(
-                    'assets/images/allcar_card.PNG',
-                    fit: BoxFit.contain,
-                  ),
+                          'assets/images/allcar_card.PNG',
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
                     Text(
                       '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim(),
-                                              textDirection: TextDirection.rtl,
-                            textAlign: TextAlign.center,
+                      textDirection: TextDirection.rtl,
+                      textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
@@ -597,11 +602,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       'رقم اللوحة',
                       v['arabicPlateNumber'] ?? v['plateNumber'] ?? '',
                     ),
-                    _centerInfoBox(
-                      'رقم الهيكل',
-                      v['chassisNumber'] ?? '',
-                      
-                    ),
+                    _centerInfoBox('رقم الهيكل', v['chassisNumber'] ?? ''),
                     const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
@@ -683,18 +684,17 @@ class _HomeScreenState extends State<HomeScreen> {
           .collection('vehicles')
           .where('ownerId', isEqualTo: _userDocId)
           .where('isArchived', isEqualTo: false)
-            .orderBy('createdAt', descending: true)
-
+          .orderBy('createdAt', descending: true)
           .limit(3)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-  return Text(
-    snapshot.error.toString(),
-    textDirection: TextDirection.ltr,
-    style: const TextStyle(color: Colors.red, fontSize: 12),
-  );
-}
+          return Text(
+            snapshot.error.toString(),
+            textDirection: TextDirection.ltr,
+            style: const TextStyle(color: Colors.red, fontSize: 12),
+          );
+        }
         if (snapshot.connectionState == ConnectionState.waiting) {
           return SizedBox(
             height: listHeight,

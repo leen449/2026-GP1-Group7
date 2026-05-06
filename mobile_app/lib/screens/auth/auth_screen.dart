@@ -339,18 +339,22 @@ class _AuthScreenState extends State<AuthScreen> {
                   (val.startsWith('1') || val.startsWith('2'))) {
                 setState(() => _nationalIdError = null);
               }
-          } else if (keyboardType == TextInputType.phone && val.isNotEmpty && val[0] == '0') {
-  setState(() => _phoneError = 'يجب ألا يبدأ رقم الجوال بـ 0');
-} else if (keyboardType == TextInputType.phone && val.isNotEmpty && val[0] != '5') {
-  setState(() => _phoneError = 'يجب أن يبدأ رقم الجوال بـ 5');
-} else {
-  setState(() {
-    _firstNameError = null;
-    _lastNameError = null;
-    _nationalIdError = null;
-    _phoneError = null;
-  });
-}
+            } else if (keyboardType == TextInputType.phone &&
+                val.isNotEmpty &&
+                val[0] == '0') {
+              setState(() => _phoneError = 'يجب ألا يبدأ رقم الجوال بـ 0');
+            } else if (keyboardType == TextInputType.phone &&
+                val.isNotEmpty &&
+                val[0] != '5') {
+              setState(() => _phoneError = 'يجب أن يبدأ رقم الجوال بـ 5');
+            } else {
+              setState(() {
+                _firstNameError = null;
+                _lastNameError = null;
+                _nationalIdError = null;
+                _phoneError = null;
+              });
+            }
           },
         ),
         if (errorText != null)
@@ -428,19 +432,35 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Widget _primaryButton({required String text, required VoidCallback onTap}) {
     return SizedBox(
-      height: 54,
       width: double.infinity,
       child: ElevatedButton(
         onPressed: onTap,
+
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0B4A7D),
+          backgroundColor: const Color(0xFF1E3A6E),
           foregroundColor: Colors.white,
+
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+
+          minimumSize: const Size(0, 48),
+
           elevation: 0,
+
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ), // ✅
+            borderRadius: BorderRadius.circular(30),
+          ),
         ),
-        child: Text(text, style: _textStyle(fontSize: 16, color: Colors.white)),
+
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            text,
+            style: _textStyle(
+              fontSize: 15,
+              color: Colors.white,
+            ).copyWith(fontWeight: FontWeight.w700),
+          ),
+        ),
       ),
     );
   }
