@@ -57,12 +57,6 @@ BRAND_ALIAS_MAP = {
     "لكسس":        "لكزس",
 }
 
-MODEL_ALIAS_MAP = {
-    "جي اكس ار": "GXR",
-    "في اكس ار": "VXR",
-    "gxr":       "GXR",
-    "vxr":       "VXR",
-}
 
 # English plate letter → Arabic plate letter (for fallback conversion)
 ENGLISH_TO_ARABIC_PLATE = {
@@ -85,8 +79,7 @@ ENGLISH_TO_ARABIC_PLATE = {
     "Y": "ى",
 }
 
-# Arabic plate letter → English (for mapping Arabic OCR to English)
-ARABIC_PLATE_LETTER_MAP = {v: k for k, v in ENGLISH_TO_ARABIC_PLATE.items()}
+
 
 # Arabic digits for converting English digits to Arabic
 ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩"
@@ -143,17 +136,6 @@ def _extract_valid_year_candidates(text: str) -> list:
     candidates = re.findall(r"\d{4}", text)
     return [c for c in candidates if _is_valid_year(c)]
 
-
-def _resolve_brand_alias(text: str) -> str:
-    """Return canonical brand if alias is known."""
-    norm = _normalize_match_text(text)
-    for alias, canonical in BRAND_ALIAS_MAP.items():
-        alias_norm = _normalize_match_text(alias)
-        if norm == alias_norm or alias_norm in norm:
-            return canonical
-    return text
-
-
 def _resolve_model_alias(text: str) -> str:
     """Return canonical model if alias is known."""
     norm = _normalize_match_text(text)
@@ -162,7 +144,6 @@ def _resolve_model_alias(text: str) -> str:
         if norm == alias_norm or alias_norm in norm:
             return canonical
     return text
-
 
 def _build_ocr_items(result: list) -> list:
     """Convert EasyOCR detail=1 output into structured OCR items."""
@@ -658,8 +639,6 @@ def _extract_model(texts: list) -> str:
     for text in texts:
         for model in COMMON_ARABIC_MODELS:
             if model in text:
-                if model == "جي اكس ار": return "GXR"
-                if model == "في اكس ار": return "VXR"
                 return model
     return ""
 
