@@ -8,12 +8,11 @@ import firebase_admin
 from firebase_admin import firestore, credentials, storage
 import urllib.parse
 
-
-# Load model ONCE (very important)
+# [1] Load model ONCE 
 model = YOLO("../ml_model/weight/best.pt")
 
 def _ensure_firebase_initialized():
-    # Reusing the exact same initialization logic 
+    # [2] Reusing the exact same initialization logic 
     if not firebase_admin._apps:
         try:
             cred = credentials.Certificate("serviceAccountKey.json")
@@ -31,24 +30,24 @@ async def process_damage_detection(case_id: str) -> dict:
         _ensure_firebase_initialized()
         db = firestore.client()
         
-        # 1. Connect to the case in Firestore
+        # [3] Connect to the case in Firestore
         case_ref = db.collection("accidentCase").document(case_id)
         case_doc = case_ref.get()
         
         if not case_doc.exists:
             return {"status": "error", "message": f"Case {case_id} not found"}
 
-        # 2. Get the images subcollection
+        # [4] Get the images subcollection
         images_ref = case_ref.collection("images").stream()
         results = []
         bucket = storage.bucket('crashlens-233bf.firebasestorage.app')
 
-        # 3. Process EACH image (This is the loop that went missing!)
+        # [5] Process EACH image
         for img_doc in images_ref:
             img_data = img_doc.to_dict()
             image_url = img_data.get("downloadUrl")
             
-            # If there's no URL, skip this image
+            # [6] If there's no URL, skip this image
             if not image_url:
                 continue
 
@@ -56,7 +55,7 @@ async def process_damage_detection(case_id: str) -> dict:
             annotated_img_path = None
             
             try:
-                # Create temp file and download image using Admin privileges
+                # [7] Create temp file and download image 
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
                     temp_path = tmp.name
                 
@@ -65,25 +64,28 @@ async def process_damage_detection(case_id: str) -> dict:
                 image_blob = bucket.blob(storage_path)
                 image_blob.download_to_filename(temp_path)
 
-                # Run YOLO
+                # [8] Run YOLO
                 yolo_results = model(temp_path)
                 
                 for r in yolo_results:
                     
-                    # 1. Evaluate if there is any damage using our new flag
+                    # [9] Evaluate if there is any damage using our new flag
                     has_damage = len(r.boxes) > 0
                     
-                    # 2. The "No Damage" Path
+                    # [10] The "No Damage" Path
                     if not has_damage:
+                        img_doc.reference.update({
+                            "annotatedImage": None,
+                            "hasDamage": False,
+                        })
                         results.append({
                             "originalImage": image_url,
-                            "annotatedImage": None,
-                            "hasDamage": False, 
+                            "hasDamage": False,
                             "detections": []
                         })
-                        continue # Skip the rest of the loop and move to the next image
+                        continue
 
-                    # 3. The "Damage Detected" Path
+                    # [11] The "Damage Detected" Path
                     detections = []
                     for box in r.boxes:
                         cls_id = int(box.cls[0])
@@ -97,7 +99,7 @@ async def process_damage_detection(case_id: str) -> dict:
                             "x2": round(x2, 2), "y2": round(y2, 2)
                         })
 
-                    # Generate and upload ONLY because we know damage exists
+                    # [12] Generate and upload annotated image
                     annotated_frame = r.plot()
                     annotated_img_path = os.path.join(tempfile.gettempdir(), f"annotated_{uuid.uuid4()}.jpg")
                     cv2.imwrite(annotated_img_path, annotated_frame)
@@ -107,25 +109,41 @@ async def process_damage_detection(case_id: str) -> dict:
                     blob.make_public()
                     annotated_url = blob.public_url
 
+                    # [13] Update the image document with the annotated image URL
+                    img_doc.reference.update({
+                        "annotatedImage": annotated_url,
+                        "hasDamage": True,
+                    })
+
+                    # [14] Save each detection as a separate document in the detections subcollection
+                    
+                    for detection in detections:
+                        img_doc.reference.collection("detections").add({
+                            "label": detection["label"],
+                            "confidence": detection["confidence"],
+                            "x1": detection["x1"],
+                            "y1": detection["y1"],
+                            "x2": detection["x2"],
+                            "y2": detection["y2"],
+                            
+                        })
+
                     results.append({
                         "originalImage": image_url,
                         "annotatedImage": annotated_url,
-                        "hasDamage": True, 
+                        "hasDamage": True,
                         "detections": detections
                     })
 
             finally:
-                # Cleanup temp files
+                # [15] Cleanup temp files
                 if temp_path and os.path.exists(temp_path):
                     os.remove(temp_path)
                 if annotated_img_path and os.path.exists(annotated_img_path):
                     os.remove(annotated_img_path)
 
-                # 4. Update Firestore with final results and status 
-                case_ref.update({
-                 "damageAnalysis": results,
-                 "status": "تم الفحص" 
-             })
+        # [16] Update case status after ALL images have been processed
+        case_ref.update({"status": "تم الفحص"})
 
         return {"status": "success", "data": results}
 
@@ -133,7 +151,7 @@ async def process_damage_detection(case_id: str) -> dict:
         error_message = f"Damage Detection Error: {str(e)}"
         print(f"!!! {error_message}")
         
-        # Update case to reflect the error
+        # [17] Update case to reflect the error
         try:
             _ensure_firebase_initialized()
             db = firestore.client()
