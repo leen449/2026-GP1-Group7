@@ -33,7 +33,8 @@ class VerificationScreen extends StatefulWidget {
 
 class _VerificationScreenState extends State<VerificationScreen> {
   final List<TextEditingController> _controllers = List.generate(
-    6, (_) => TextEditingController(),
+    6,
+    (_) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
@@ -233,7 +234,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
           physics: const ClampingScrollPhysics(),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: sh -
+              minHeight:
+                  sh -
                   MediaQuery.of(context).padding.top -
                   MediaQuery.of(context).padding.bottom,
             ),
@@ -309,7 +311,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(
-                          6, (i) => _otpBox(i, boxSize, boxGap),
+                          6,
+                          (i) => _otpBox(i, boxSize, boxGap),
                         ),
                       ),
                     ),
@@ -352,21 +355,43 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       height: 54,
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _verifyOtp,
+
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0B4A7D),
+                          backgroundColor: const Color(0xFF1E3A6E),
+                          foregroundColor: Colors.white,
+
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 14,
+                          ),
+
+                          minimumSize: const Size(0, 48),
+
                           elevation: 0,
+
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(30),
                           ),
                         ),
+
                         child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text(
-                                'تحقق',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
                                   color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  'تحقق',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                       ),
