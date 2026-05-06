@@ -339,17 +339,18 @@ class _AuthScreenState extends State<AuthScreen> {
                   (val.startsWith('1') || val.startsWith('2'))) {
                 setState(() => _nationalIdError = null);
               }
-            } else if (keyboardType == TextInputType.phone &&
-                val.startsWith('0')) {
-              setState(() => _phoneError = 'يجب ألا يبدأ رقم الجوال بـ 0');
-            } else {
-              setState(() {
-                _firstNameError = null;
-                _lastNameError = null;
-                _nationalIdError = null;
-                _phoneError = null;
-              });
-            }
+          } else if (keyboardType == TextInputType.phone && val.isNotEmpty && val[0] == '0') {
+  setState(() => _phoneError = 'يجب ألا يبدأ رقم الجوال بـ 0');
+} else if (keyboardType == TextInputType.phone && val.isNotEmpty && val[0] != '5') {
+  setState(() => _phoneError = 'يجب أن يبدأ رقم الجوال بـ 5');
+} else {
+  setState(() {
+    _firstNameError = null;
+    _lastNameError = null;
+    _nationalIdError = null;
+    _phoneError = null;
+  });
+}
           },
         ),
         if (errorText != null)
