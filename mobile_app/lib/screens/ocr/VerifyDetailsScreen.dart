@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../home/home_screen.dart';
 import '../../services/ocr_service.dart';
+import 'package:flutter/services.dart';
 
 class VerifyDetailsScreen extends StatefulWidget {
   // Receives the cropped image path from PreviewPhotoScreen
@@ -100,8 +101,10 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     final cleaned = converted.replaceAll(' ', '').toUpperCase();
 
     final digits = cleaned.replaceAll(RegExp(r'[^0-9٠-٩۰-۹]'), '');
-    final letters = cleaned.replaceAll(RegExp(r'[^A-Zء-ي]'), '');
-    // Basic validation
+    final letters = cleaned.replaceAll(
+      RegExp(r'[^ء-ي]'),
+      '',
+    ); // Basic validation
     if (digits.isEmpty ||
         digits.length > 4 ||
         letters.isEmpty ||
@@ -127,7 +130,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
         plate,
       ).replaceAll(' ', '').toUpperCase();
       final digits = cleaned.replaceAll(RegExp(r'[^0-9٠-٩۰-۹]'), '');
-      final letters = cleaned.replaceAll(RegExp(r'[^A-Zء-ي]'), '');
+      final letters = cleaned.replaceAll(RegExp(r'[^ء-ي]'), '');
       if (digits.isEmpty ||
           digits.length > 4 ||
           letters.isEmpty ||
@@ -148,15 +151,22 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     errors['model'] = model.isEmpty ? 'يرجى إدخال طراز المركبة' : null;
 
     // Year — required, between 1900 and 2027
+    // Year — required, between 1900 and next year
     final yearStr = _yearController.text.trim();
+
     if (yearStr.isEmpty) {
       errors['year'] = 'يرجى إدخال السنة';
+    } else if (!RegExp(r'^\d+$').hasMatch(yearStr)) {
+      errors['year'] = 'سنة الصنع يجب أن تحتوي على أرقام فقط';
     } else {
       final year = int.tryParse(yearStr);
+      final currentYear = DateTime.now().year;
+      final maxYear = currentYear + 1;
+
       if (year == null) {
-        errors['year'] = 'سنة الصنع يجب أن تكون رقمًا';
-      } else if (year < 1900 || year > 2027) {
-        errors['year'] = 'سنة الصنع يجب أن تكون بين 1900 و 2027';
+        errors['year'] = 'سنة الصنع غير صحيحة';
+      } else if (year < 1900 || year > maxYear) {
+        errors['year'] = 'سنة الصنع يجب أن تكون بين 1900 و $maxYear';
       } else {
         errors['year'] = null;
       }
@@ -415,6 +425,11 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                               'رقم اللوحة',
                               _plateController,
                               fieldKey: 'plateNumber',
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[ء-ي0-9٠-٩۰-۹\s]'),
+                                ),
+                              ],
                             ),
                             _buildField(
                               'ماركة المركبة',
@@ -498,6 +513,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     required String fieldKey,
     TextInputType keyboardType = TextInputType.text,
     String? hint,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     final errorText = _fieldErrors[fieldKey];
     final hasError = errorText != null;
@@ -521,6 +537,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
           TextField(
             controller: controller,
             keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
             // Clear error when user starts typing
             onChanged: (val) {
               // Apply only on plate number field

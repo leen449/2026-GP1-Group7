@@ -38,9 +38,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not logged in')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('User not logged in')));
       return;
     }
 
@@ -62,8 +62,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         }
       }
 
-      final normalizedArabicPlate =
-          _normalizeArabicPlateNumber(_arabicPlateController.text);
+      final normalizedArabicPlate = _normalizeArabicPlateNumber(
+        _arabicPlateController.text,
+      );
 
       await FirebaseFirestore.instance.collection('vehicles').add({
         'plateNumber': normalizedArabicPlate,
@@ -83,17 +84,16 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
       await showDialog(
         context: context,
-        builder: (_) => const _SuccessDialog(
-          message: 'تمت إضافة المركبة بنجاح',
-        ),
+        builder: (_) =>
+            const _SuccessDialog(message: 'تمت إضافة المركبة بنجاح'),
       );
 
       if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to add vehicle: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to add vehicle: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -180,11 +180,16 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   String _normalizeArabicPlateNumber(String input) {
     final value = _toArabicDigits(input.trim().replaceAll(' ', ''));
 
-    final numbersOnly = value.replaceAll(RegExp(r'[^٠-٩]'), '');
+    final numbersOnly = value.replaceAll(RegExp(r'[^0-9٠-٩۰-۹]'), '');
     final lettersOnly = value.replaceAll(RegExp(r'[^ء-ي]'), '');
 
-    return '${numbersOnly.split('').join(' ')} ${lettersOnly.split('').join(' ')}'
-        .trim();
+    if (numbersOnly.isEmpty || lettersOnly.isEmpty) {
+      return value;
+    }
+
+    final spacedLetters = lettersOnly.split('').join(' ');
+
+    return '$numbersOnly $spacedLetters'.trim();
   }
 
   String? _validateArabicPlateNumber(String? value) {
@@ -274,37 +279,37 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF7FAFF),
         appBar: AppBar(
-  automaticallyImplyLeading: false,
+          automaticallyImplyLeading: false,
 
-  // 👇 هذا هو الحل
-  leading: Transform(
-    alignment: Alignment.center,
-    transform: Matrix4.rotationY(3.1416), // يعكس السهم
-    child: IconButton(
-      icon: const Icon(
-        Icons.arrow_forward_ios_rounded,
-        color: Color(0xFF071A3D),
-        size: 22,
-      ),
-      onPressed: () => Navigator.pop(context),
-    ),
-  ),
+          // 👇 هذا هو الحل
+          leading: Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.rotationY(3.1416), // يعكس السهم
+            child: IconButton(
+              icon: const Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: Color(0xFF071A3D),
+                size: 22,
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
 
-  elevation: 0,
-  backgroundColor: const Color(0xFFF7FAFF),
-  centerTitle: true,
-  surfaceTintColor: const Color(0xFFF7FAFF),
+          elevation: 0,
+          backgroundColor: const Color(0xFFF7FAFF),
+          centerTitle: true,
+          surfaceTintColor: const Color(0xFFF7FAFF),
 
-  title: const Text(
-    'إضافة مركبة',
-    textDirection: TextDirection.rtl,
-    style: TextStyle(
-      color: Color(0xFF071A3D),
-      fontWeight: FontWeight.w900,
-      fontSize: 22,
-    ),
-  ),
-),
+          title: const Text(
+            'إضافة مركبة',
+            textDirection: TextDirection.rtl,
+            style: TextStyle(
+              color: Color(0xFF071A3D),
+              fontWeight: FontWeight.w900,
+              fontSize: 22,
+            ),
+          ),
+        ),
         body: SafeArea(
           child: Form(
             key: _formKey,
@@ -319,9 +324,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                     textDirection: TextDirection.rtl,
                     keyboardType: TextInputType.text,
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'[ء-ي0-9٠-٩]'),
-                      ),
+                      FilteringTextInputFormatter.allow(RegExp(r'[ء-ي0-9٠-٩]')),
                       TextInputFormatter.withFunction((oldValue, newValue) {
                         final converted = _toArabicDigits(newValue.text);
                         return TextEditingValue(
@@ -377,8 +380,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0B4A7D),
                         foregroundColor: Colors.white,
-                        disabledBackgroundColor:
-                            const Color(0xFF0B4A7D).withOpacity(0.7),
+                        disabledBackgroundColor: const Color(
+                          0xFF0B4A7D,
+                        ).withOpacity(0.7),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -420,7 +424,7 @@ class _SuccessDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryBlue = Color(0xFF2563EB);
+    const Color primaryBlue = Color(0xFF1E3A6E);
 
     return Dialog(
       shape: RoundedRectangleBorder(

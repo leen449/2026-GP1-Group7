@@ -321,29 +321,27 @@ def _extract_damage_location(lines: list[str]) -> str:
 def _normalize_spaces(text: str) -> str:
     return re.sub(r"\s+", " ", _normalize(text)).strip()
 
+def _normalize_plate_from_najm(text: str) -> str:
+    return _normalize_plate(text, reverse_arabic=True)
 
-def _normalize_plate(text: str) -> str:
+def _normalize_plate_from_db(text: str) -> str:
+    return _normalize_plate(text, reverse_arabic=False)
+
+def _normalize_plate(text: str, reverse_arabic: bool = False) -> str:
     text = _normalize(text)
 
-    # keep only Arabic letters, English letters, digits, and spaces
     text = re.sub(r"[^0-9A-Za-z\u0621-\u064A\s]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
 
-    # collect digits
     digits = "".join(re.findall(r"\d", text))
-
-    # collect english letters directly
     english_letters = re.findall(r"[A-Za-z]", text)
-
-    # collect arabic letters
     arabic_letters = re.findall(r"[\u0621-\u064A]", text)
 
     letters = []
 
     if arabic_letters:
-        # reverse Arabic plate letters because OCR/PDF extraction
-        # often returns them in visual order
-        arabic_letters = list(reversed(arabic_letters))
+        if reverse_arabic:
+            arabic_letters = list(reversed(arabic_letters))
 
         for ch in arabic_letters:
             if ch in ARABIC_TO_ENGLISH_PLATE:
@@ -353,6 +351,7 @@ def _normalize_plate(text: str) -> str:
         letters.extend([ch.upper() for ch in english_letters])
 
     return f"{digits}{''.join(letters)}"
+
 
 def _normalize_ascii(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", _normalize(text).lower())
@@ -450,7 +449,11 @@ def _safe_str(value) -> str:
 def _match_plate(extracted: str, expected: str) -> bool:
     if not extracted or not expected:
         return False
-    return _normalize_plate(extracted) == _normalize_plate(expected)
+
+    extracted_norm = _normalize_plate_from_najm(extracted)
+    expected_norm = _normalize_plate_from_db(expected)
+
+    return extracted_norm == expected_norm
 
 
 def _match_national_id(extracted: str, expected: str) -> bool:
@@ -564,7 +567,7 @@ async def process_najm_ocr(case_id: str) -> dict:
         plate_matched = _match_plate(extracted_plate, expected_plate)
         national_id_matched = _match_national_id(extracted_national_id, expected_national_id)
         print(f"[PLATE RAW] extracted={extracted_plate} expected={expected_plate}")
-        print(f"[PLATE NORMALIZED] extracted={_normalize_plate(extracted_plate)} expected={_normalize_plate(expected_plate)}")
+        print(f"[PLATE NORMALIZED] "f"extracted={_normalize_plate_from_najm(extracted_plate)} "f"expected={_normalize_plate_from_db(expected_plate)}")
         print(f"[PLATE MATCH] {plate_matched}")
         print(f"[NID RAW] extracted={extracted_national_id} expected={expected_national_id}")
         print(f"[NID MATCH] {national_id_matched}")
