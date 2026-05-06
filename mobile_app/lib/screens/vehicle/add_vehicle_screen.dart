@@ -377,17 +377,29 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                     height: 50,
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _addVehicle,
+
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0B4A7D),
+                        backgroundColor: const Color(0xFF1E3A6E),
                         foregroundColor: Colors.white,
+
                         disabledBackgroundColor: const Color(
-                          0xFF0B4A7D,
+                          0xFF1E3A6E,
                         ).withOpacity(0.7),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
                         ),
+
+                        minimumSize: const Size(0, 48),
+
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+
                         elevation: 0,
                       ),
+
                       child: _isLoading
                           ? const SizedBox(
                               width: 22,
@@ -397,12 +409,15 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text(
-                              ' + إضافة مركبة',
-                              textDirection: TextDirection.rtl,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
+                          : const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                '+ إضافة مركبة',
+                                textDirection: TextDirection.rtl,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
                               ),
                             ),
                     ),

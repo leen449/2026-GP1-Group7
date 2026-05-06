@@ -105,7 +105,7 @@ class CaseDetailsScreen extends StatelessWidget {
         leading: const SizedBox(),
         actions: [
           IconButton(
-            icon: const Icon(Icons.arrow_forward_rounded, color: _textDark),
+            icon: const Icon(Icons.arrow_forward_ios_rounded, color: _textDark),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -258,149 +258,264 @@ class CaseDetailsScreen extends StatelessWidget {
   }
 
   Widget _imagesSection(BuildContext context) {
-  return StreamBuilder<QuerySnapshot>(
-    // [1] Read from images subcollection instead of damageAnalysis array
-    stream: FirebaseFirestore.instance
-        .collection('accidentCase')
-        .doc(caseId)
-        .collection('images')
-        .snapshots(),
-    builder: (context, imagesSnap) {
-      if (imagesSnap.connectionState == ConnectionState.waiting) {
-        return _sectionCard(
-          title: 'صور الأضرار',
-          children: const [Center(child: CircularProgressIndicator())],
-        );
-      }
+    return StreamBuilder<QuerySnapshot>(
+      // [1] Read from images subcollection instead of damageAnalysis array
+      stream: FirebaseFirestore.instance
+          .collection('accidentCase')
+          .doc(caseId)
+          .collection('images')
+          .snapshots(),
+      builder: (context, imagesSnap) {
+        if (imagesSnap.connectionState == ConnectionState.waiting) {
+          return _sectionCard(
+            title: 'صور الأضرار',
+            children: const [Center(child: CircularProgressIndicator())],
+          );
+        }
 
-      final images = imagesSnap.data?.docs ?? [];
+        final images = imagesSnap.data?.docs ?? [];
 
-      // [2] Read case status to determine which scenario to show
-      return StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('accidentCase')
-            .doc(caseId)
-            .snapshots(),
-        builder: (context, caseSnap) {
-          final caseData =
-              caseSnap.data?.data() as Map<String, dynamic>? ?? {};
-          final String status = caseData['status'] ?? '';
+        // [2] Read case status to determine which scenario to show
+        return StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('accidentCase')
+              .doc(caseId)
+              .snapshots(),
+          builder: (context, caseSnap) {
+            final caseData =
+                caseSnap.data?.data() as Map<String, dynamic>? ?? {};
+            final String status = caseData['status'] ?? '';
 
-          // ==========================================
-          // SCENARIO 1: AI Analysis is Complete
-          // Show the Annotated Gallery
-          // ==========================================
-          // [3] Check if any image has hasDamage field — means AI processing is done
-          final processedImages = images
-              .where((doc) =>
-                  (doc.data() as Map<String, dynamic>)
-                      .containsKey('hasDamage'))
-              .toList();
+            // ==========================================
+            // SCENARIO 1: AI Analysis is Complete
+            // Show the Annotated Gallery
+            // ==========================================
+            // [3] Check if any image has hasDamage field — means AI processing is done
+            final processedImages = images
+                .where(
+                  (doc) => (doc.data() as Map<String, dynamic>).containsKey(
+                    'hasDamage',
+                  ),
+                )
+                .toList();
 
-          if (processedImages.isNotEmpty) {
+            if (processedImages.isNotEmpty) {
+              return _sectionCard(
+                title: 'نتائج تحليل الأضرار',
+                children: [
+                  SizedBox(
+                    height: 120,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: processedImages.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        // [4] Read each image document
+                        final item =
+                            processedImages[index].data()
+                                as Map<String, dynamic>;
+                        final bool hasDamage = item['hasDamage'] ?? false;
+
+                        // [5] Show annotatedImage if damage exists, otherwise originalImage
+                        final String url = hasDamage
+                            ? (item['annotatedImage'] ??
+                                  item['downloadUrl'] ??
+                                  '')
+                            : (item['downloadUrl'] ?? '');
+
+                        return GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PhotoPreviewScreen(imageUrl: url),
+                            ),
+                          ),
+                          child: SizedBox(
+                            width: 90,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(
+                                        url,
+                                        width: 90,
+                                        height: 90,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          width: 90,
+                                          height: 90,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFEAF2FF),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                            Icons.broken_image_outlined,
+                                            color: Color(0xFF0B4A7D),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 6,
+                                      right: 6,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: hasDamage
+                                              ? Colors.red.withOpacity(0.9)
+                                              : Colors.green.withOpacity(0.9),
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                0.2,
+                                              ),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Icon(
+                                          hasDamage
+                                              ? Icons.warning_amber_rounded
+                                              : Icons.check,
+                                          color: Colors.white,
+                                          size: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  hasDamage ? 'ضرر مكتشف' : 'سليمة',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: hasDamage
+                                        ? Colors.red.shade700
+                                        : Colors.green.shade700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            // ==========================================
+            // SCENARIO 2: AI is currently processing
+            // ==========================================
+            if (status != 'تم الفحص' && status != 'فشل الفحص') {
+              return _sectionCard(
+                title: 'تحليل الأضرار',
+                children: [
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          CircularProgressIndicator(
+                            color: Color(0xFF0B4A7D),
+                            strokeWidth: 3,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'جاري تحليل الصور باستخدام الذكاء الاصطناعي...',
+                            textDirection: TextDirection.rtl,
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            // ==========================================
+            // SCENARIO 3: Fallback (AI Failed or no images)
+            // ==========================================
+            if (images.isEmpty) {
+              return _sectionCard(
+                title: 'صور الأضرار',
+                children: const [
+                  Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'لا توجد صور مرفوعة',
+                        textDirection: TextDirection.rtl,
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            // [6] Show original images if AI failed
             return _sectionCard(
-              title: 'نتائج تحليل الأضرار',
+              title: 'صور الأضرار',
               children: [
                 SizedBox(
-                  height: 120,
+                  height: 92,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: processedImages.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemCount: images.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
                     itemBuilder: (context, index) {
-                      // [4] Read each image document
-                      final item = processedImages[index].data()
-                          as Map<String, dynamic>;
-                      final bool hasDamage = item['hasDamage'] ?? false;
-
-                      // [5] Show annotatedImage if damage exists, otherwise originalImage
-                      final String url = hasDamage
-                          ? (item['annotatedImage'] ??
-                                item['downloadUrl'] ??
-                                '')
-                          : (item['downloadUrl'] ?? '');
+                      final imgData =
+                          images[index].data() as Map<String, dynamic>;
+                      final url = imgData['downloadUrl'] ?? '';
 
                       return GestureDetector(
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                PhotoPreviewScreen(imageUrl: url),
+                            builder: (_) => PhotoPreviewScreen(imageUrl: url),
                           ),
                         ),
-                        child: SizedBox(
-                          width: 90,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Stack(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Image.network(
-                                      url,
-                                      width: 90,
-                                      height: 90,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
-                                        width: 90,
-                                        height: 90,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFEAF2FF),
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                        child: const Icon(
-                                          Icons.broken_image_outlined,
-                                          color: Color(0xFF0B4A7D),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    top: 6,
-                                    right: 6,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: hasDamage
-                                            ? Colors.red.withOpacity(0.9)
-                                            : Colors.green.withOpacity(0.9),
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color:
-                                                Colors.black.withOpacity(0.2),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Icon(
-                                        hasDamage
-                                            ? Icons.warning_amber_rounded
-                                            : Icons.check,
-                                        color: Colors.white,
-                                        size: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            url,
+                            width: 90,
+                            height: 90,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 90,
+                              height: 90,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEAF2FF),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              const SizedBox(height: 6),
-                              Text(
-                                hasDamage ? 'ضرر مكتشف' : 'سليمة',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: hasDamage
-                                      ? Colors.red.shade700
-                                      : Colors.green.shade700,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              child: const Icon(
+                                Icons.broken_image_outlined,
+                                color: Color(0xFF0B4A7D),
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       );
@@ -409,120 +524,9 @@ class CaseDetailsScreen extends StatelessWidget {
                 ),
               ],
             );
-          }
-
-          // ==========================================
-          // SCENARIO 2: AI is currently processing
-          // ==========================================
-          if (status != 'تم الفحص' && status != 'فشل الفحص') {
-            return _sectionCard(
-              title: 'تحليل الأضرار',
-              children: [
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        CircularProgressIndicator(
-                          color: Color(0xFF0B4A7D),
-                          strokeWidth: 3,
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'جاري تحليل الصور باستخدام الذكاء الاصطناعي...',
-                          textDirection: TextDirection.rtl,
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }
-
-          // ==========================================
-          // SCENARIO 3: Fallback (AI Failed or no images)
-          // ==========================================
-          if (images.isEmpty) {
-            return _sectionCard(
-              title: 'صور الأضرار',
-              children: const [
-                Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      'لا توجد صور مرفوعة',
-                      textDirection: TextDirection.rtl,
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }
-
-          // [6] Show original images if AI failed
-          return _sectionCard(
-            title: 'صور الأضرار',
-            children: [
-              SizedBox(
-                height: 92,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: images.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (context, index) {
-                    final imgData =
-                        images[index].data() as Map<String, dynamic>;
-                    final url = imgData['downloadUrl'] ?? '';
-
-                    return GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PhotoPreviewScreen(imageUrl: url),
-                        ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          url,
-                          width: 90,
-                          height: 90,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 90,
-                            height: 90,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEAF2FF),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.broken_image_outlined,
-                              color: Color(0xFF0B4A7D),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          );
-        },
-      );
-    },
-  );
-}
+          },
+        );
+      },
+    );
+  }
 }

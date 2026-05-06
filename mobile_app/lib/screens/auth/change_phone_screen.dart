@@ -31,17 +31,23 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
   // ✅ تحويل الأرقام العربية لإنجليزية
   String _convertToEnglishNumbers(String val) {
     return val
-        .replaceAll('٠', '0').replaceAll('١', '1')
-        .replaceAll('٢', '2').replaceAll('٣', '3')
-        .replaceAll('٤', '4').replaceAll('٥', '5')
-        .replaceAll('٦', '6').replaceAll('٧', '7')
-        .replaceAll('٨', '8').replaceAll('٩', '9');
+        .replaceAll('٠', '0')
+        .replaceAll('١', '1')
+        .replaceAll('٢', '2')
+        .replaceAll('٣', '3')
+        .replaceAll('٤', '4')
+        .replaceAll('٥', '5')
+        .replaceAll('٦', '6')
+        .replaceAll('٧', '7')
+        .replaceAll('٨', '8')
+        .replaceAll('٩', '9');
   }
 
   String? _validateNationalId(String val) {
     if (val.trim().isEmpty) return 'يرجى إدخال رقم الهوية / الإقامة';
     if (val.length != 10) return 'يجب أن يكون رقم الهوية مكون من 10 أرقام';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'يجب أن يحتوي رقم الهوية على أرقام فقط';
+    if (!RegExp(r'^[0-9]+$').hasMatch(val))
+      return 'يجب أن يحتوي رقم الهوية على أرقام فقط';
     if (!val.startsWith('1') && !val.startsWith('2')) {
       return 'يجب أن يبدأ الرقم بـ 1 (سعودي) أو 2 (مقيم)';
     }
@@ -50,7 +56,8 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
 
   String? _validatePhone(String val) {
     if (val.trim().isEmpty) return 'يرجى إدخال رقم الجوال الجديد';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val)) return 'يجب أن يحتوي رقم الجوال على أرقام فقط';
+    if (!RegExp(r'^[0-9]+$').hasMatch(val))
+      return 'يجب أن يحتوي رقم الجوال على أرقام فقط';
     if (val.startsWith('0')) return 'يجب ألا يبدأ رقم الجوال بـ 0';
     if (val.length != 9) return 'يجب أن يكون رقم الجوال 9 أرقام';
     if (!val.startsWith('5')) return 'يجب أن يبدأ رقم الجوال بـ 5';
@@ -59,8 +66,12 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
 
   bool _validate() {
     // ✅ تحويل الأرقام العربية لإنجليزية قبل التحقق
-    _nationalIdController.text = _convertToEnglishNumbers(_nationalIdController.text);
-    _newPhoneController.text = _convertToEnglishNumbers(_newPhoneController.text);
+    _nationalIdController.text = _convertToEnglishNumbers(
+      _nationalIdController.text,
+    );
+    _newPhoneController.text = _convertToEnglishNumbers(
+      _newPhoneController.text,
+    );
 
     final idErr = _validateNationalId(_nationalIdController.text);
     final phoneErr = _validatePhone(_newPhoneController.text);
@@ -101,7 +112,8 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
       verificationFailed: (FirebaseAuthException e) {
         String msg = 'حدث خطأ، حاول مرة أخرى';
         if (e.code == 'invalid-phone-number') msg = 'رقم الجوال غير صحيح';
-        if (e.code == 'too-many-requests') msg = 'تم تجاوز الحد المسموح من المحاولات. حاول لاحقًا';
+        if (e.code == 'too-many-requests')
+          msg = 'تم تجاوز الحد المسموح من المحاولات. حاول لاحقًا';
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), backgroundColor: Colors.red),
@@ -155,8 +167,18 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
     }
   }
 
-  TextStyle _textStyle({double fontSize = 14, Color color = Colors.black}) {
-    return TextStyle(fontSize: fontSize, color: color);
+  TextStyle _textStyle({
+    double fontSize = 14,
+    Color color = Colors.black,
+    FontWeight fontWeight = FontWeight.w600,
+    double height = 1.2,
+  }) {
+    return TextStyle(
+      fontSize: fontSize,
+      color: color,
+      fontWeight: fontWeight,
+      height: height,
+    );
   }
 
   Widget _label(String text) {
@@ -189,13 +211,16 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
           keyboardType: keyboardType,
           maxLength: maxLength,
           textAlign: TextAlign.right, // ✅
-  textDirection: TextDirection.rtl, // ✅
+          textDirection: TextDirection.rtl, // ✅
           decoration: InputDecoration(
             hintText: hint,
             filled: true,
             fillColor: Colors.white,
             counterText: '',
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14), // ✅
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ), // ✅
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14), // ✅
               borderSide: BorderSide.none,
@@ -215,27 +240,37 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
           ),
           onChanged: (val) {
             if (isNationalId) {
-              setState(() => _nationalIdError =
-                'يجب أن يبدأ الرقم بـ 1 (سعودي) أو 2 (مقيم) ويكون مكون من 10 أرقام');
-              if (val.length == 10 && (val.startsWith('1') || val.startsWith('2'))) {
+              setState(
+                () => _nationalIdError =
+                    'يجب أن يبدأ الرقم بـ 1 (سعودي) أو 2 (مقيم) ويكون مكون من 10 أرقام',
+              );
+              if (val.length == 10 &&
+                  (val.startsWith('1') || val.startsWith('2'))) {
                 setState(() => _nationalIdError = null);
               }
-           } else if (keyboardType == TextInputType.phone && val.isNotEmpty && val[0] == '0') {
-  setState(() => _phoneError = 'يجب ألا يبدأ رقم الجوال بـ 0');
-} else if (keyboardType == TextInputType.phone && val.isNotEmpty && val[0] != '5') {
-  setState(() => _phoneError = 'يجب أن يبدأ رقم الجوال بـ 5');
-} else {
-  setState(() {
-    _nationalIdError = null;
-    _phoneError = null;
-  });
-}
+            } else if (keyboardType == TextInputType.phone &&
+                val.isNotEmpty &&
+                val[0] == '0') {
+              setState(() => _phoneError = 'يجب ألا يبدأ رقم الجوال بـ 0');
+            } else if (keyboardType == TextInputType.phone &&
+                val.isNotEmpty &&
+                val[0] != '5') {
+              setState(() => _phoneError = 'يجب أن يبدأ رقم الجوال بـ 5');
+            } else {
+              setState(() {
+                _nationalIdError = null;
+                _phoneError = null;
+              });
+            }
           },
         ),
         if (errorText != null)
           Padding(
             padding: const EdgeInsets.only(top: 6, right: 4),
-            child: Text(errorText, style: const TextStyle(color: Colors.red, fontSize: 12)),
+            child: Text(
+              errorText,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
           ),
       ],
     );
@@ -252,22 +287,44 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-  children: [
-    BackButton(
-      color: const Color(0xFF0B4A7D),
-      onPressed: () => Navigator.pop(context),
-    ),
-    const SizedBox(width: 4),
-    Text(
-      'تغيير رقم الجوال',
-      style: _textStyle(fontSize: 18, color: const Color(0xFF0B4A7D)),
-    ),
-  ],
-),
+                textDirection: TextDirection.rtl,
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: Color(0xFF1E3A6E),
+                      size: 20,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Text(
+                    'تغيير رقم الجوال',
+                    style: _textStyle(
+                      fontSize: 18,
+                      color: const Color(0xFF1E3A6E),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 40),
-              Text(
-                'أدخل رقم هويتك ورقم الجوال الجديد لتحديث حسابك.', // ✅
-                style: _textStyle(fontSize: 22, color: Colors.black54),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'أدخل رقم هويتك ورقم الجوال الجديد لتحديث حسابك.',
+                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
+                  style: _textStyle(
+                    fontSize: 22,
+                    color: Colors.black54,
+                    height: 1.5,
+                  ),
+                ),
               ),
               const SizedBox(height: 30),
               _label('رقم الهوية / الإقامة'), // ✅
@@ -290,21 +347,38 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
               ),
               const SizedBox(height: 85),
               SizedBox(
-                height: 54,
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _verifyAndSendOTP,
+
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0B4A7D), // ✅
+                    backgroundColor: const Color(0xFF1E3A6E),
                     foregroundColor: Colors.white,
+
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 14,
+                    ),
+
+                    minimumSize: const Size(0, 48),
+
                     elevation: 0,
+
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14), // ✅
+                      borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  child: Text(
-                    'إرسال رمز التحقق', // ✅
-                    style: _textStyle(fontSize: 16, color: Colors.white),
+
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'إرسال رمز التحقق',
+                      style: _textStyle(
+                        fontSize: 15,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
               ),

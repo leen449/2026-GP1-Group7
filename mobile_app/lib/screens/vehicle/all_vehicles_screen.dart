@@ -4,10 +4,7 @@ import 'package:flutter/material.dart';
 class AllVehiclesScreen extends StatelessWidget {
   final String ownerId;
 
-  const AllVehiclesScreen({
-    super.key,
-    required this.ownerId,
-  });
+  const AllVehiclesScreen({super.key, required this.ownerId});
 
   static const Color _pageBg = Color(0xFFF7FAFF);
   static const Color _textDark = Color(0xFF071A3D);
@@ -36,10 +33,7 @@ class AllVehiclesScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'حذف',
-              style: TextStyle(color: _dangerRed),
-            ),
+            child: const Text('حذف', style: TextStyle(color: _dangerRed)),
           ),
         ],
       ),
@@ -51,18 +45,15 @@ class AllVehiclesScreen extends StatelessWidget {
         .collection('vehicles')
         .doc(vehicleId)
         .update({
-      'isArchived': true,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+          'isArchived': true,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
 
     if (!context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
-          'تم حذف المركبة',
-          textDirection: TextDirection.rtl,
-        ),
+        content: Text('تم حذف المركبة', textDirection: TextDirection.rtl),
       ),
     );
   }
@@ -80,16 +71,16 @@ class AllVehiclesScreen extends StatelessWidget {
         elevation: 0,
         surfaceTintColor: _pageBg,
         automaticallyImplyLeading: false,
-       actions: [
-  IconButton(
-    icon: const Icon(
-      Icons.arrow_forward_ios_rounded, 
-      color: _textDark,
-      size: 22,
-    ),
-    onPressed: () => Navigator.pop(context),
-  ),
-],
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: _textDark,
+              size: 22,
+            ),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
         centerTitle: true,
         title: const Text(
           'مركباتي',
@@ -106,17 +97,16 @@ class AllVehiclesScreen extends StatelessWidget {
             .collection('vehicles')
             .where('ownerId', isEqualTo: ownerId)
             .where('isArchived', isEqualTo: false)
-                        .orderBy('createdAt', descending: true)
-
+            .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-  return Text(
-    snapshot.error.toString(),
-    textDirection: TextDirection.ltr,
-    style: const TextStyle(color: Colors.red, fontSize: 12),
-  );
-}
+            return Text(
+              snapshot.error.toString(),
+              textDirection: TextDirection.ltr,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            );
+          }
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -246,9 +236,8 @@ class AllVehiclesScreen extends StatelessWidget {
     final name = _vehicleName(vehicleData);
     final year = vehicleData['year'] ?? '';
     final color = vehicleData['color'] ?? '';
-    final plate = vehicleData['arabicPlateNumber'] ??
-        vehicleData['plateNumber'] ??
-        '';
+    final plate =
+        vehicleData['arabicPlateNumber'] ?? vehicleData['plateNumber'] ?? '';
     final chassis = vehicleData['chassisNumber'] ?? '';
 
     return Container(
@@ -321,11 +310,7 @@ class AllVehiclesScreen extends StatelessWidget {
     );
   }
 
-  Widget _detailLine(
-    String title,
-    dynamic value, {
-    bool ltrValue = false,
-  }) {
+  Widget _detailLine(String title, dynamic value, {bool ltrValue = false}) {
     final textValue = value == null || value.toString().trim().isEmpty
         ? '—'
         : value.toString();

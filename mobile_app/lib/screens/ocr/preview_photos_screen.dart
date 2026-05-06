@@ -1,23 +1,23 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'VerifyDetailsScreen.dart';
- 
+
 class PreviewPhotoScreen extends StatelessWidget {
   // The file path of the cropped image taken from ScanScreen
   final String imagePath;
- 
+
   const PreviewPhotoScreen({super.key, required this.imagePath});
- 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:  const Color(0xFFF7FAFF),
+      backgroundColor: const Color(0xFFF7FAFF),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 20),
- 
+
             // Screen title
             const Text(
               'معاينة الصورة',
@@ -29,15 +29,15 @@ class PreviewPhotoScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
- 
+
             // Subtitle instruction
             const Text(
               'تأكد أن الصورة واضحة وقابلة للقراءة',
               style: TextStyle(fontSize: 15, color: Color(0xFF8899AA)),
             ),
- 
+
             const SizedBox(height: 24),
- 
+
             // ── Cropped image preview ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -51,7 +51,7 @@ class PreviewPhotoScreen extends StatelessWidget {
                       width: double.infinity,
                       fit: BoxFit.fitWidth,
                     ),
- 
+
                     // Dark gradient overlay at the bottom for badge visibility
                     Positioned(
                       bottom: 0,
@@ -71,7 +71,7 @@ class PreviewPhotoScreen extends StatelessWidget {
                         ),
                       ),
                     ),
- 
+
                     // Label badge at the bottom-left corner
                     Positioned(
                       bottom: 12,
@@ -111,9 +111,9 @@ class PreviewPhotoScreen extends StatelessWidget {
                 ),
               ),
             ),
- 
+
             const SizedBox(height: 16),
- 
+
             // ── Quality warning banner ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -152,16 +152,16 @@ class PreviewPhotoScreen extends StatelessWidget {
                 ),
               ),
             ),
- 
+
             // Push buttons to the bottom
             const Spacer(),
- 
+
             // ── Action buttons ──
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
               child: Row(
                 children: [
-                  // Retake — goes back to ScanScreen
+                  // Retake
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => Navigator.pop(context),
@@ -170,32 +170,39 @@ class PreviewPhotoScreen extends StatelessWidget {
                         size: 18,
                         color: Color(0xFF1A1A2E),
                       ),
-                      label: const Text(
-                        'إعادة الالتقاط',
-                        style: TextStyle(
-                          color: Color(0xFF1A1A2E),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                      label: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'إعادة الالتقاط',
+                          style: TextStyle(
+                            color: Color(0xFF1A1A2E),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF1A1A2E),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        minimumSize: const Size(0, 48),
                         side: const BorderSide(
                           color: Color(0xFFDDE3EE),
                           width: 1.5,
                         ),
-                        backgroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(30),
                         ),
                       ),
                     ),
                   ),
- 
+
                   const SizedBox(width: 12),
- 
-                  // Use photo — passes imagePath to VerifyDetailsScreen
-                  // VerifyDetailsScreen will use it to call the OCR API
+
+                  // Use photo
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
@@ -212,19 +219,27 @@ class PreviewPhotoScreen extends StatelessWidget {
                         size: 18,
                         color: Colors.white,
                       ),
-                      label: const Text(
-                        'استخدام الصورة',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                      label: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'استخدام الصورة',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1E3A6E),
-                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        minimumSize: const Size(0, 48),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(30),
                         ),
                         elevation: 0,
                       ),

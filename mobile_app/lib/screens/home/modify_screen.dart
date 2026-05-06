@@ -67,7 +67,7 @@ class _ModifyScreenState extends State<ModifyScreen> {
         leading: const SizedBox(),
         actions: [
           IconButton(
-            icon: const Icon(Icons.arrow_forward_rounded, color: _textDark),
+            icon: const Icon(Icons.arrow_forward_ios_rounded, color: _textDark),
             onPressed: () => Navigator.pop(context),
           ),
         ],

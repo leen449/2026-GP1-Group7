@@ -12,10 +12,13 @@ class VehicleDetailsScreen extends StatelessWidget {
   });
 
   Future<void> _deleteVehicle(BuildContext context) async {
-    await FirebaseFirestore.instance.collection('vehicles').doc(vehicleId).update({
-      'isArchived': true,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    await FirebaseFirestore.instance
+        .collection('vehicles')
+        .doc(vehicleId)
+        .update({
+          'isArchived': true,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
 
     if (!context.mounted) return;
 
@@ -123,7 +126,7 @@ class VehicleDetailsScreen extends StatelessWidget {
             child: ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE33B4E),
+                backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(

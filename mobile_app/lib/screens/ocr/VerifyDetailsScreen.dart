@@ -472,13 +472,19 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                           onPressed: _isSaving ? null : _saveToFirebase,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF1E3A6E),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 14,
+                            ),
+                            minimumSize: const Size(0, 48),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(30),
                             ),
                             elevation: 0,
                           ),
-                          // Show spinner inside button while saving
+
+                          // Loading spinner
                           child: _isSaving
                               ? const SizedBox(
                                   width: 22,
@@ -488,12 +494,15 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                                     strokeWidth: 2.5,
                                   ),
                                 )
-                              : const Text(
-                                  ' + إضافة مركبة',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w600,
+                              : const FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    '+ إضافة مركبة',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
                         ),
