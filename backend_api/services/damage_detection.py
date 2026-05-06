@@ -9,7 +9,7 @@ from firebase_admin import firestore, credentials, storage
 import urllib.parse
 
 # [1] Load model ONCE 
-model = YOLO("../ml_model/weight/best.pt")
+model = YOLO("weight/best.pt")
 
 def _ensure_firebase_initialized():
     # [2] Reusing the exact same initialization logic 
