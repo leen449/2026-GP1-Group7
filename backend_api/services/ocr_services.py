@@ -32,8 +32,8 @@ COMMON_ARABIC_MODELS = [
 ]
 
 BRAND_ALIAS_MAP = {
-    "هونداي":      "هيونداي",
-    "هيونداي":     "هيونداي",
+
+    "هيونداي":     "هونداي",
     "شفروليه":     "شيفروليه",
     "شيفروليه":    "شيفروليه",
     "دودج":        "دوج",
@@ -51,7 +51,7 @@ BRAND_ALIAS_MAP = {
     "تيوتا":       "تويوتا",
     "تيوتو":       "تويوتا",
     "هيونداى":     "هيونداي",
-    "هونداى":      "هيونداي",
+    "هونداى":      "هونداي",
     "نيسسان":      "نيسان",
     "مرسيدز":      "مرسيدس",
     "لكسس":        "لكزس",
@@ -82,7 +82,7 @@ ENGLISH_TO_ARABIC_PLATE = {
     "N": "ن",
     "H": "ه",
     "U": "و",
-    "Y": "ي",
+    "Y": "ى",
 }
 
 # Arabic plate letter → English (for mapping Arabic OCR to English)
@@ -103,7 +103,7 @@ def _to_arabic_digits(text: str) -> str:
 
 
 def _normalize_text(text: str) -> str:
-    """Convert Arabic/Hindi digits to English digits and normalize spaces."""
+    """Convert Arabic digits to English digits and normalize spaces."""
     mapping = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
     text = text.translate(mapping)
     text = text.replace("ى", "ي")
@@ -313,7 +313,7 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
         # Best case: digits and Arabic letters in the same OCR item
         if digits_match and len(arabic_letters) >= 3:
             arabic_digits = _to_arabic_digits(digits_match.group())
-            letters = " ".join(arabic_letters[:3])  # Keep Arabic OCR order
+            letters = " ".join(arabic_letters[:3]) # Keep Arabic OCR order
             return f"{arabic_digits} {letters}"
 
     # Digits and Arabic letters found in separate OCR items
@@ -357,10 +357,10 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
                 digits, letters = match.groups()
                 arabic_digits = _to_arabic_digits(digits)
 
-                # English is LTR, so reverse before converting to Arabic
+                # converting to Arabic
                 arabic_letters = " ".join(
-                    ENGLISH_TO_ARABIC_PLATE.get(l, l)
-                    for l in reversed(letters)
+                ENGLISH_TO_ARABIC_PLATE.get(l, l)
+                for l in letters
                 )
                 return f"{arabic_digits} {arabic_letters}"
 
@@ -407,10 +407,10 @@ def _extract_plate_by_anchor(ocr_items: list) -> str:
         if re.fullmatch(r"\d{1,4}", digits) and re.fullmatch(r"[A-Z]{3}", letters) and same_row and close_enough:
             arabic_digits = _to_arabic_digits(digits)
 
-            # English is LTR, so reverse before converting to Arabic
+            #converting to Arabic
             arabic_letters = " ".join(
-                ENGLISH_TO_ARABIC_PLATE.get(l, l)
-                for l in reversed(letters)
+            ENGLISH_TO_ARABIC_PLATE.get(l, l)
+            for l in letters
             )
 
             return f"{arabic_digits} {arabic_letters}"
