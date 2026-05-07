@@ -42,6 +42,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   // ✅ دالة مشتركة للـ SnackBar
   void _showSnackBar(String msg) {
+    final sh = MediaQuery.of(context).size.height;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -51,7 +52,7 @@ class _AuthScreenState extends State<AuthScreen> {
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 800),
+        margin: EdgeInsets.fromLTRB(16, 0, 16, sh * 0.80),
       ),
     );
   }
@@ -179,7 +180,6 @@ class _AuthScreenState extends State<AuthScreen> {
         ? '+966${_signupPhoneController.text.trim()}'
         : '+966${_loginPhoneController.text.trim()}';
 
-    // ✅ تحقق من الرقم في Firestore قبل الإرسال
     if (!isSignUp) {
       final query = await FirebaseFirestore.instance
           .collection('users')
@@ -291,7 +291,7 @@ class _AuthScreenState extends State<AuthScreen> {
     return TextStyle(fontSize: fontSize, color: color);
   }
 
-  Widget _label(String text) {
+  Widget _label(String text, double sw) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Align(
@@ -299,7 +299,10 @@ class _AuthScreenState extends State<AuthScreen> {
         child: Text(
           text,
           textAlign: TextAlign.right,
-          style: _textStyle(fontSize: 14, color: Colors.black87),
+          style: TextStyle(
+            fontSize: (sw * 0.036).clamp(13.0, 15.0),
+            color: Colors.black87,
+          ),
         ),
       ),
     );
@@ -312,6 +315,7 @@ class _AuthScreenState extends State<AuthScreen> {
     String? errorText,
     int? maxLength,
     bool isNationalId = false,
+    required double sw,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -322,14 +326,16 @@ class _AuthScreenState extends State<AuthScreen> {
           maxLength: maxLength,
           textAlign: TextAlign.right,
           textDirection: TextDirection.rtl,
+          style: TextStyle(fontSize: (sw * 0.038).clamp(13.0, 16.0)),
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: TextStyle(fontSize: (sw * 0.036).clamp(12.0, 15.0)),
             filled: true,
             fillColor: Colors.white,
             counterText: '',
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: sw * 0.04,
+              vertical: sw * 0.035,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
@@ -383,14 +389,17 @@ class _AuthScreenState extends State<AuthScreen> {
               errorText,
               textDirection: TextDirection.rtl,
               textAlign: TextAlign.right,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: (sw * 0.03).clamp(11.0, 13.0),
+              ),
             ),
           ),
       ],
     );
   }
 
-  Widget _dateField() {
+  Widget _dateField(double sw) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -398,7 +407,10 @@ class _AuthScreenState extends State<AuthScreen> {
           onTap: _pickDate,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: EdgeInsets.symmetric(
+              horizontal: sw * 0.04,
+              vertical: sw * 0.035,
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
@@ -417,7 +429,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     textAlign: TextAlign.right,
                     textDirection: TextDirection.rtl,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: (sw * 0.036).clamp(13.0, 15.0),
                       color: _selectedDate != null
                           ? Colors.black87
                           : Colors.black38,
@@ -425,10 +437,10 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(
+                Icon(
                   Icons.calendar_today,
-                  size: 18,
-                  color: Color(0xFF2563EB),
+                  size: sw * 0.045,
+                  color: const Color(0xFF2563EB),
                 ),
               ],
             ),
@@ -439,23 +451,25 @@ class _AuthScreenState extends State<AuthScreen> {
             padding: const EdgeInsets.only(top: 6, right: 4),
             child: Text(
               _dateError!,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: (sw * 0.03).clamp(11.0, 13.0),
+              ),
             ),
           ),
       ],
     );
   }
 
-  Widget _primaryButton({required String text, required VoidCallback onTap}) {
+  Widget _primaryButton(String text, VoidCallback onTap, double sw, double sh) {
     return SizedBox(
       width: double.infinity,
+      height: (sh * 0.065).clamp(44.0, 58.0),
       child: ElevatedButton(
         onPressed: onTap,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF1E3A6E),
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          minimumSize: const Size(0, 48),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
@@ -465,19 +479,20 @@ class _AuthScreenState extends State<AuthScreen> {
           fit: BoxFit.scaleDown,
           child: Text(
             text,
-            style: _textStyle(
-              fontSize: 15,
+            style: TextStyle(
+              fontSize: (sw * 0.042).clamp(14.0, 17.0),
+              fontWeight: FontWeight.w700,
               color: Colors.white,
-            ).copyWith(fontWeight: FontWeight.w700),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _toggleBar() {
+  Widget _toggleBar(double sw) {
     return Container(
-      height: 44,
+      height: (sw * 0.115).clamp(42.0, 52.0),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: const Color(0xFFEDEDED),
@@ -505,8 +520,8 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 child: Text(
                   'إنشاء حساب',
-                  style: _textStyle(
-                    fontSize: 14,
+                  style: TextStyle(
+                    fontSize: (sw * 0.036).clamp(13.0, 15.0),
                     color: isLogin ? Colors.black54 : Colors.black87,
                   ),
                 ),
@@ -533,8 +548,8 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 child: Text(
                   'تسجيل الدخول',
-                  style: _textStyle(
-                    fontSize: 14,
+                  style: TextStyle(
+                    fontSize: (sw * 0.036).clamp(13.0, 15.0),
                     color: isLogin ? Colors.black87 : Colors.black54,
                   ),
                 ),
@@ -546,26 +561,24 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  Widget _loginContent() {
+  Widget _loginContent(double sw, double sh) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('رقم الجوال'),
+        _label('رقم الجوال', sw),
         _inputField(
           controller: _loginPhoneController,
           hint: '5XXXXXXXX',
           keyboardType: TextInputType.phone,
           errorText: _phoneError,
           maxLength: 9,
+          sw: sw,
         ),
-        const SizedBox(height: 24),
-        _primaryButton(
-          text: 'تسجيل دخول',
-          onTap: () {
-            if (_validateLogin()) _sendOTP(isSignUp: false);
-          },
-        ),
-        const SizedBox(height: 16),
+        SizedBox(height: sh * 0.03),
+        _primaryButton('تسجيل دخول', () {
+          if (_validateLogin()) _sendOTP(isSignUp: false);
+        }, sw, sh),
+        SizedBox(height: sh * 0.02),
         Center(
           child: GestureDetector(
             onTap: () {
@@ -574,11 +587,11 @@ class _AuthScreenState extends State<AuthScreen> {
                 MaterialPageRoute(builder: (_) => const ChangePhoneScreen()),
               );
             },
-            child: const Text(
+            child: Text(
               'لا يمكنك الوصول لرقمك؟ قم بتغييره',
               style: TextStyle(
-                color: Color(0xFF2563EB),
-                fontSize: 16,
+                color: const Color(0xFF2563EB),
+                fontSize: (sw * 0.038).clamp(13.0, 16.0),
                 decoration: TextDecoration.underline,
               ),
             ),
@@ -588,25 +601,27 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  Widget _signupContent() {
+  Widget _signupContent(double sw, double sh) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('الاسم الأول'),
+        _label('الاسم الأول', sw),
         _inputField(
           controller: _firstNameController,
           hint: 'الاسم الأول',
           errorText: _firstNameError,
+          sw: sw,
         ),
-        const SizedBox(height: 14),
-        _label('اسم العائلة'),
+        SizedBox(height: sh * 0.018),
+        _label('اسم العائلة', sw),
         _inputField(
           controller: _lastNameController,
           hint: 'اسم العائلة',
           errorText: _lastNameError,
+          sw: sw,
         ),
-        const SizedBox(height: 14),
-        _label('رقم الهوية / الإقامة'),
+        SizedBox(height: sh * 0.018),
+        _label('رقم الهوية / الإقامة', sw),
         _inputField(
           controller: _nationalIdController,
           hint: 'كما هو موضح في بطاقة الهوية',
@@ -614,61 +629,72 @@ class _AuthScreenState extends State<AuthScreen> {
           errorText: _nationalIdError,
           maxLength: 10,
           isNationalId: true,
+          sw: sw,
         ),
-        const SizedBox(height: 14),
-        _label('تاريخ الميلاد'),
-        _dateField(),
-        const SizedBox(height: 14),
-        _label('رقم الجوال'),
+        SizedBox(height: sh * 0.018),
+        _label('تاريخ الميلاد', sw),
+        _dateField(sw),
+        SizedBox(height: sh * 0.018),
+        _label('رقم الجوال', sw),
         _inputField(
           controller: _signupPhoneController,
           hint: '5XXXXXXXX',
           keyboardType: TextInputType.phone,
           errorText: _phoneError,
           maxLength: 9,
+          sw: sw,
         ),
-        const SizedBox(height: 40),
-        _primaryButton(
-          text: 'إنشاء حساب',
-          onTap: () {
-            if (_validateSignup()) _sendOTP(isSignUp: true);
-          },
-        ),
+        SizedBox(height: sh * 0.05),
+        _primaryButton('إنشاء حساب', () {
+          if (_validateSignup()) _sendOTP(isSignUp: true);
+        }, sw, sh),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final sw = MediaQuery.of(context).size.width;
+    final sh = MediaQuery.of(context).size.height;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAFF),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          padding: EdgeInsets.symmetric(
+            horizontal: sw * 0.055,
+            vertical: sh * 0.022,
+          ),
           child: Column(
             children: [
-              const SizedBox(height: 18),
+              SizedBox(height: sh * 0.02),
               SizedBox(
-                height: 140,
+                height: sh * 0.17,
                 child: Center(
                   child: isLogin
                       ? Text(
                           'مرحبًا بعودتك',
-                          style: _textStyle(fontSize: 34, color: Colors.black),
+                          style: TextStyle(
+                            fontSize: (sw * 0.085).clamp(28.0, 38.0),
+                            color: Colors.black,
+                            fontWeight: FontWeight.w600,
+                          ),
                         )
                       : Image.asset(
                           'assets/icons/logo.png',
-                          height: 120,
+                          height: sh * 0.14,
                           fit: BoxFit.contain,
                         ),
                 ),
               ),
-              const SizedBox(height: 18),
-              _toggleBar(),
-              const SizedBox(height: 50),
+              SizedBox(height: sh * 0.02),
+              _toggleBar(sw),
+              SizedBox(height: sh * 0.055),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
-                child: isLogin ? _loginContent() : _signupContent(),
+                child: isLogin
+                    ? _loginContent(sw, sh)
+                    : _signupContent(sw, sh),
               ),
             ],
           ),
