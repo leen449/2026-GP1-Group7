@@ -33,8 +33,7 @@ class VerificationScreen extends StatefulWidget {
 
 class _VerificationScreenState extends State<VerificationScreen> {
   final List<TextEditingController> _controllers = List.generate(
-    6,
-    (_) => TextEditingController(),
+    6, (_) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
@@ -85,7 +84,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
     });
   }
 
-  // ✅ دالة مشتركة للـ SnackBar
   void _showSnackBar(String msg, {bool isSuccess = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -223,8 +221,16 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final sh = MediaQuery.of(context).size.height;
     final keyboardH = MediaQuery.of(context).viewInsets.bottom;
     final isKeyboard = keyboardH > 0;
-    final boxSize = ((sw - 44 - 50) / 6).clamp(40.0, 56.0);
-    final boxGap = (boxSize * 0.2).clamp(6.0, 12.0);
+
+    // ✅ responsive values
+    final hPad = sw * 0.06;
+    final boxSize = ((sw - hPad * 2 - 40) / 6).clamp(38.0, 54.0);
+    final boxGap = (boxSize * 0.18).clamp(5.0, 10.0);
+    final titleSize = (sw * 0.082).clamp(24.0, 36.0);
+    final subSize = (sw * 0.036).clamp(12.0, 15.0);
+    final btnHeight = (sh * 0.065).clamp(44.0, 58.0);
+    final spacingLg = isKeyboard ? sh * 0.02 : sh * 0.035;
+    final spacingSm = isKeyboard ? sh * 0.012 : sh * 0.02;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAFF),
@@ -234,37 +240,40 @@ class _VerificationScreenState extends State<VerificationScreen> {
           physics: const ClampingScrollPhysics(),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight:
-                  sh -
+              minHeight: sh -
                   MediaQuery.of(context).padding.top -
                   MediaQuery.of(context).padding.bottom,
             ),
             child: IntrinsicHeight(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: sw * 0.06),
+                padding: EdgeInsets.symmetric(horizontal: hPad),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: isKeyboard ? 6 : 12),
+                    SizedBox(height: spacingSm),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.arrow_back_ios_new_rounded),
                       padding: EdgeInsets.zero,
                     ),
-                    SizedBox(height: isKeyboard ? 10 : 18),
+                    SizedBox(height: spacingLg),
+
+                    // ✅ العنوان
                     Center(
                       child: Text(
                         'تحقق من رقم\nجوالك',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: (sw * 0.082).clamp(26.0, 38.0),
+                          fontSize: titleSize,
                           fontWeight: FontWeight.w600,
                           color: Colors.black,
                           height: 1.1,
                         ),
                       ),
                     ),
-                    SizedBox(height: isKeyboard ? 8 : 14),
+                    SizedBox(height: spacingSm),
+
+                    // ✅ النص
                     Center(
                       child: Column(
                         children: [
@@ -272,7 +281,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                             'تم إرسال رمز التحقق',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: (sw * 0.036).clamp(12.0, 16.0),
+                              fontSize: subSize,
                               height: 1.35,
                               color: Colors.black.withOpacity(0.55),
                               fontWeight: FontWeight.w500,
@@ -285,7 +294,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               Text(
                                 'إلى رقم جوالك  ',
                                 style: TextStyle(
-                                  fontSize: (sw * 0.036).clamp(12.0, 16.0),
+                                  fontSize: subSize,
                                   color: Colors.black.withOpacity(0.55),
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -295,7 +304,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                                 child: Text(
                                   widget.phone,
                                   style: TextStyle(
-                                    fontSize: (sw * 0.036).clamp(12.0, 16.0),
+                                    fontSize: subSize,
                                     color: Colors.black.withOpacity(0.55),
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -306,17 +315,20 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         ],
                       ),
                     ),
-                    SizedBox(height: isKeyboard ? 16 : 28),
+                    SizedBox(height: spacingLg),
+
+                    // ✅ خانات OTP
                     Center(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(
-                          6,
-                          (i) => _otpBox(i, boxSize, boxGap),
+                          6, (i) => _otpBox(i, boxSize, boxGap),
                         ),
                       ),
                     ),
-                    SizedBox(height: isKeyboard ? 14 : 26),
+                    SizedBox(height: spacingLg),
+
+                    // ✅ إعادة الإرسال
                     Center(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -325,7 +337,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           Text(
                             'لم يصلك الرمز؟',
                             style: TextStyle(
-                              fontSize: (sw * 0.036).clamp(12.0, 15.0),
+                              fontSize: subSize,
                               color: Colors.black.withOpacity(0.55),
                               fontWeight: FontWeight.w500,
                             ),
@@ -338,7 +350,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                                   ? 'إعادة الإرسال'
                                   : 'إعادة الإرسال (00:${_seconds.toString().padLeft(2, '0')})',
                               style: TextStyle(
-                                fontSize: (sw * 0.036).clamp(12.0, 15.0),
+                                fontSize: subSize,
                                 fontWeight: FontWeight.w700,
                                 color: _canResend
                                     ? const Color(0xFF2563EB)
@@ -349,46 +361,37 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         ],
                       ),
                     ),
-                    SizedBox(height: isKeyboard ? 14 : 26),
+                    SizedBox(height: spacingLg),
+
+                    // ✅ زر التحقق
                     SizedBox(
                       width: double.infinity,
-                      height: 54,
+                      height: btnHeight,
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _verifyOtp,
-
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1E3A6E),
                           foregroundColor: Colors.white,
-
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 14,
-                          ),
-
-                          minimumSize: const Size(0, 48),
-
                           elevation: 0,
-
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
                           ),
                         ),
-
                         child: _isLoading
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
+                            ? SizedBox(
+                                width: sw * 0.055,
+                                height: sw * 0.055,
+                                child: const CircularProgressIndicator(
                                   color: Colors.white,
                                   strokeWidth: 2.5,
                                 ),
                               )
-                            : const FittedBox(
+                            : FittedBox(
                                 fit: BoxFit.scaleDown,
                                 child: Text(
                                   'تحقق',
                                   style: TextStyle(
-                                    fontSize: 15,
+                                    fontSize: (sw * 0.042).clamp(14.0, 17.0),
                                     fontWeight: FontWeight.w700,
                                     color: Colors.white,
                                   ),
