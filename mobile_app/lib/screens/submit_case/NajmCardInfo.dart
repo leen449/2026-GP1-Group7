@@ -50,7 +50,7 @@ class NajmInfoRow extends StatelessWidget {
             child: Icon(
               icon,
               size: iconSize,
-              color: isMissing ? Colors.redAccent : const Color(0xFF0B4A7D),
+              color: isMissing ? Colors.red : const Color(0xFF0B4A7D),
             ),
           ),
           const SizedBox(width: 12),
@@ -72,7 +72,7 @@ class NajmInfoRow extends StatelessWidget {
                   softWrap: true,
                   style: TextStyle(
                     fontSize: valueSize,
-                    color: isMissing ? Colors.redAccent : Colors.black87,
+                    color: isMissing ? Colors.red : Colors.black87,
                     fontWeight: FontWeight.w700,
                     height: 1.3,
                   ),

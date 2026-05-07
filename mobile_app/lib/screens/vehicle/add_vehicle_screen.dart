@@ -455,7 +455,7 @@ class _SuccessDialog extends StatelessWidget {
           children: [
             const CircleAvatar(
               radius: 26,
-              backgroundColor: Color(0xFF0B8F2F),
+              backgroundColor: Colors.green,
               child: Icon(Icons.check, color: Colors.white, size: 34),
             ),
             const SizedBox(height: 18),

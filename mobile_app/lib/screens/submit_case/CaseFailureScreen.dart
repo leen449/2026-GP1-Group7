@@ -18,7 +18,7 @@ class CaseFailedScreen extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: const BoxDecoration(
-                color: Color(0xFFD32F2F),
+                color: Colors.red,
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.close, color: Colors.white, size: 44),

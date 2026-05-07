@@ -114,10 +114,10 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
   }
 
   Color get _bannerColor {
-    if (_currentResult.allOk) return const Color(0xFF2EAB5F);
-    if (!_currentResult.brightnessOk) return const Color(0xFFE65100);
+    if (_currentResult.allOk) return Colors.green;
+    if (!_currentResult.brightnessOk) return Colors.red;
     if (!_currentResult.sharpnessOk) return const Color(0xFF1565C0);
-    return const Color(0xFFE65100);
+    return Colors.red;
   }
 
   IconData get _bannerIcon {
@@ -143,8 +143,7 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                 SizedBox.expand(child: CameraPreview(_controller!)),
 
                 // ── Green flash ─────────────────────────────────────
-                if (_showFlash)
-                  Container(color: Colors.green.withOpacity(0.35)),
+                if (_showFlash) Container(color: Colors.green),
 
                 // ── Guidance banner ─────────────────────────────────
                 // ✅ left/right margins prevent edge overflow on any device

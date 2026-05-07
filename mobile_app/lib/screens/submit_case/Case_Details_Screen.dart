@@ -367,8 +367,8 @@ class CaseDetailsScreen extends StatelessWidget {
                                         padding: const EdgeInsets.all(4),
                                         decoration: BoxDecoration(
                                           color: hasDamage
-                                              ? Colors.red.withOpacity(0.9)
-                                              : Colors.green.withOpacity(0.9),
+                                              ? Colors.red
+                                              : Colors.green,
                                           shape: BoxShape.circle,
                                           boxShadow: [
                                             BoxShadow(
@@ -398,8 +398,8 @@ class CaseDetailsScreen extends StatelessWidget {
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: hasDamage
-                                        ? Colors.red.shade700
-                                        : Colors.green.shade700,
+                                        ? Colors.red
+                                        : Colors.green,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,

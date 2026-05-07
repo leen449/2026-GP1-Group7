@@ -654,7 +654,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           }
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE33B4E),
+                          backgroundColor: Colors.red,
                           foregroundColor: Colors.white,
                         ),
                         child: const Text('حذف المركبة'),
@@ -912,7 +912,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (s == 'فشل الفحص' || s == 'ocr_failed') {
       displayStatus = 'فشل الفحص'; // Failed OCR or Failed AI
       bgColor = const Color(0xFFFFEEF0);
-      textColor = const Color(0xFFE33B4E);
+      textColor = Colors.red;
       icon = Icons.warning_amber_rounded;
     } else {
       // Default / 'قيد التحليل' (While AI is currently processing)
@@ -967,7 +967,7 @@ class _HomeScreenState extends State<HomeScreen> {
       icon = Icons.search_rounded;
     } else if (s == 'فشل الفحص' || s == 'ocr_failed') {
       bgColor = const Color(0xFFFFEEF0);
-      iconColor = const Color(0xFFE33B4E);
+      iconColor = Colors.red;
       icon = Icons.gpp_bad_outlined;
     } else {
       // Default / 'قيد التحليل'

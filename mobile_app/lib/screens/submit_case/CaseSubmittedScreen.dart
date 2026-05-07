@@ -18,7 +18,7 @@ class CaseSubmittedScreen extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: const BoxDecoration(
-                color: Color(0xFF2EAB5F),
+                color: Colors.green,
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.check, color: Colors.white, size: 44),

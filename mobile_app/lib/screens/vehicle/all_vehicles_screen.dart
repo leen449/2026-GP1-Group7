@@ -10,7 +10,7 @@ class AllVehiclesScreen extends StatelessWidget {
   static const Color _textDark = Color(0xFF071A3D);
   static const Color _textMuted = Color(0xFF8B97AA);
   static const Color _primaryBlue = Color(0xFF2563EB);
-  static const Color _dangerRed = Color(0xFFE33B4E);
+  static const Color _dangerRed = Colors.red;
 
   Future<void> _archiveVehicle(BuildContext context, String vehicleId) async {
     final confirm = await showDialog<bool>(

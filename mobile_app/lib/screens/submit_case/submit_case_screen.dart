@@ -577,7 +577,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                     children: [
                       Icon(
                         Icons.check_circle_rounded,
-                        color: const Color(0xFF2EAB5F),
+                        color: Colors.green,
                         size: screenWidth * 0.08,
                       ),
                       const SizedBox(width: 8),

@@ -200,7 +200,7 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                                         child: Text.rich(
                                           TextSpan(
                                             text:
-                                                'وثّق الأضرار بالصور ,احرص على تصوير ',
+                                                'وثّق الأضرار بالصور ,احرص على تصوير الضرر ',
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.w500,
@@ -209,7 +209,7 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                                             ),
                                             children: [
                                               TextSpan(
-                                                text: 'صورة واحدة لكل ضرر ',
+                                                text: ' تبع للتعليمات الظاهرة',
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.w900,
                                                 ),
