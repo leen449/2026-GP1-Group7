@@ -94,7 +94,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         backgroundColor: isSuccess ? Colors.green : Colors.red,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 800),
+margin: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.of(context).size.height * 0.80),
       ),
     );
   }
