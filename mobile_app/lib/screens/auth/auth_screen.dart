@@ -255,8 +255,8 @@ class _AuthScreenState extends State<AuthScreen> {
               nationalId: isSignUp ? _nationalIdController.text.trim() : '',
               dateOfBirth: isSignUp
                   ? (_selectedDate != null
-                      ? '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}'
-                      : '')
+                        ? '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}'
+                        : '')
                   : '',
             ),
           ),
@@ -440,7 +440,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 Icon(
                   Icons.calendar_today,
                   size: sw * 0.045,
-                  color: const Color(0xFF2563EB),
+                  color: const Color(0xFF0B4A7D),
                 ),
               ],
             ),
@@ -575,9 +575,14 @@ class _AuthScreenState extends State<AuthScreen> {
           sw: sw,
         ),
         SizedBox(height: sh * 0.03),
-        _primaryButton('تسجيل دخول', () {
-          if (_validateLogin()) _sendOTP(isSignUp: false);
-        }, sw, sh),
+        _primaryButton(
+          'تسجيل دخول',
+          () {
+            if (_validateLogin()) _sendOTP(isSignUp: false);
+          },
+          sw,
+          sh,
+        ),
         SizedBox(height: sh * 0.02),
         Center(
           child: GestureDetector(
@@ -645,9 +650,14 @@ class _AuthScreenState extends State<AuthScreen> {
           sw: sw,
         ),
         SizedBox(height: sh * 0.05),
-        _primaryButton('إنشاء حساب', () {
-          if (_validateSignup()) _sendOTP(isSignUp: true);
-        }, sw, sh),
+        _primaryButton(
+          'إنشاء حساب',
+          () {
+            if (_validateSignup()) _sendOTP(isSignUp: true);
+          },
+          sw,
+          sh,
+        ),
       ],
     );
   }
@@ -692,9 +702,7 @@ class _AuthScreenState extends State<AuthScreen> {
               SizedBox(height: sh * 0.055),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
-                child: isLogin
-                    ? _loginContent(sw, sh)
-                    : _signupContent(sw, sh),
+                child: isLogin ? _loginContent(sw, sh) : _signupContent(sw, sh),
               ),
             ],
           ),

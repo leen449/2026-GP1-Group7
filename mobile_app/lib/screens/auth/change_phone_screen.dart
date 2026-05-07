@@ -293,7 +293,7 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(
                       Icons.arrow_forward_ios_rounded,
-                      color: Color(0xFF1E3A6E),
+                      color: Color(0xFF071A3D),
                       size: 20,
                     ),
                     padding: EdgeInsets.zero,
@@ -306,7 +306,7 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
                     'تغيير رقم الجوال',
                     style: _textStyle(
                       fontSize: 18,
-                      color: const Color(0xFF1E3A6E),
+                      color: const Color(0xFF071A3D),
                       fontWeight: FontWeight.w700,
                     ),
                   ),

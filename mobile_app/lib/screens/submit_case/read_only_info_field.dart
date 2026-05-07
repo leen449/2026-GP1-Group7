@@ -46,7 +46,7 @@ class ReadOnlyInfoField extends StatelessWidget {
             child: Icon(
               icon,
               size: iconBoxSize * 0.52,
-              color: const Color(0xFF1E3A6E),
+              color: const Color(0xFF0B4A7D),
             ),
           ),
           const SizedBox(width: 12),

@@ -83,7 +83,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       capturedPhotos.isNotEmpty && _infoConfirmed && !_isSubmitting;
   // ─────────────────────────────────────────────────────────────────
   //backend URL (used for OCR trigger)
-  static const backendUrl = 'http://192.168.0.12:8000';
+  static const backendUrl = 'http://172.20.10.2:8000';
   // ─────────────────────────────────────────────────────────────────
   @override
   void initState() {
@@ -1861,7 +1861,7 @@ class _UserInfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: const Color(0xFF1E3A6E)),
+        Icon(icon, size: 18, color: const Color(0xFF0B4A7D)),
         const SizedBox(width: 10),
         Text(
           '$label: ',
