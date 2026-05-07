@@ -116,7 +116,7 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
   Color get _bannerColor {
     if (_currentResult.allOk) return Colors.green;
     if (!_currentResult.brightnessOk) return Colors.red;
-    if (!_currentResult.sharpnessOk) return const Color(0xFF1565C0);
+    if (!_currentResult.sharpnessOk) return const Color(0xFF2A5BD7);
     return Colors.red;
   }
 
@@ -143,7 +143,8 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                 SizedBox.expand(child: CameraPreview(_controller!)),
 
                 // ── Green flash ─────────────────────────────────────
-                if (_showFlash) Container(color: Colors.green),
+                if (_showFlash)
+                  Container(color: Colors.green.withOpacity(0.35)),
 
                 // ── Guidance banner ─────────────────────────────────
                 // ✅ left/right margins prevent edge overflow on any device
@@ -325,7 +326,7 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                                     Navigator.pop(context, files);
                                   },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0B4A7D),
+                              backgroundColor: const Color(0xFF1E3A6E),
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(

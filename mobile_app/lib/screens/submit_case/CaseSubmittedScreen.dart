@@ -73,7 +73,7 @@ class CaseSubmittedScreen extends StatelessWidget {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0B4A7D),
+                    backgroundColor: const Color(0xFF1E3A6E),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(

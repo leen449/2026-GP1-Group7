@@ -50,7 +50,7 @@ class NajmInfoRow extends StatelessWidget {
             child: Icon(
               icon,
               size: iconSize,
-              color: isMissing ? Colors.red : const Color(0xFF0B4A7D),
+              color: isMissing ? Colors.red : const Color(0xFF1E3A6E),
             ),
           ),
           const SizedBox(width: 12),

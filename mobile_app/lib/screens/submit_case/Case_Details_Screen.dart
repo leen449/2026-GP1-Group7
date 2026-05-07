@@ -440,7 +440,7 @@ class CaseDetailsScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: const [
                           CircularProgressIndicator(
-                            color: Color(0xFF0B4A7D),
+                            color: Color(0xFF1E3A6E),
                             strokeWidth: 3,
                           ),
                           SizedBox(height: 16),

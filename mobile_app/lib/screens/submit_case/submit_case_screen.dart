@@ -312,7 +312,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(ctx),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0B4A7D),
+                        backgroundColor: const Color(0xFF1E3A6E),
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(
                           vertical: screenWidth * 0.03,
@@ -444,7 +444,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(ctx),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0B4A7D),
+                        backgroundColor: const Color(0xFF1E3A6E),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -525,7 +525,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(ctx, true),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0B4A7D),
+                        backgroundColor: const Color(0xFF1E3A6E),
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(
                           vertical: screenWidth * 0.03,
@@ -609,7 +609,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(ctx),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0B4A7D),
+                        backgroundColor: const Color(0xFF1E3A6E),
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(
                           vertical: screenWidth * 0.03,
@@ -1261,7 +1261,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                               10,
                                             ),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFF2F6FED),
+                                              color: Color(0xFF2563EB),
                                               width: 1.5,
                                             ),
                                           ),
@@ -1334,7 +1334,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                         : pickNajmPdf,
                                     borderRadius: BorderRadius.circular(12),
                                     child: DottedBorder(
-                                      color: const Color(0xFF2F6FED),
+                                      color: const Color(0xFF2563EB),
                                       dashPattern: const [6, 4],
                                       strokeWidth: 1.5,
                                       borderType: BorderType.RRect,
@@ -1517,7 +1517,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                           : null,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(
-                                          0xFF0B4A7D,
+                                          0xFF1E3A6E,
                                         ),
                                         foregroundColor: Colors.white,
                                         disabledBackgroundColor:
@@ -1663,7 +1663,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                         ),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: const Color(
-                                            0xFF0B4A7D,
+                                            0xFF1E3A6E,
                                           ),
                                           foregroundColor: Colors.white,
                                           padding: const EdgeInsets.symmetric(
@@ -1700,7 +1700,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                       children: [
                                         Checkbox(
                                           value: _infoConfirmed,
-                                          activeColor: const Color(0xFF0B4A7D),
+                                          activeColor: const Color(0xFF1E3A6E),
                                           onChanged: _isSubmitting
                                               ? null
                                               : (value) {
@@ -1742,7 +1742,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                           child: ElevatedButton(
                             onPressed: _showConfirmDialog,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0B4A7D),
+                              backgroundColor: const Color(0xFF1E3A6E),
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 40,
@@ -1788,7 +1788,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                     child: const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(color: Color(0xFF0B4A7D)),
+                        CircularProgressIndicator(color: Color(0xFF1E3A6E)),
                         SizedBox(height: 16),
                         Text(
                           'جاري التحقق من تقرير نجم...',
@@ -1821,7 +1821,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const CircularProgressIndicator(
-                          color: Color(0xFF0B4A7D),
+                          color: Color(0xFF1E3A6E),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -1861,7 +1861,7 @@ class _UserInfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: const Color(0xFF0B4A7D)),
+        Icon(icon, size: 18, color: const Color(0xFF1E3A6E)),
         const SizedBox(width: 10),
         Text(
           '$label: ',

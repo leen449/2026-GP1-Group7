@@ -907,7 +907,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (s == 'قيد المراجعة' || s == 'pending') {
       displayStatus = 'قيد المراجعة'; // Initial state before Najm OCR
       bgColor = const Color(0xFFEAF1FF);
-      textColor = const Color(0xFF2E63D9);
+      textColor = const Color(0xFF2563EB);
       icon = Icons.hourglass_empty_rounded;
     } else if (s == 'فشل الفحص' || s == 'ocr_failed') {
       displayStatus = 'فشل الفحص'; // Failed OCR or Failed AI

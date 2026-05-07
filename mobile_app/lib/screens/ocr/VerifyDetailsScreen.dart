@@ -386,7 +386,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFF3CD),
+                            color: const Color(0xFFFFF8E1),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: const Color(0xFFFFE082)),
                           ),
@@ -394,7 +394,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                             children: [
                               const Icon(
                                 Icons.warning_amber_rounded,
-                                color: Color(0xFFF59E0B),
+                                color: Color(0xFFF9A825),
                                 size: 18,
                               ),
                               const SizedBox(width: 8),
@@ -403,7 +403,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                                   _errorMsg!,
                                   style: const TextStyle(
                                     fontSize: 15,
-                                    color: Color(0xFF7A5000),
+                                    color: Color(0xFF7A6000),
                                   ),
                                 ),
                               ),

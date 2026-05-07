@@ -258,7 +258,7 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                                         },
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: const Color(
-                                            0xFF0B4A7D,
+                                            0xFF1E3A6E,
                                           ),
                                           foregroundColor: Colors.white,
                                           elevation: 8,
