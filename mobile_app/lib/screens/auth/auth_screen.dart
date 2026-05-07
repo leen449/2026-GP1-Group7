@@ -40,6 +40,22 @@ class _AuthScreenState extends State<AuthScreen> {
     super.dispose();
   }
 
+  // ✅ دالة مشتركة للـ SnackBar
+  void _showSnackBar(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [Text(msg)],
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 800),
+      ),
+    );
+  }
+
   String _convertToEnglishNumbers(String val) {
     return val
         .replaceAll('٠', '0')
@@ -163,6 +179,21 @@ class _AuthScreenState extends State<AuthScreen> {
         ? '+966${_signupPhoneController.text.trim()}'
         : '+966${_loginPhoneController.text.trim()}';
 
+    // ✅ تحقق من الرقم في Firestore قبل الإرسال
+    if (!isSignUp) {
+      final query = await FirebaseFirestore.instance
+          .collection('users')
+          .where('phoneNumber', isEqualTo: phone)
+          .limit(1)
+          .get();
+
+      if (query.docs.isEmpty) {
+        if (!mounted) return;
+        _showSnackBar('لا يوجد حساب بهذا الرقم، يرجى التسجيل أولاً');
+        return;
+      }
+    }
+
     await _auth.verifyPhoneNumber(
       phoneNumber: phone,
 
@@ -183,12 +214,7 @@ class _AuthScreenState extends State<AuthScreen> {
             if (!userDoc.exists) {
               await _auth.signOut();
               if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('لا يوجد حساب، يرجى التسجيل أولاً'),
-                  backgroundColor: Colors.red,
-                ),
-              );
+              _showSnackBar('لا يوجد حساب، يرجى التسجيل أولاً');
               return;
             }
           }
@@ -200,12 +226,7 @@ class _AuthScreenState extends State<AuthScreen> {
           );
         } catch (e) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('فشل التحقق: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          _showSnackBar('فشل التحقق: $e');
         }
       },
 
@@ -215,9 +236,7 @@ class _AuthScreenState extends State<AuthScreen> {
         if (e.code == 'too-many-requests')
           msg = 'تم تجاوز الحد المسموح من المحاولات. حاول لاحقًا';
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: Colors.red),
-        );
+        _showSnackBar(msg);
       },
 
       codeSent: (String verificationId, int? resendToken) {
@@ -236,8 +255,8 @@ class _AuthScreenState extends State<AuthScreen> {
               nationalId: isSignUp ? _nationalIdController.text.trim() : '',
               dateOfBirth: isSignUp
                   ? (_selectedDate != null
-                        ? '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}'
-                        : '')
+                      ? '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}'
+                      : '')
                   : '',
             ),
           ),
@@ -311,22 +330,22 @@ class _AuthScreenState extends State<AuthScreen> {
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 14,
-            ), // ✅
+            ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14), // ✅
+              borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14), // ✅
+              borderRadius: BorderRadius.circular(14),
               borderSide: errorText != null
                   ? const BorderSide(color: Colors.red, width: 1.5)
-                  : const BorderSide(color: Color(0xFFDDE7F3)), // ✅
+                  : const BorderSide(color: Color(0xFFDDE7F3)),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14), // ✅
+              borderRadius: BorderRadius.circular(14),
               borderSide: errorText != null
                   ? const BorderSide(color: Colors.red, width: 1.5)
-                  : const BorderSide(color: Color(0xFF2563EB), width: 1.4), // ✅
+                  : const BorderSide(color: Color(0xFF2563EB), width: 1.4),
             ),
           ),
           onChanged: (val) {
@@ -379,16 +398,13 @@ class _AuthScreenState extends State<AuthScreen> {
           onTap: _pickDate,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ), // ✅
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(14), // ✅
+              borderRadius: BorderRadius.circular(14),
               border: _dateError != null
                   ? Border.all(color: Colors.red, width: 1.5)
-                  : Border.all(color: const Color(0xFFDDE7F3)), // ✅
+                  : Border.all(color: const Color(0xFFDDE7F3)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -413,7 +429,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   Icons.calendar_today,
                   size: 18,
                   color: Color(0xFF2563EB),
-                ), // ✅
+                ),
               ],
             ),
           ),
@@ -435,22 +451,16 @@ class _AuthScreenState extends State<AuthScreen> {
       width: double.infinity,
       child: ElevatedButton(
         onPressed: onTap,
-
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF1E3A6E),
           foregroundColor: Colors.white,
-
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-
           minimumSize: const Size(0, 48),
-
           elevation: 0,
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),
         ),
-
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
