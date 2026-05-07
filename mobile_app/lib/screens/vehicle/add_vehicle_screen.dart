@@ -199,7 +199,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
     final input = value.trim().replaceAll(' ', '');
 
-    if (!RegExp(r'^[ء-ي0-9٠-٩]+$').hasMatch(input)) {
+    if (!RegExp(r'^[ء-ي0-9٠-٩۰-۹]+$').hasMatch(input)) {
       return 'استخدم حروف عربية وأرقام فقط';
     }
 
@@ -324,7 +324,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                     textDirection: TextDirection.rtl,
                     keyboardType: TextInputType.text,
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[ء-ي0-9٠-٩]')),
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'[ء-ي0-9٠-٩۰-۹\s]'),
+                      ),
                       TextInputFormatter.withFunction((oldValue, newValue) {
                         final converted = _toArabicDigits(newValue.text);
                         return TextEditingValue(
