@@ -418,7 +418,18 @@ class CaseDetailsScreen extends StatelessWidget {
             // ==========================================
             // SCENARIO 2: AI is currently processing
             // ==========================================
-            if (status != 'تم الفحص' && status != 'فشل الفحص') {
+            final hasAnyImages = images.isNotEmpty;
+            final allImagesHaveResult =
+                hasAnyImages &&
+                images.every((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return data.containsKey('hasDamage');
+                });
+
+            if (hasAnyImages &&
+                !allImagesHaveResult &&
+                status != 'تم الفحص' &&
+                status != 'فشل الفحص') {
               return _sectionCard(
                 title: 'تحليل الأضرار',
                 children: [
