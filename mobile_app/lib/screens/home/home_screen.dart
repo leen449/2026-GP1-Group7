@@ -608,31 +608,135 @@ class _HomeScreenState extends State<HomeScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () async {
+                          final size = MediaQuery.of(context).size;
+                          final double screenWidth = size.width;
+
                           final confirm = await showDialog<bool>(
                             context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text(
-                                'تأكيد الحذف',
-                                textDirection: TextDirection.rtl,
+                            barrierDismissible: false,
+                            builder: (ctx) => Dialog(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
                               ),
-                              content: const Text(
-                                'هل تريد حذف المركبة؟',
-                                textDirection: TextDirection.rtl,
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  child: const Text('إلغاء'),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: screenWidth > 600
+                                      ? 400
+                                      : screenWidth * 0.85,
                                 ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text(
-                                    'حذف',
-                                    style: TextStyle(color: Colors.red),
+                                child: SingleChildScrollView(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(screenWidth * 0.06),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.delete_outline_rounded,
+                                              color: Colors.red,
+                                              size: screenWidth * 0.08,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Flexible(
+                                              child: Text(
+                                                'تأكيد الحذف',
+                                                textAlign: TextAlign.center,
+                                                textDirection:
+                                                    TextDirection.rtl,
+                                                style: TextStyle(
+                                                  fontSize: screenWidth * 0.045,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        SizedBox(height: screenWidth * 0.04),
+                                        Text(
+                                          'سيؤدي هذا الإجراء إلى حذف المركبة من حسابك.',
+                                          textAlign: TextAlign.center,
+                                          textDirection: TextDirection.rtl,
+                                          style: TextStyle(
+                                            fontSize: screenWidth * 0.035,
+                                            color: Colors.black87,
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                        SizedBox(height: screenWidth * 0.06),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: ElevatedButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(ctx, false),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: const Color(
+                                                    0xFFEDEDED,
+                                                  ),
+                                                  foregroundColor:
+                                                      Colors.black87,
+                                                  padding: EdgeInsets.symmetric(
+                                                    vertical:
+                                                        screenWidth * 0.03,
+                                                  ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          30,
+                                                        ),
+                                                  ),
+                                                  elevation: 4,
+                                                ),
+                                                child: Text(
+                                                  'إلغاء',
+                                                  style: TextStyle(
+                                                    fontSize:
+                                                        screenWidth * 0.04,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: ElevatedButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(ctx, true),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Color(
+                                                    0xFF1E3A6E,
+                                                  ),
+                                                  foregroundColor: Colors.white,
+                                                  padding: EdgeInsets.symmetric(
+                                                    vertical:
+                                                        screenWidth * 0.03,
+                                                  ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          30,
+                                                        ),
+                                                  ),
+                                                  elevation: 4,
+                                                ),
+                                                child: Text(
+                                                  'تأكيد ',
+                                                  style: TextStyle(
+                                                    fontSize:
+                                                        screenWidth * 0.04,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
                           );
 
