@@ -1069,7 +1069,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                     ? const Center(
                                         child: Padding(
                                           padding: EdgeInsets.all(12),
-                                          child: CircularProgressIndicator(),
+                                          child: CircularProgressIndicator(
+                                            color: Color(0xFF1E3A6E),
+                                          ),
                                         ),
                                       )
                                     : Column(
@@ -1116,7 +1118,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                   const Center(
                                     child: Padding(
                                       padding: EdgeInsets.all(12),
-                                      child: CircularProgressIndicator(),
+                                      child: CircularProgressIndicator(
+                                        color: Color(0xFF1E3A6E),
+                                      ),
                                     ),
                                   )
                                 else
@@ -1135,7 +1139,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                         return const Center(
                                           child: Padding(
                                             padding: EdgeInsets.all(12),
-                                            child: CircularProgressIndicator(),
+                                            child: CircularProgressIndicator(
+                                              color: Color(0xFF1E3A6E),
+                                            ),
                                           ),
                                         );
                                       }

@@ -299,7 +299,7 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                                   padding: EdgeInsets.all(22),
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Colors.black,
+                                    color: Color(0xFF1E3A6E),
                                   ),
                                 )
                               : const Icon(
@@ -341,7 +341,9 @@ class _GuidedCameraScreenState extends State<GuidedCameraScreen> {
                 ),
               ],
             )
-          : const Center(child: CircularProgressIndicator()),
+          : const Center(
+              child: CircularProgressIndicator(color: Color(0xFF1E3A6E)),
+            ),
     );
   }
 }

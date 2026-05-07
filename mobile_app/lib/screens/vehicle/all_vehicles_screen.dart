@@ -13,29 +13,115 @@ class AllVehiclesScreen extends StatelessWidget {
   static const Color _dangerRed = Colors.red;
 
   Future<void> _archiveVehicle(BuildContext context, String vehicleId) async {
+    final size = MediaQuery.of(context).size;
+    final double screenWidth = size.width;
+
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text(
-          'تأكيد الحذف',
-          textDirection: TextDirection.rtl,
-          textAlign: TextAlign.right,
-        ),
-        content: const Text(
-          'هل تريد حذف هذه المركبة؟',
-          textDirection: TextDirection.rtl,
-          textAlign: TextAlign.right,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85,
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('حذف', style: TextStyle(color: _dangerRed)),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(screenWidth * 0.06),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.delete_outline_rounded,
+                        color: _dangerRed,
+                        size: screenWidth * 0.08,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'تأكيد حذف المركبة',
+                          textAlign: TextAlign.center,
+                          textDirection: TextDirection.rtl,
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.045,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF071A3D),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  SizedBox(height: screenWidth * 0.04),
+
+                  Text(
+                    'سيتم حذف المركبة من حسابك. هل ترغب بالمتابعة؟',
+                    textAlign: TextAlign.center,
+                    textDirection: TextDirection.rtl,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      color: Colors.black87,
+                      height: 1.5,
+                    ),
+                  ),
+
+                  SizedBox(height: screenWidth * 0.06),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFEDEDED),
+                            foregroundColor: Colors.black87,
+                            padding: EdgeInsets.symmetric(
+                              vertical: screenWidth * 0.03,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'إلغاء',
+                            style: TextStyle(fontSize: screenWidth * 0.04),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 10),
+
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1E3A6E),
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              vertical: screenWidth * 0.03,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'تأكيد',
+                            style: TextStyle(fontSize: screenWidth * 0.04),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
+        ),
       ),
     );
 
@@ -51,9 +137,20 @@ class AllVehiclesScreen extends StatelessWidget {
 
     if (!context.mounted) return;
 
+    final sh = MediaQuery.of(context).size.height;
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('تم حذف المركبة', textDirection: TextDirection.rtl),
+      SnackBar(
+        content: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('تم حذف المركبة بنجاح', textDirection: TextDirection.rtl),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: EdgeInsets.fromLTRB(16, 0, 16, sh * 0.80),
       ),
     );
   }
@@ -108,7 +205,9 @@ class AllVehiclesScreen extends StatelessWidget {
             );
           }
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFF1E3A6E)),
+            );
           }
 
           final vehicles = snapshot.data?.docs ?? [];

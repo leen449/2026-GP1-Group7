@@ -469,17 +469,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _bannerCard() {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.22,
-      decoration: BoxDecoration(
-        color: const Color(0xFFEAF4FF),
-        borderRadius: BorderRadius.circular(26),
-      ),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bannerHeight = (screenWidth * 0.48).clamp(150.0, 220.0);
+
+    return SizedBox(
+      width: double.infinity,
+      height: bannerHeight,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(26),
         child: Image.asset(
           'assets/images/home_image.png',
           width: double.infinity,
+          height: bannerHeight,
           fit: BoxFit.cover,
         ),
       ),
@@ -522,6 +523,23 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showSnackBar(String msg) {
+    final sh = MediaQuery.of(context).size.height;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [Text(msg, textDirection: TextDirection.rtl)],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: EdgeInsets.fromLTRB(16, 0, 16, sh * 0.80),
+      ),
+    );
+  }
+
   void _showVehicleCard(
     BuildContext context,
     String id,
@@ -538,233 +556,260 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Center(
             child: Material(
               color: Colors.transparent,
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.88,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(26),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width > 600
+                      ? 420
+                      : MediaQuery.of(context).size.width * 0.88,
+                  maxHeight: MediaQuery.of(context).size.height * 0.82,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Align(
-                      alignment: Alignment.topLeft,
-                      child: IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close),
-                      ),
+                child: SingleChildScrollView(
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(26),
                     ),
-                    Center(
-                      child: Text(
-                        'تفاصيل المركبة',
-                        textDirection: TextDirection.rtl,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF071A3D),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Align(
+                          alignment: Alignment.topLeft,
+                          child: IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.close),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Center(
-                      child: Container(
-                        width: 70,
-                        height: 70,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEAF2FF),
-                          borderRadius: BorderRadius.circular(20),
+                        Center(
+                          child: Text(
+                            'تفاصيل المركبة',
+                            textDirection: TextDirection.rtl,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF071A3D),
+                            ),
+                          ),
                         ),
-                        child: Image.asset(
-                          'assets/images/allcar_card.PNG',
-                          fit: BoxFit.contain,
+                        const SizedBox(height: 12),
+                        Center(
+                          child: Container(
+                            width: 70,
+                            height: 70,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEAF2FF),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Image.asset(
+                              'assets/images/allcar_card.PNG',
+                              fit: BoxFit.contain,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim(),
-                      textDirection: TextDirection.rtl,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF071A3D),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _centerInfoBox('ماركة المركبة', v['make'] ?? ''),
-                    _centerInfoBox('طراز المركبة', v['model'] ?? ''),
-                    _centerInfoBox('السنة', v['year'] ?? ''),
-                    _centerInfoBox('اللون', v['color'] ?? ''),
-                    _centerInfoBox(
-                      'رقم اللوحة',
-                      v['arabicPlateNumber'] ?? v['plateNumber'] ?? '',
-                    ),
-                    _centerInfoBox('رقم الهيكل', v['chassisNumber'] ?? ''),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          final size = MediaQuery.of(context).size;
-                          final double screenWidth = size.width;
+                        const SizedBox(height: 14),
+                        Text(
+                          '${v['make'] ?? ''} ${v['model'] ?? ''}'.trim(),
+                          textDirection: TextDirection.rtl,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF071A3D),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _centerInfoBox('ماركة المركبة', v['make'] ?? ''),
+                        _centerInfoBox('طراز المركبة', v['model'] ?? ''),
+                        _centerInfoBox('السنة', v['year'] ?? ''),
+                        _centerInfoBox('اللون', v['color'] ?? ''),
+                        _centerInfoBox(
+                          'رقم اللوحة',
+                          v['arabicPlateNumber'] ?? v['plateNumber'] ?? '',
+                        ),
+                        _centerInfoBox('رقم الهيكل', v['chassisNumber'] ?? ''),
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              final size = MediaQuery.of(context).size;
+                              final double screenWidth = size.width;
 
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (ctx) => Dialog(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxWidth: screenWidth > 600
-                                      ? 400
-                                      : screenWidth * 0.85,
-                                ),
-                                child: SingleChildScrollView(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(screenWidth * 0.06),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (ctx) => Dialog(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth: screenWidth > 600
+                                          ? 400
+                                          : screenWidth * 0.85,
+                                    ),
+                                    child: SingleChildScrollView(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(
+                                          screenWidth * 0.06,
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(
-                                              Icons.delete_outline_rounded,
-                                              color: Colors.red,
-                                              size: screenWidth * 0.08,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Flexible(
-                                              child: Text(
-                                                'تأكيد الحذف',
-                                                textAlign: TextAlign.center,
-                                                textDirection:
-                                                    TextDirection.rtl,
-                                                style: TextStyle(
-                                                  fontSize: screenWidth * 0.045,
-                                                  fontWeight: FontWeight.bold,
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.delete_outline_rounded,
+                                                  color: Colors.red,
+                                                  size: screenWidth * 0.08,
                                                 ),
+                                                const SizedBox(width: 8),
+                                                Flexible(
+                                                  child: Text(
+                                                    'تأكيد الحذف',
+                                                    textAlign: TextAlign.center,
+                                                    textDirection:
+                                                        TextDirection.rtl,
+                                                    style: TextStyle(
+                                                      fontSize:
+                                                          screenWidth * 0.045,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            SizedBox(
+                                              height: screenWidth * 0.04,
+                                            ),
+                                            Text(
+                                              'سيؤدي هذا الإجراء إلى حذف المركبة من حسابك.',
+                                              textAlign: TextAlign.center,
+                                              textDirection: TextDirection.rtl,
+                                              style: TextStyle(
+                                                fontSize: screenWidth * 0.035,
+                                                color: Colors.black87,
+                                                height: 1.5,
                                               ),
+                                            ),
+                                            SizedBox(
+                                              height: screenWidth * 0.06,
+                                            ),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: ElevatedButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(
+                                                          ctx,
+                                                          false,
+                                                        ),
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor:
+                                                          const Color(
+                                                            0xFFEDEDED,
+                                                          ),
+                                                      foregroundColor:
+                                                          Colors.black87,
+                                                      padding:
+                                                          EdgeInsets.symmetric(
+                                                            vertical:
+                                                                screenWidth *
+                                                                0.03,
+                                                          ),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              30,
+                                                            ),
+                                                      ),
+                                                      elevation: 4,
+                                                    ),
+                                                    child: Text(
+                                                      'إلغاء',
+                                                      style: TextStyle(
+                                                        fontSize:
+                                                            screenWidth * 0.04,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: ElevatedButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(
+                                                          ctx,
+                                                          true,
+                                                        ),
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: Color(
+                                                        0xFF1E3A6E,
+                                                      ),
+                                                      foregroundColor:
+                                                          Colors.white,
+                                                      padding:
+                                                          EdgeInsets.symmetric(
+                                                            vertical:
+                                                                screenWidth *
+                                                                0.03,
+                                                          ),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              30,
+                                                            ),
+                                                      ),
+                                                      elevation: 4,
+                                                    ),
+                                                    child: Text(
+                                                      'تأكيد ',
+                                                      style: TextStyle(
+                                                        fontSize:
+                                                            screenWidth * 0.04,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ],
                                         ),
-                                        SizedBox(height: screenWidth * 0.04),
-                                        Text(
-                                          'سيؤدي هذا الإجراء إلى حذف المركبة من حسابك.',
-                                          textAlign: TextAlign.center,
-                                          textDirection: TextDirection.rtl,
-                                          style: TextStyle(
-                                            fontSize: screenWidth * 0.035,
-                                            color: Colors.black87,
-                                            height: 1.5,
-                                          ),
-                                        ),
-                                        SizedBox(height: screenWidth * 0.06),
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: ElevatedButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(ctx, false),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: const Color(
-                                                    0xFFEDEDED,
-                                                  ),
-                                                  foregroundColor:
-                                                      Colors.black87,
-                                                  padding: EdgeInsets.symmetric(
-                                                    vertical:
-                                                        screenWidth * 0.03,
-                                                  ),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          30,
-                                                        ),
-                                                  ),
-                                                  elevation: 4,
-                                                ),
-                                                child: Text(
-                                                  'إلغاء',
-                                                  style: TextStyle(
-                                                    fontSize:
-                                                        screenWidth * 0.04,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: ElevatedButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(ctx, true),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: Color(
-                                                    0xFF1E3A6E,
-                                                  ),
-                                                  foregroundColor: Colors.white,
-                                                  padding: EdgeInsets.symmetric(
-                                                    vertical:
-                                                        screenWidth * 0.03,
-                                                  ),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          30,
-                                                        ),
-                                                  ),
-                                                  elevation: 4,
-                                                ),
-                                                child: Text(
-                                                  'تأكيد ',
-                                                  style: TextStyle(
-                                                    fontSize:
-                                                        screenWidth * 0.04,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          );
-
-                          if (confirm == true) {
-                            await FirebaseFirestore.instance
-                                .collection('vehicles')
-                                .doc(id)
-                                .update({
-                                  'isArchived': true,
-                                  'updatedAt': FieldValue.serverTimestamp(),
-                                });
-
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('تم حذف المركبة')),
                               );
-                            }
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
+
+                              if (confirm == true) {
+                                await FirebaseFirestore.instance
+                                    .collection('vehicles')
+                                    .doc(id)
+                                    .update({
+                                      'isArchived': true,
+                                      'updatedAt': FieldValue.serverTimestamp(),
+                                    });
+
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                  _showSnackBar('تم حذف المركبة بنجاح');
+                                }
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('حذف المركبة'),
+                          ),
                         ),
-                        child: const Text('حذف المركبة'),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -780,8 +825,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     // Responsive card size
-    final cardWidth = (screenWidth * 0.30).clamp(110.0, 140.0);
-    final listHeight = (screenWidth * 0.44).clamp(165.0, 195.0);
+    final cardWidth = (screenWidth * 0.34).clamp(120.0, 155.0);
+    final listHeight = (screenWidth * 0.46).clamp(175.0, 205.0);
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -802,7 +847,9 @@ class _HomeScreenState extends State<HomeScreen> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return SizedBox(
             height: listHeight,
-            child: const Center(child: CircularProgressIndicator()),
+            child: const Center(
+              child: CircularProgressIndicator(color: Color(0xFF1E3A6E)),
+            ),
           );
         }
 
@@ -1100,7 +1147,9 @@ class _HomeScreenState extends State<HomeScreen> {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF1E3A6E)),
+          );
         }
 
         final reports = snapshot.data?.docs ?? [];
@@ -1214,9 +1263,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 children: [
                                   // Car name (RTL)
                                   Text(
-                                    carName,
+                                    carName.isEmpty ? 'مركبة' : carName,
                                     textDirection: TextDirection.rtl,
-                                    maxLines: 1,
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       fontSize: 13,
