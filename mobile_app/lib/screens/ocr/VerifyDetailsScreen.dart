@@ -252,65 +252,87 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
 
   // ── Shows a success dialog then navigates back to HomeScreen ──
   void _showSuccessDialog() {
+    final size = MediaQuery.of(context).size;
+    final double screenWidth = size.width;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Green check icon
-              Container(
-                width: 60,
-                height: 60,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.green,
-                ),
-                child: const Icon(Icons.check, color: Colors.white, size: 34),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'تمت إضافة المركبة بنجاح',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Color(0xFF333333),
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(); // close dialog
-                    Navigator.of(
-                      context,
-                    ).pushNamedAndRemoveUntil('/home', (route) => false);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A6E),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    elevation: 0,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85,
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(screenWidth * 0.06),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: screenWidth * 0.15,
+                  height: screenWidth * 0.15,
+                  constraints: const BoxConstraints(
+                    minWidth: 56,
+                    minHeight: 56,
+                    maxWidth: 68,
+                    maxHeight: 68,
                   ),
-                  child: const Text(
-                    'حسنًا',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.green,
+                  ),
+                  child: const Icon(Icons.check, color: Colors.white, size: 34),
+                ),
+
+                SizedBox(height: screenWidth * 0.05),
+
+                Text(
+                  'تمت إضافة المركبة بنجاح',
+                  textAlign: TextAlign.center,
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.04,
+                    color: const Color(0xFF071A3D),
+                    height: 1.5,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
-            ],
+
+                SizedBox(height: screenWidth * 0.06),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      Navigator.of(
+                        context,
+                      ).pushNamedAndRemoveUntil('/home', (route) => false);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E3A6E),
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        vertical: screenWidth * 0.035,
+                      ),
+                      minimumSize: const Size(double.infinity, 54),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'حسنًا',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.04,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
