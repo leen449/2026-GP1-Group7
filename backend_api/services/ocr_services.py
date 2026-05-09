@@ -692,7 +692,7 @@ def _extract_color(texts: list) -> str:
 
 
 # ── Main ──────────────────────────────────────────────────────────────
-async def process_ocr(file):
+async def process_ocr_registration(file):
     """
     Main function called by FastAPI.
     Extracts vehicle data from registration card image in Arabic.
