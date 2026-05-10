@@ -322,10 +322,10 @@ def _normalize_spaces(text: str) -> str:
     return re.sub(r"\s+", " ", _normalize(text)).strip()
 
 def _normalize_plate_from_najm(text: str) -> str:
-    return _normalize_plate(text, reverse_arabic=True)
+    return _normalize_plate(text, reverse_arabic=False)
 
 def _normalize_plate_from_db(text: str) -> str:
-    return _normalize_plate(text, reverse_arabic=False)
+    return _normalize_plate(text, reverse_arabic=True)
 
 def _normalize_plate(text: str, reverse_arabic: bool = False) -> str:
     text = _normalize(text)
