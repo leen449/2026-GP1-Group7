@@ -429,9 +429,10 @@ def _extract_national_id(lines: list[str]) -> str:
                 if m:
                     return m.group(1)
 
-    # fallback: any 10-digit number, excluding hotline
+    # fallback: Saudi national/iqama IDs usually start with 1 or 2.
+    # This intentionally rejects mobile numbers such as 05xxxxxxxx.
     for line in normalized_lines:
-        for m in re.finditer(r"\b(\d{10})\b", line):
+        for m in re.finditer(r"\b(1\d{9}|2\d{9})\b", line):
             candidate = m.group(1)
             if candidate != "920000560":
                 return candidate
@@ -446,14 +447,28 @@ def _safe_str(value) -> str:
     return "" if value is None else str(value).strip()
 
 
+def _plate_normalization_options(text: str) -> set[str]:
+    if not text:
+        return set()
+
+    return {
+        option
+        for option in {
+            _normalize_plate(text, reverse_arabic=False),
+            _normalize_plate(text, reverse_arabic=True),
+        }
+        if option
+    }
+
+
 def _match_plate(extracted: str, expected: str) -> bool:
     if not extracted or not expected:
         return False
 
-    extracted_norm = _normalize_plate_from_najm(extracted)
-    expected_norm = _normalize_plate_from_db(expected)
+    extracted_options = _plate_normalization_options(extracted)
+    expected_options = _plate_normalization_options(expected)
 
-    return extracted_norm == expected_norm
+    return bool(extracted_options & expected_options)
 
 
 def _match_national_id(extracted: str, expected: str) -> bool:
@@ -468,6 +483,107 @@ def _match_text_loose(extracted: str, expected: str) -> bool:
     a = _normalize_ascii(extracted)
     b = _normalize_ascii(expected)
     return bool(a) and bool(b) and (a == b or a in b or b in a)
+
+
+def _detect_najm_template(lines: list[str]) -> str:
+    text = _joined_text(lines).lower()
+
+    # New one-page Taqdeer damage request layout.
+    # Do NOT classify by the word "taqdeer" alone because old Najm reports also
+    # mention the Taqdeer website in the instructions page.
+    taqdeer_markers = [
+        "case number",
+        "accident date",
+        "owner name",
+        "manu year",
+        "vehicle model",
+        "vehicle type",
+        "vehicle color",
+        "chassis",
+        "plate no",
+        "no plate",
+    ]
+
+    taqdeer_score = sum(1 for marker in taqdeer_markers if marker in text)
+
+    if "نموذج طلب تقدير اضرار" in text and taqdeer_score >= 4:
+        return "taqdeer_one_page"
+
+    if taqdeer_score >= 7:
+        return "taqdeer_one_page"
+
+    # Old six-page Najm layout. PyMuPDF may return Arabic labels reversed,
+    # so support both "معلومات الاطراف / الادانه" and "الادانه / الاطراف معلومات".
+    if (
+        "معلومات الاطراف / الادانه" in text
+        or "معلومات الاطراف / الادانة" in text
+        or "الادانه / الاطراف معلومات" in text
+        or "الادانة / الاطراف معلومات" in text
+        or ("الاطراف" in text and "الادانه" in text and "معلومات" in text)
+        or ("معلومات المركبه" in text and "معلومات السائق" in text)
+        or ("المركبه معلومات" in text and "السائق معلومات" in text)
+        or ("معلومات المركبة" in text and "معلومات السائق" in text)
+        or ("المركبة معلومات" in text and "السائق معلومات" in text)
+    ):
+        return "old_six_page"
+
+    return "unknown"
+
+def _extract_taqdeer_one_page_fields(lines: list[str]) -> dict:
+    n = [_normalize(line) for line in lines if line.strip()]
+
+    # In this template, values appear in fixed order after PLATE NO / رقم اللوحة
+    value_start = -1
+
+    for i, line in enumerate(n):
+        if "plate no" in line.lower() or "no plate" in line.lower() or "رقم اللوحه" in line or "رقم اللوحة" in line:
+            value_start = i + 1
+            break
+
+    fields = {
+        "accidentNumber": "",
+        "accidentDate": "",
+        "ownerName": "",
+        "manuYear": "",
+        "vehicleModel": "",
+        "vehicleType": "",
+        "vehicleColor": "",
+        "chassisNo": "",
+        "plateNumber": "",
+        "damageLocation": "",
+        "nationalID": "",
+        "hasNationalID": False,
+    }
+
+    if value_start != -1 and len(n) >= value_start + 9:
+        values = n[value_start:value_start + 9]
+
+        fields["accidentNumber"] = values[0]
+        fields["accidentDate"] = values[1]
+        fields["ownerName"] = values[2]
+        fields["manuYear"] = values[3]
+        fields["vehicleModel"] = values[4]
+        fields["vehicleType"] = values[5]
+        fields["vehicleColor"] = values[6]
+        fields["chassisNo"] = values[7]
+        fields["plateNumber"] = values[8]
+
+    # Damage value usually appears after "مكان الضرر"
+    for i, line in enumerate(n):
+        if "مكان الضرر" in line:
+            for j in range(i + 1, min(i + 5, len(n))):
+                candidate = _normalize(n[j]).strip(" :")
+                if not candidate:
+                    continue
+                if candidate in ["تحديد موقع الضرر", "x", "o"]:
+                    continue
+                if "الضرر القديم" in candidate or "الضرر الجديد" in candidate:
+                    continue
+                if "rear" in candidate.lower() or "front" in candidate.lower() or re.search(r"[\u0621-\u064A]", candidate):
+                    fields["damageLocation"] = candidate
+                    break
+
+    return fields
 
 
 async def process_najm_ocr(case_id: str) -> dict:
@@ -515,10 +631,12 @@ async def process_najm_ocr(case_id: str) -> dict:
 
         if pdf_bytes is None:
             error_message = "No PDF found for this case (neither Storage path nor base64)"
+
             case_ref.update({
                 "status": "فشل الفحص",
                 "ocrError": error_message,
             })
+
             return {
                 "status": "error",
                 "message": error_message,
@@ -526,23 +644,6 @@ async def process_najm_ocr(case_id: str) -> dict:
             }
 
         lines = _extract_text_from_pdf_bytes(pdf_bytes)
-
-        # Existing Najm fields
-        accident_number = _extract_accident_number(lines, pdf_bytes)
-        accident_date = _extract_accident_date(lines)
-        damage_location = _extract_damage_location(lines)
-
-        # New verification fields from report
-        extracted_plate = _extract_plate_number(lines)
-        extracted_national_id = _extract_national_id(lines)
-  
-
-        print(f"   [Najm OCR] accidentNumber: {accident_number}")
-        print(f"   [Najm OCR] accidentDate: {accident_date}")
-        print(f"   [Najm OCR] damageLocation: {damage_location}")
-        print(f"   [Najm OCR] extractedPlate: {extracted_plate}")
-        print(f"   [Najm OCR] extractedNationalID: {extracted_national_id}")
-
 
         # Load expected values from Firestore
         user_data = {}
@@ -559,30 +660,83 @@ async def process_najm_ocr(case_id: str) -> dict:
                 vehicle_data = vehicle_doc.to_dict() or {}
 
         expected_national_id = _safe_str(user_data.get("nationalID"))
-
         expected_plate = _safe_str(vehicle_data.get("plateNumber"))
 
+        # Detect template
+        template = _detect_najm_template(lines)
+        print(f"[Najm OCR] template: {template}")
+
+        # Extract fields
+        if template == "taqdeer_one_page":
+
+            f = _extract_taqdeer_one_page_fields(lines)
+
+            accident_number = f["accidentNumber"]
+            accident_date = f["accidentDate"]
+            damage_location = f["damageLocation"]
+            extracted_plate = f["plateNumber"]
+            extracted_national_id = f["nationalID"]
+            report_has_national_id = f["hasNationalID"]
+
+        else:
+            accident_number = _extract_accident_number(lines, pdf_bytes)
+            accident_date = _extract_accident_date(lines)
+            damage_location = _extract_damage_location(lines)
+            extracted_plate = _extract_plate_number(lines)
+            extracted_national_id = _extract_national_id(lines)
+
+            # Old Najm-style reports are expected to contain the user ID.
+            # If extraction fails, verification should fail instead of silently downgrading to plate-only.
+            report_has_national_id = True
+
+        print(f"   [Najm OCR] accidentNumber: {accident_number}")
+        print(f"   [Najm OCR] accidentDate: {accident_date}")
+        print(f"   [Najm OCR] damageLocation: {damage_location}")
+        print(f"   [Najm OCR] extractedPlate: {extracted_plate}")
+        print(f"   [Najm OCR] extractedNationalID: {extracted_national_id}")
 
         # Matching
         plate_matched = _match_plate(extracted_plate, expected_plate)
-        national_id_matched = _match_national_id(extracted_national_id, expected_national_id)
+
+        if report_has_national_id:
+            national_id_matched = _match_national_id(
+                extracted_national_id,
+                expected_national_id
+            )
+        else:
+            national_id_matched = None
+
         print(f"[PLATE RAW] extracted={extracted_plate} expected={expected_plate}")
-        print(f"[PLATE NORMALIZED] "f"extracted={_normalize_plate_from_najm(extracted_plate)} "f"expected={_normalize_plate_from_db(expected_plate)}")
+
+        print(
+            f"[PLATE NORMALIZED] "
+            f"extractedOptions={_plate_normalization_options(extracted_plate)} "
+            f"expectedOptions={_plate_normalization_options(expected_plate)}"
+        )
+
         print(f"[PLATE MATCH] {plate_matched}")
         print(f"[NID RAW] extracted={extracted_national_id} expected={expected_national_id}")
         print(f"[NID MATCH] {national_id_matched}")
 
-
         # OCR completeness
-        required_ocr_ok = all([accident_number, accident_date, damage_location])
+        required_ocr_ok = all([
+            accident_number,
+            accident_date,
+            damage_location
+        ])
 
-        # Verification rule:
-        # strong pass = plate + national ID
-        # fallback pass = plate + make + model
-        identity_verified = national_id_matched 
-        vehicle_verified = plate_matched and (national_id_matched )
-
-        verified = required_ocr_ok and vehicle_verified
+        # Verification
+        if report_has_national_id:
+            verified = (
+                required_ocr_ok
+                and plate_matched
+                and national_id_matched
+            )
+        else:
+            verified = (
+                required_ocr_ok
+                and plate_matched
+            )
 
         update_data = {
             "najimReport.accidentNumber": accident_number,
@@ -591,8 +745,10 @@ async def process_najm_ocr(case_id: str) -> dict:
         }
 
         if verified:
+
             update_data["status"] = "قيد التحليل"
             update_data["ocrError"] = firestore.DELETE_FIELD
+
             case_ref.update(update_data)
 
             return {
@@ -616,21 +772,26 @@ async def process_najm_ocr(case_id: str) -> dict:
         if not required_ocr_ok:
             if not accident_number:
                 errors.append("accidentNumber missing")
+
             if not accident_date:
                 errors.append("accidentDate missing")
+
             if not damage_location:
                 errors.append("damageLocation missing")
 
         if not plate_matched:
             errors.append("plate number does not match selected vehicle")
 
-        if not (national_id_matched ):
-            errors.append("report does not sufficiently match selected vehicle / user")
+        if report_has_national_id and not national_id_matched:
+            errors.append(
+                "report does not sufficiently match selected vehicle / user"
+            )
 
         error_message = "Najm verification failed: " + ", ".join(errors)
 
         update_data["status"] = "فشل الفحص"
         update_data["ocrError"] = error_message
+
         case_ref.update(update_data)
 
         return {
@@ -650,22 +811,34 @@ async def process_najm_ocr(case_id: str) -> dict:
         }
 
     except Exception as e:
+
         error_message = f"Najm OCR Error: {str(e)}"
+
         print(f"!!! NAJM OCR ERROR: {error_message}")
 
         try:
             _ensure_firebase_initialized()
+
             db = firestore.client()
+
             case_ref = db.collection("accidentCase").document(case_id)
+
             case_ref.update({
                 "status": "فشل الفحص",
                 "ocrError": error_message,
             })
+
         except Exception as update_error:
-            print(f"❌ Failed to update case status after OCR exception: {update_error}")
+            print(
+                f"❌ Failed to update case status after OCR exception: "
+                f"{update_error}"
+            )
 
         return {
             "status": "error",
             "message": error_message,
             "data": None,
         }
+
+
+       
