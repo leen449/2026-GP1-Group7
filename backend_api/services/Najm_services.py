@@ -1,5 +1,7 @@
 import re
 import base64
+
+
 import fitz
 import firebase_admin
 from firebase_admin import firestore, credentials, storage
@@ -529,6 +531,50 @@ def _detect_najm_template(lines: list[str]) -> str:
 
     return "unknown"
 
+def _is_damage_label(text: str) -> bool:
+    text = _normalize(text)
+    compact = re.sub(r"[\s:،,.\-_/]+", "", text)
+
+    return (
+        "مكانالضرر" in compact
+        or "ﻣﻜﺎناﻟﻀﺮر" in compact
+        or "ﻣﻜﺎناﻟضرر" in compact
+    )
+
+def _compact_arabic_label(text: str) -> str:
+    text = unicodedata.normalize("NFKC", text)
+
+    # Convert common Arabic presentation forms more aggressively
+    replacements = {
+        "ﻣ": "م",
+        "ﻜ": "ك",
+        "ﻛ": "ك",
+        "ﺎ": "ا",
+        "ﻥ": "ن",
+        "اﻟ": "ال",
+        "ﻟ": "ل",
+        "ﻀ": "ض",
+        "ﺮ": "ر",
+        "ﺭ": "ر",
+    }
+
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    text = _normalize(text)
+    text = re.sub(r"[\s:،,.\-_/]+", "", text)
+
+    return text
+
+
+def _is_damage_label(text: str) -> bool:
+    compact = _compact_arabic_label(text)
+
+    return (
+        "مكانالضرر" in compact
+        or ("مكان" in compact and "ضرر" in compact)
+    )
+
 def _extract_taqdeer_one_page_fields(lines: list[str]) -> dict:
     n = [_normalize(line) for line in lines if line.strip()]
 
@@ -536,7 +582,12 @@ def _extract_taqdeer_one_page_fields(lines: list[str]) -> dict:
     value_start = -1
 
     for i, line in enumerate(n):
-        if "plate no" in line.lower() or "no plate" in line.lower() or "رقم اللوحه" in line or "رقم اللوحة" in line:
+        if (
+            "plate no" in line.lower()
+            or "no plate" in line.lower()
+            or "رقم اللوحه" in line
+            or "رقم اللوحة" in line
+        ):
             value_start = i + 1
             break
 
@@ -555,7 +606,9 @@ def _extract_taqdeer_one_page_fields(lines: list[str]) -> dict:
         "hasNationalID": False,
     }
 
+    # Extract ordered values
     if value_start != -1 and len(n) >= value_start + 9:
+
         values = n[value_start:value_start + 9]
 
         fields["accidentNumber"] = values[0]
@@ -568,24 +621,50 @@ def _extract_taqdeer_one_page_fields(lines: list[str]) -> dict:
         fields["chassisNo"] = values[7]
         fields["plateNumber"] = values[8]
 
-    # Damage value usually appears after "مكان الضرر"
-    for i, line in enumerate(n):
-        if "مكان الضرر" in line:
-            for j in range(i + 1, min(i + 5, len(n))):
-                candidate = _normalize(n[j]).strip(" :")
-                if not candidate:
-                    continue
-                if candidate in ["تحديد موقع الضرر", "x", "o"]:
-                    continue
-                if "الضرر القديم" in candidate or "الضرر الجديد" in candidate:
-                    continue
-                if "rear" in candidate.lower() or "front" in candidate.lower() or re.search(r"[\u0621-\u064A]", candidate):
-                    fields["damageLocation"] = candidate
-                    break
+    # Extract damage location
+
+    
+    # Extract damage location structurally
+    damage_parts = []
+    start_found = False
+
+    stop_markers = [
+        "تحديد موقع الضرر",
+        "الضرر القديم",
+        "الضرر الجديد",
+    ]
+
+    for line in n:
+        candidate = _normalize(line).strip(" :،,")
+
+        if not candidate:
+            continue
+
+        candidate_lower = candidate.lower()
+
+        if _is_damage_label(candidate):
+            start_found = True
+            continue
+
+        if not start_found:
+            continue
+
+        if candidate_lower in ["x", "o"]:
+            break
+
+        if any(marker in candidate_lower for marker in stop_markers):
+            break
+
+        damage_parts.append(candidate)
+
+    if damage_parts:
+        fields["damageLocation"] = " ".join(damage_parts)
 
     return fields
 
 
+
+    
 async def process_najm_ocr(case_id: str) -> dict:
     try:
         print(f"--- NAJM OCR REQUEST: {case_id} ---")
