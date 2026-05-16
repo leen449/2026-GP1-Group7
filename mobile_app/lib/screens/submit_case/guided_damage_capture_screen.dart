@@ -209,13 +209,13 @@ class _GuidedDamageCaptureScreenState extends State<GuidedDamageCaptureScreen> {
                                             ),
                                             children: [
                                               TextSpan(
-                                                text: ' تبع للتعليمات الظاهرة',
+                                                text: ' تبع للتعليمات الظاهرة ',
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.w900,
                                                 ),
                                               ),
                                               const TextSpan(
-                                                text: 'للحصول على تقييم دقيق',
+                                                text: 'للحصول على تقييم دقيق  ',
                                               ),
                                             ],
                                           ),
