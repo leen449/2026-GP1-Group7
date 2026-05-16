@@ -43,7 +43,8 @@ The project will be developed using the following technologies:
 - **CNN Models** – Vehicle damage severity prediction
 - **YOLOv8** – Damage detection model 
 - **FastAPI** – AI inference service integration
-- **EasyOCR** – Data extraction and deep-learning-based optical character recognition 
+- **EasyOCR** – Data extraction and deep-learning-based optical character recognition
+- **Google Colab** – Model training and experimentation  
 
 ---
 
@@ -75,9 +76,9 @@ This repository is organized as follows:
 ## Launch Instructions
 ### 📱 Mobile Application (Flutter)
 
-cd mobile_app  
-flutter pub get  
-flutter run  
+cd mobile_app
+flutter pub get
+flutter run
 
 > Ensure a physical device or emulator is connected.
 
@@ -102,9 +103,11 @@ uvicorn main:app --reload
 
 ### 🤖 Machine Learning Model
 
-- Model training is currently conducted using Google Colab.
-- The trained model is not yet integrated into the backend inference pipeline.
-- Integration will be completed in upcoming sprints.
+- The damage detection model was trained using YOLOv8.
+- Model training and experimentation were conducted using Google Colab.
+- The trained weights are stored under the ml_model/weights/ directory.
+- The model is integrated with the backend inference service.
+- The backend receives vehicle damage images and returns damage detection results to the mobile application.
 
 
 
@@ -123,17 +126,23 @@ uvicorn main:app --reload
   - Accident case submission workflow
   - Najm report upload and OCR-based verification
 
-- **Sprint 2 (Current):**
-  - Guided image capture for damage documentation
-  - Development of damage detection model (YOLOv8 baseline)
-  - Preparation for ML model integration with backend
-  - Enhancement of UI/UX and system stability
+- **Sprint 2:**
+  - Guided image capture for vehicle damage documentation
+  - Damage image upload
+  - Damage detection model development
+  - Integration of the damage detection model with the FastAPI backend
+  - Integration between the mobile application and backend inference service
+  - Display of damage detection results in the mobile application
+  - UI/UX improvements and system stability enhancements
 
 - **Upcoming:**
-  - Damage detection and classification integration
-  - Report generation
-  - Case history and objection system completion
-  - Backend deployment to cloud
+  -Damage severity classification
+  - Repair cost estimation
+  - Full report generation
+  - QR-based report verification
+  - Admin dashboard completion
+  - Case history implementation
+  - Objection submission and tracking
 ---
 
 
