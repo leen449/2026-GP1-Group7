@@ -66,7 +66,6 @@ This repository is organized as follows:
 │   └── services/
 ├── ml_model/
 │   ├── training/           # Notebooks & training scripts
-│   ├── inference/          # Prediction scripts
 │   └── weights/            # Saved models 
 ├── AUTHORS.md
 └── README.md
