@@ -67,7 +67,7 @@ This repository is organized as follows:
 ├── ml_model/
 │   ├── training/           # Notebooks & training scripts
 │   ├── inference/          # Prediction scripts
-│   └── weights/            # Saved models (.pt, .keras, etc.)
+│   └── weights/            # Saved models 
 ├── AUTHORS.md
 └── README.md
 ```
