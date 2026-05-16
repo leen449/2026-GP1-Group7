@@ -194,6 +194,21 @@ class _AuthScreenState extends State<AuthScreen> {
       }
     }
 
+
+    if (isSignUp) {
+  final query = await FirebaseFirestore.instance
+      .collection('users')
+      .where('phoneNumber', isEqualTo: phone)
+      .limit(1)
+      .get();
+
+  if (query.docs.isNotEmpty) {
+    if (!mounted) return;
+    _showSnackBar('هذا الرقم مسجل مسبقاً، يرجى تسجيل الدخول');
+    return;
+  }
+}
+
     await _auth.verifyPhoneNumber(
       phoneNumber: phone,
 
