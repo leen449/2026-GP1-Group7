@@ -159,6 +159,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           textAlignVertical: TextAlignVertical.center,
           textDirection: textDirection,
           decoration: _fieldDecoration().copyWith(
+            errorMaxLines: 3,
             hintText: hintText,
             hintTextDirection: TextDirection.rtl,
           ),
@@ -206,19 +207,14 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     final letters = input.replaceAll(RegExp(r'[^ء-ي]'), '');
     final numbers = input.replaceAll(RegExp(r'[^0-9٠-٩]'), '');
 
-    if (letters.isEmpty || numbers.isEmpty) {
-      return 'لازم تحتوي اللوحة على حروف وأرقام';
+    if (numbers.isEmpty ||
+        numbers.length > 4 ||
+        letters.isEmpty ||
+        letters.length > 3) {
+      return 'رقم اللوحة يجب أن يحتوي على 1-4 أرقام و 1-3 أحرف';
+    } else {
+      return null;
     }
-
-    if (letters.length > 3) {
-      return 'الحد الأقصى 3 حروف';
-    }
-
-    if (numbers.length > 4) {
-      return 'الحد الأقصى 4 أرقام';
-    }
-
-    return null;
   }
 
   String? _validateYear(String? value) {

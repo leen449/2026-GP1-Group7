@@ -593,6 +593,8 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
             },
             style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A2E)),
             decoration: InputDecoration(
+              errorMaxLines: 3,
+
               hintText: hint,
 
               // Inner padding for the input field
