@@ -76,9 +76,11 @@ This repository is organized as follows:
 ## Launch Instructions
 ### 📱 Mobile Application (Flutter)
 
+```bash
 cd mobile_app
 flutter pub get
 flutter run
+```
 
 > Ensure a physical device or emulator is connected.
 
@@ -86,9 +88,11 @@ flutter run
 
 ### 🔧 Backend API (FastAPI)
 
-cd backend_api  
-pip install -r requirements.txt  
-uvicorn main:app --reload  
+```bash
+cd backend_api
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
 
 > The backend currently runs on a local IP address.  
 > Make sure the mobile app is configured to use the correct IP.
