@@ -309,6 +309,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         body: SafeArea(
           child: Form(
             key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
               child: ListView(

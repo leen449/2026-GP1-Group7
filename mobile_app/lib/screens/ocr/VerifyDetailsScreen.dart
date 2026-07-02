@@ -24,15 +24,8 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
   final _colorController = TextEditingController();
   final _chassisController = TextEditingController();
 
-  // Tracks validation error messages per field
-  final Map<String, String?> _fieldErrors = {
-    'plateNumber': null,
-    'make': null,
-    'model': null,
-    'year': null,
-    'color': null,
-    'chassisNumber': null,
-  };
+  // Form key drives validation state (mirrors add_vehicle_screen.dart)
+  final _formKey = GlobalKey<FormState>();
 
   bool _isLoading = true; // true while OCR API call is in progress
   bool _isSaving = false; // true while saving to Firestore
@@ -117,88 +110,68 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     return '$digits $spacedLetters';
   }
 
-  // ── Validate all fields before saving ──
-  bool _validateFields() {
-    final errors = <String, String?>{};
-
-    // Plate Number — must be 4 digits + 3 letters
-    final plate = _plateController.text.trim();
-    if (plate.isEmpty) {
-      errors['plateNumber'] = 'يرجى إدخال رقم اللوحة';
-    } else {
-      final cleaned = _convertToArabicNumbers(
-        plate,
-      ).replaceAll(' ', '').toUpperCase();
-      final digits = cleaned.replaceAll(RegExp(r'[^0-9٠-٩۰-۹]'), '');
-      final letters = cleaned.replaceAll(RegExp(r'[^ء-ي]'), '');
-      if (digits.isEmpty ||
-          digits.length > 4 ||
-          letters.isEmpty ||
-          letters.length > 3) {
-        errors['plateNumber'] =
-            'رقم اللوحة يجب أن يحتوي على 1-4 أرقام و 1-3 أحرف';
-      } else {
-        errors['plateNumber'] = null;
-      }
+  // ── Per-field validators, same rules/messages as before, now in the
+  //    shape TextFormField.validator expects: String? Function(String?) ──
+  String? _validatePlateNumber(String? value) {
+    final plate = (value ?? '').trim();
+    if (plate.isEmpty) return 'يرجى إدخال رقم اللوحة';
+    final cleaned = _convertToArabicNumbers(
+      plate,
+    ).replaceAll(' ', '').toUpperCase();
+    final digits = cleaned.replaceAll(RegExp(r'[^0-9٠-٩۰-۹]'), '');
+    final letters = cleaned.replaceAll(RegExp(r'[^ء-ي]'), '');
+    if (digits.isEmpty ||
+        digits.length > 4 ||
+        letters.isEmpty ||
+        letters.length > 3) {
+      return 'رقم اللوحة يجب أن يحتوي على 1-4 أرقام و 1-3 أحرف';
     }
+    return null;
+  }
 
-    // Make — required
-    final make = _makeController.text.trim();
-    errors['make'] = make.isEmpty ? 'يرجى إدخال ماركة المركبة' : null;
+  String? _validateMake(String? value) {
+    return (value ?? '').trim().isEmpty ? 'يرجى إدخال ماركة المركبة' : null;
+  }
 
-    // Model — required
-    final model = _modelController.text.trim();
-    errors['model'] = model.isEmpty ? 'يرجى إدخال طراز المركبة' : null;
+  String? _validateModel(String? value) {
+    return (value ?? '').trim().isEmpty ? 'يرجى إدخال طراز المركبة' : null;
+  }
 
-    // Year — required, between 1900 and 2027
-    // Year — required, between 1900 and next year
-    final yearStr = _yearController.text.trim();
-
-    if (yearStr.isEmpty) {
-      errors['year'] = 'يرجى إدخال السنة';
-    } else if (!RegExp(r'^\d+$').hasMatch(yearStr)) {
-      errors['year'] = 'سنة الصنع يجب أن تحتوي على أرقام فقط';
-    } else {
-      final year = int.tryParse(yearStr);
-      final currentYear = DateTime.now().year;
-      final maxYear = currentYear + 1;
-
-      if (year == null) {
-        errors['year'] = 'سنة الصنع غير صحيحة';
-      } else if (year < 1900 || year > maxYear) {
-        errors['year'] = 'سنة الصنع يجب أن تكون بين 1900 و $maxYear';
-      } else {
-        errors['year'] = null;
-      }
+  String? _validateYear(String? value) {
+    // Required, between 1900 and next year
+    final yearStr = (value ?? '').trim();
+    if (yearStr.isEmpty) return 'يرجى إدخال السنة';
+    if (!RegExp(r'^\d+$').hasMatch(yearStr)) {
+      return 'سنة الصنع يجب أن تحتوي على أرقام فقط';
     }
-
-    // Color — required
-    final color = _colorController.text.trim();
-    errors['color'] = color.isEmpty ? 'يرجى إدخال لون المركبة' : null;
-
-    // Chassis Number — required, exactly 17 alphanumeric characters
-    final chassis = _chassisController.text.trim();
-    if (chassis.isEmpty) {
-      errors['chassisNumber'] = 'يرجى إدخال رقم الهيكل';
-    } else if (!RegExp(r'^[A-Za-z0-9]{17}$').hasMatch(chassis)) {
-      errors['chassisNumber'] = 'رقم الهيكل يجب أن يتكون من 17 حرفًا أو رقمًا';
-    } else {
-      errors['chassisNumber'] = null;
+    final year = int.tryParse(yearStr);
+    final currentYear = DateTime.now().year;
+    final maxYear = currentYear + 1;
+    if (year == null) return 'سنة الصنع غير صحيحة';
+    if (year < 1900 || year > maxYear) {
+      return 'سنة الصنع يجب أن تكون بين 1900 و $maxYear';
     }
+    return null;
+  }
 
-    setState(
-      () => _fieldErrors
-        ..clear()
-        ..addAll(errors),
-    );
+  String? _validateColor(String? value) {
+    return (value ?? '').trim().isEmpty ? 'يرجى إدخال لون المركبة' : null;
+  }
 
-    return errors.values.every((e) => e == null);
+  String? _validateChassisNumber(String? value) {
+    // Required, exactly 17 alphanumeric characters
+    final chassis = (value ?? '').trim();
+    if (chassis.isEmpty) return 'يرجى إدخال رقم الهيكل';
+    if (!RegExp(r'^[A-Za-z0-9]{17}$').hasMatch(chassis)) {
+      return 'رقم الهيكل يجب أن يتكون من 17 حرفًا أو رقمًا';
+    }
+    return null;
   }
 
   // ── Saves the verified vehicle data to Firestore ──
   Future<void> _saveToFirebase() async {
     // Validate first — show errors if any field is invalid
-    if (!_validateFields()) return;
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
 
@@ -440,47 +413,51 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                     Expanded(
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildField(
-                              'رقم اللوحة',
-                              _plateController,
-                              fieldKey: 'plateNumber',
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                  RegExp(r'[ء-ي0-9٠-٩۰-۹\s]'),
-                                ),
-                              ],
-                            ),
-                            _buildField(
-                              'ماركة المركبة',
-                              _makeController,
-                              fieldKey: 'make',
-                            ),
-                            _buildField(
-                              'طراز المركبة',
-                              _modelController,
-                              fieldKey: 'model',
-                            ),
-                            _buildField(
-                              'السنه',
-                              _yearController,
-                              fieldKey: 'year',
-                              keyboardType: TextInputType.number,
-                            ),
-                            _buildField(
-                              'اللون',
-                              _colorController,
-                              fieldKey: 'color',
-                            ),
-                            _buildField(
-                              'رقم الهيكل',
-                              _chassisController,
-                              fieldKey: 'chassisNumber',
-                            ),
-                            const SizedBox(height: 8),
-                          ],
+                        child: Form(
+                          key: _formKey,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildField(
+                                'رقم اللوحة',
+                                _plateController,
+                                validator: _validatePlateNumber,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[ء-ي0-9٠-٩۰-۹\s]'),
+                                  ),
+                                ],
+                              ),
+                              _buildField(
+                                'ماركة المركبة',
+                                _makeController,
+                                validator: _validateMake,
+                              ),
+                              _buildField(
+                                'طراز المركبة',
+                                _modelController,
+                                validator: _validateModel,
+                              ),
+                              _buildField(
+                                'السنه',
+                                _yearController,
+                                validator: _validateYear,
+                                keyboardType: TextInputType.number,
+                              ),
+                              _buildField(
+                                'اللون',
+                                _colorController,
+                                validator: _validateColor,
+                              ),
+                              _buildField(
+                                'رقم الهيكل',
+                                _chassisController,
+                                validator: _validateChassisNumber,
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -541,14 +518,11 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
   Widget _buildField(
     String label,
     TextEditingController controller, {
-    required String fieldKey,
+    required String? Function(String?) validator,
     TextInputType keyboardType = TextInputType.text,
     String? hint,
     List<TextInputFormatter>? inputFormatters,
   }) {
-    final errorText = _fieldErrors[fieldKey];
-    final hasError = errorText != null;
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -565,30 +539,21 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
           ),
           const SizedBox(height: 6),
           // Input field
-          TextField(
+          TextFormField(
             controller: controller,
             keyboardType: keyboardType,
             inputFormatters: inputFormatters,
-            // Clear error when user starts typing
+            validator: validator,
+            // Live Arabic-digit conversion. Error display/timing is now
+            // owned by Form (autovalidateMode.onUserInteraction).
             onChanged: (val) {
-              // Apply only on plate number field
-              if (fieldKey == 'plateNumber') {
-                final converted = _convertToArabicNumbers(val);
-
-                // If user typed English numbers → convert to Arabic instantly
-                if (val != converted) {
-                  controller.value = TextEditingValue(
-                    text: converted,
-                    selection: TextSelection.collapsed(
-                      offset: converted.length,
-                    ),
-                  );
-                }
-              }
-
-              // Clear error when user starts typing
-              if (_fieldErrors[fieldKey] != null) {
-                setState(() => _fieldErrors[fieldKey] = null);
+              final converted = _convertToArabicNumbers(val);
+              // If user typed English numbers → convert to Arabic instantly
+              if (val != converted) {
+                controller.value = TextEditingValue(
+                  text: converted,
+                  selection: TextSelection.collapsed(offset: converted.length),
+                );
               }
             },
             style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A2E)),
@@ -637,8 +602,6 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
               filled: true,
               fillColor: Colors.white,
 
-              // Error message text
-              errorText: errorText,
               errorStyle: const TextStyle(fontSize: 11, color: Colors.red),
             ),
           ),
