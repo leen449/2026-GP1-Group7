@@ -51,7 +51,8 @@ dependencies:
   google_mlkit_object_detection: ^0.14.0
   flutter_dotenv: ^5.1.0
   firebase_storage: ^13.1.0
-
+  exif: ^3.3.0  
+   
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -71,6 +72,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/test_images/
     - assets/icons/
     - assets/ml/  
     - .env

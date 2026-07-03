@@ -15,6 +15,9 @@ import '../NavBar/nav_bar.dart';
 import 'read_only_info_field.dart';
 import 'NajmCardInfo.dart';
 import 'dart:ui';
+import 'image_verification_service.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:path_provider/path_provider.dart';
 
 // ─────────────────────────────────────────────
 // VehicleItem — includes docId from Firestore
@@ -42,8 +45,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   int _currentStep = 1;
 
   // ── State ─────────────────────────────────────────────────────────
-  List<File> capturedPhotos = [];
+  List<CapturedImage> capturedPhotos = [];
   String? _caseId;
+  final _imageVerificationService = ImageVerificationService();
   // ── User info ─────────────────────────────────────────────────────
   String? _userDocId;
   String _userName = '';
@@ -80,7 +84,10 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
   // ── Step 2 submit validation ──────────────────────────────────────
   bool get canSubmit =>
-      capturedPhotos.isNotEmpty && _infoConfirmed && !_isSubmitting;
+      capturedPhotos.isNotEmpty &&
+      capturedPhotos.every((p) => p.isVerified) &&
+      _infoConfirmed &&
+      !_isSubmitting;
   // ─────────────────────────────────────────────────────────────────
   //backend URL (used for OCR trigger)
   static const backendUrl = 'http://192.168.0.14:8000';
@@ -673,6 +680,120 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
         _verifiedVehicleId == selectedVehicle!.docId;
   }
 
+  // ── Reads the case's persisted creation time as the verification
+  //    session anchor. Anchoring to Firestore's server timestamp
+  //    (rather than widget initState) keeps the anchor stable across
+  //    app backgrounding, screen pop/repush, or a resumed session
+  //    with the same _caseId. Falls back to "now" only if the case
+  //    document or its timestamp is unexpectedly unavailable. ──
+  Future<DateTime> _getVerificationSessionStart() async {
+    if (_caseId == null || _caseId!.isEmpty) return DateTime.now();
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('accidentCase')
+          .doc(_caseId!)
+          .get();
+
+      final createdAt = doc.data()?['createdAt'];
+      if (createdAt is Timestamp) return createdAt.toDate();
+    } catch (e) {
+      print('⚠️ Failed to read case createdAt for verification: $e');
+    }
+
+    return DateTime.now();
+  }
+
+  // ── DEV-ONLY: single flag gating all test hooks below. Set to
+  //    false (or delete the gated code) before release. ──
+  static const bool _showTestHooks = false;
+
+  // ── DEV-ONLY: loads a bundled test asset and runs it through the
+  //    exact same verification path a real capture would use. Lets
+  //    us confirm Check 1 / Check 2 behavior without needing a
+  //    device camera or Firebase — verification is a purely local,
+  //    pre-upload step, so testing it doesn't require either.
+  //
+  //    Requires the referenced assets to exist under
+  //    assets/test_images/ and be declared in pubspec.yaml. Each
+  //    asset should be prepared once, manually, on a computer:
+  //      - clean_photo.jpg: any normal photo, unedited
+  //      - edited_photo.jpg: same, re-saved through GIMP/Photoshop/
+  //        etc. so it carries a real Software/CreatorTool tag
+  //      - old_timestamp.jpg: any photo whose DateTimeOriginal is
+  //        clearly more than 1 hour in the past ──
+  Future<void> _loadTestImageFromAssets(String assetPath) async {
+    try {
+      final byteData = await rootBundle.load(assetPath);
+      final tempDir = await getTemporaryDirectory();
+      final fileName = assetPath.split('/').last;
+      final file = File('${tempDir.path}/$fileName');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+
+      final verified = await _verifyNewPhotos([file]);
+      if (!mounted) return;
+
+      setState(() {
+        capturedPhotos = [...capturedPhotos, ...verified].take(10).toList();
+      });
+
+      if (verified.any((p) => !p.isVerified)) {
+        _showVerificationFailureMessage();
+      } else {
+        _showSnackBar('اجتازت الصورة الاختبارية التحقق', isSuccess: true);
+      }
+    } catch (e) {
+      _showSnackBar('فشل تحميل صورة الاختبار: $e');
+    }
+  }
+
+  // ── DEV-ONLY: writes a deliberately truncated/corrupt file and
+  //    runs it through verification, to confirm the "unreadable
+  //    metadata" branch is handled as designed (treated as
+  //    inconclusive, not a hard failure). ──
+  Future<void> _loadCorruptedTestImage() async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/corrupted_test.jpg');
+      // Deliberately invalid JPEG bytes — not a real image at all.
+      await file.writeAsBytes([0xFF, 0xD8, 0x00, 0x00, 0x01, 0x02]);
+
+      final verified = await _verifyNewPhotos([file]);
+      if (!mounted) return;
+
+      setState(() {
+        capturedPhotos = [...capturedPhotos, ...verified].take(10).toList();
+      });
+
+      _showSnackBar(
+        verified.first.isVerified
+            ? 'الملف التالف اجتاز (متوقع — لا يوجد بيانات وصفية للتحقق منها)'
+            : 'الملف التالف فشل (تحقق من منطق التحقق)',
+        isSuccess: verified.first.isVerified,
+      );
+    } catch (e) {
+      _showSnackBar('فشل اختبار الملف التالف: $e');
+    }
+  }
+
+  // ── Verifies a freshly captured batch of files and wraps each as
+  //    a CapturedImage. Runs once per photo, at the moment it's
+  //    added, per the agreed design (not repeatedly on every
+  //    rebuild). ──
+  Future<List<CapturedImage>> _verifyNewPhotos(List<File> files) async {
+    final sessionStart = await _getVerificationSessionStart();
+
+    final results = <CapturedImage>[];
+    for (final file in files) {
+      final result = await _imageVerificationService.verify(
+        file,
+        sessionStart: sessionStart,
+      );
+      results.add(CapturedImage(file: file, isVerified: result.isValid));
+    }
+    return results;
+  }
+
   Future<void> _goToDamageCapture() async {
     final photos = await Navigator.push<List<File>>(
       context,
@@ -682,11 +803,61 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
     if (!mounted) return;
 
     if (photos != null && photos.isNotEmpty) {
+      final verified = await _verifyNewPhotos(photos);
+      if (!mounted) return;
+
       setState(() {
-        capturedPhotos = photos;
+        capturedPhotos = verified;
         _currentStep = 2;
       });
+
+      if (verified.any((p) => !p.isVerified)) {
+        _showVerificationFailureMessage();
+      }
     }
+  }
+
+  // ── App-wide standard snackbar, matching the styling already used
+  //    elsewhere (see verification_screen.dart's _showSnackBar):
+  //    centered text, floating, rounded, color driven by isSuccess,
+  //    anchored near the top rather than the default bottom. ──
+  void _showSnackBar(String msg, {bool isSuccess = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                msg,
+                textAlign: TextAlign.center,
+                textDirection: TextDirection.rtl,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: isSuccess ? Colors.green : Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          MediaQuery.of(context).size.height * 0.75,
+        ),
+      ),
+    );
+  }
+
+  // ── Single, non-technical message shown whenever one or more
+  //    photos fail verification. Deliberately identical regardless
+  //    of which check failed or how many images are affected, per
+  //    the requirement not to expose verification internals. ──
+  void _showVerificationFailureMessage() {
+    _showSnackBar(
+      'لضمان صحة بيانات البلاغ، تعذر التحقق من بعض الصور. يرجى إعادة التقاط الصور المحددة قبل إرسال البلاغ.',
+    );
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -908,7 +1079,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
       final uploadedImages = await _uploadImagesToStorage(
         caseId: _caseId!,
-        images: capturedPhotos,
+        images: capturedPhotos.map((p) => p.file).toList(),
       );
 
       if (uploadedImages.isEmpty) {
@@ -1332,7 +1503,49 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                 // ── Najm report ──────────────────────
                                 const SizedBox(height: 40),
                                 const Text('رفع تقرير نجم'),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 6),
+                                // ── Notice: multiple Najm report types
+                                //    exist; only one is supported by OCR.
+                                //    Wrapped in a flexible container so
+                                //    the text reflows on narrow screens
+                                //    instead of overflowing. ──
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF8E1),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(0xFFFFE082),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: const [
+                                      Icon(
+                                        Icons.info_outline,
+                                        size: 18,
+                                        color: Color(0xFFF9A825),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'يرجى التأكد من رفع "نموذج لطلب تقدير اضرار المركبة" ',
+                                          textDirection: TextDirection.rtl,
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            color: Color(0xFF7A6000),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
                                 if (najmFileName == null) ...[
                                   InkWell(
                                     onTap: (_currentStep > 1 || _isSubmitting)
@@ -1572,6 +1785,8 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                         separatorBuilder: (_, __) =>
                                             const SizedBox(width: 10),
                                         itemBuilder: (context, index) {
+                                          final captured =
+                                              capturedPhotos[index];
                                           return Stack(
                                             clipBehavior: Clip.none,
                                             children: [
@@ -1583,7 +1798,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                                       builder: (_) =>
                                                           PhotoPreviewScreen(
                                                             imageFile:
-                                                                capturedPhotos[index],
+                                                                captured.file,
                                                           ),
                                                     ),
                                                   );
@@ -1592,13 +1807,36 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                                   borderRadius:
                                                       BorderRadius.circular(10),
                                                   child: Image.file(
-                                                    capturedPhotos[index],
+                                                    captured.file,
                                                     width: 70,
                                                     height: 70,
                                                     fit: BoxFit.cover,
                                                   ),
                                                 ),
                                               ),
+                                              // ── Warning indicator for
+                                              //    images that failed
+                                              //    verification ──
+                                              if (!captured.isVerified)
+                                                Positioned(
+                                                  bottom: 4,
+                                                  left: 4,
+                                                  child: Container(
+                                                    width: 20,
+                                                    height: 20,
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                          color: Colors.red,
+                                                          shape:
+                                                              BoxShape.circle,
+                                                        ),
+                                                    child: const Icon(
+                                                      Icons.priority_high,
+                                                      color: Colors.white,
+                                                      size: 14,
+                                                    ),
+                                                  ),
+                                                ),
                                               Positioned(
                                                 top: 4,
                                                 right: 4,
@@ -1652,12 +1890,24 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                                     result.isEmpty)
                                                   return;
 
+                                                final verified =
+                                                    await _verifyNewPhotos(
+                                                      result,
+                                                    );
+                                                if (!mounted) return;
+
                                                 setState(() {
                                                   capturedPhotos = [
                                                     ...capturedPhotos,
-                                                    ...result,
+                                                    ...verified,
                                                   ].take(10).toList();
                                                 });
+
+                                                if (verified.any(
+                                                  (p) => !p.isVerified,
+                                                )) {
+                                                  _showVerificationFailureMessage();
+                                                }
                                               },
                                         icon: const Icon(
                                           Icons.camera_alt,
@@ -1683,6 +1933,59 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                           ),
                                           elevation: 6,
                                         ),
+                                      ),
+                                    ),
+
+                                  // ── DEV-ONLY: test verification against
+                                  //    known-good/bad sample images without
+                                  //    a real device's camera. Feeds a
+                                  //    bundled asset through the exact same
+                                  //    _verifyNewPhotos() path as a real
+                                  //    capture. Strip by setting
+                                  //    _showTestHooks to false. ──
+                                  if (_showTestHooks)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 12),
+                                      child: Wrap(
+                                        alignment: WrapAlignment.center,
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: [
+                                          OutlinedButton(
+                                            onPressed: () =>
+                                                _loadTestImageFromAssets(
+                                                  'assets/test_images/clean_photo.jpg',
+                                                ),
+                                            child: const Text(
+                                              'اختبار: صورة سليمة',
+                                            ),
+                                          ),
+                                          OutlinedButton(
+                                            onPressed: () =>
+                                                _loadTestImageFromAssets(
+                                                  'assets/test_images/edited_photo.jpg',
+                                                ),
+                                            child: const Text(
+                                              'اختبار: صورة معدّلة',
+                                            ),
+                                          ),
+                                          OutlinedButton(
+                                            onPressed: () =>
+                                                _loadTestImageFromAssets(
+                                                  'assets/test_images/oldd.jpg',
+                                                ),
+                                            child: const Text(
+                                              'اختبار: تاريخ قديم',
+                                            ),
+                                          ),
+                                          OutlinedButton(
+                                            onPressed: () =>
+                                                _loadCorruptedTestImage(),
+                                            child: const Text(
+                                              'اختبار: ملف تالف',
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
 
