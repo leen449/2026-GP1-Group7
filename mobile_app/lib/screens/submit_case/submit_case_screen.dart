@@ -1509,43 +1509,45 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                 //    Wrapped in a flexible container so
                                 //    the text reflows on narrow screens
                                 //    instead of overflowing. ──
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF8E1),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: const Color(0xFFFFE082),
+                                if (!_najmReportVerified) ...[
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
                                     ),
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: const [
-                                      Icon(
-                                        Icons.info_outline,
-                                        size: 18,
-                                        color: Color(0xFFF9A825),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFF8E1),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: const Color(0xFFFFE082),
                                       ),
-                                      SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'يرجى التأكد من رفع "نموذج لطلب تقدير اضرار المركبة" ',
-                                          textDirection: TextDirection.rtl,
-                                          style: TextStyle(
-                                            fontSize: 12.5,
-                                            color: Color(0xFF7A6000),
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: const [
+                                        Icon(
+                                          Icons.info_outline,
+                                          size: 18,
+                                          color: Color(0xFFF9A825),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'يرجى التأكد من رفع "نموذج لطلب تقدير اضرار المركبة" ',
+                                            textDirection: TextDirection.rtl,
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              color: Color(0xFF7A6000),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 10),
+                                  const SizedBox(height: 10),
+                                ],
                                 if (najmFileName == null) ...[
                                   InkWell(
                                     onTap: (_currentStep > 1 || _isSubmitting)
