@@ -40,6 +40,18 @@ async def process_damage_detection(case_id: str) -> dict:
         if not case_doc.exists:
             return {"status": "error", "message": f"Case {case_id} not found"}
 
+        # [NEW] Claim the job. Records WHEN analysis began so a stalled case
+        # (backend died mid-run) can be detected later and offered a retry.
+        # Status is already "قيد التحليل" from the Najm OCR step; setting it
+        # again makes this safe when the endpoint is called as a retry.
+        # detectionError is cleared so a stale message from a previous failed
+        # attempt is not shown next to fresh results.
+        case_ref.update({
+            "status": "قيد التحليل",
+            "analysisStartedAt": firestore.SERVER_TIMESTAMP,
+            "detectionError": None,
+        })
+
         # [4] Get the images subcollection
         images_ref = case_ref.collection("images").stream()
         results = []

@@ -1049,6 +1049,41 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────────
+  // [NEW] Guarded failure write.
+  //
+  // The app may only record a failure if the backend has NOT already
+  // recorded an outcome. Without this guard, a lost response could
+  // overwrite a completed analysis with "فشل الفحص", losing results that
+  // are already sitting in Firestore.
+  //
+  // The transaction reads and writes atomically, so the backend cannot
+  // slip a write in between the check and the update.
+  // ─────────────────────────────────────────────────────────────────
+  Future<void> _markSubmissionFailed(
+    DocumentReference caseRef,
+    String reason,
+  ) async {
+    try {
+      await FirebaseFirestore.instance.runTransaction((txn) async {
+        final snap = await txn.get(caseRef);
+        final current = (snap.data() as Map<String, dynamic>?)?['status'];
+
+        // Only claim failure while no terminal outcome exists.
+        if (current != 'تم الفحص' && current != 'فشل الفحص') {
+          txn.update(caseRef, {
+            'status': 'فشل الفحص',
+            'detectionError': reason,
+          });
+        } else {
+          print('ℹ️ Backend already recorded "$current" — not overwriting');
+        }
+      });
+    } catch (e) {
+      print('⚠️ Could not record submission failure: $e');
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────
   // Full submit flow
   // ─────────────────────────────────────────────────────────────────
   Future<void> _submitCase() async {
@@ -1102,37 +1137,34 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
           'uploadedAt': FieldValue.serverTimestamp(),
         });
       }
-      setState(() => _submitStatus = 'جاري تحليل الأضرار بالذكاء الاصطناعي...');
+      setState(() => _submitStatus = 'جاري إرسال الطلب للتحليل...');
 
       try {
-        // Using the same backend URL you defined in your OCR step
+        // [CHANGED] The backend now returns 202 Accepted immediately and runs
+        // the analysis in the background. We are only waiting for the request
+        // to be RECEIVED, not for the analysis to finish — so 10 seconds is
+        // generous rather than tight.
+        //
+        // The results arrive through the Firestore snapshot listener in
+        // CaseDetailsScreen, which the app is already subscribed to.
         final response = await http
             .post(Uri.parse('$backendUrl/damage/analyze/$_caseId'))
-            .timeout(
-              const Duration(seconds: 120),
-            ); // 2 minutes timeout for image processing
+            .timeout(const Duration(seconds: 10));
 
-        if (response.statusCode == 200) {
-          print('✅ AI Detection completed successfully');
+        if (response.statusCode == 202 || response.statusCode == 200) {
+          print('✅ Analysis request accepted by backend');
         } else {
-          print('⚠️ AI Detection returned status code: ${response.statusCode}');
-          await caseRef.update({
-            'status': 'فشل الفحص',
-            'detectionError': 'Server returned ${response.statusCode}',
-          });
-          // NEW: Stop the function and trigger the failure screen
+          print('⚠️ Backend returned status code: ${response.statusCode}');
+          await _markSubmissionFailed(
+            caseRef,
+            'Server returned ${response.statusCode}',
+          );
           throw Exception('AI Server Error');
         }
       } catch (apiError) {
-        print('❌ Failed to trigger backend detection: $apiError');
-
-        await caseRef.update({
-          'status': 'فشل الفحص',
-          'detectionError': 'Connection failed: $apiError',
-        });
-
-        // NEW: Stop the function and trigger the failure screen
-        throw Exception('AI Connection Timeout');
+        print('❌ Failed to reach backend: $apiError');
+        await _markSubmissionFailed(caseRef, 'Connection failed: $apiError');
+        throw Exception('AI Connection Failed');
       }
       // ─────────────────────────────────────────────────────────────────
 
