@@ -9,3 +9,5 @@ deep-translator
 pymupdf
 ultralytics
 Pillow
+torch
+torchvision

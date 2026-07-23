@@ -125,3 +125,6 @@ weight
 venv/
 __pycache__/
 *.pyc
+
+backend_api/severity_integration_decisions.md
+backend_api/technical_observations.md

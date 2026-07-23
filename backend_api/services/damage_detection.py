@@ -8,6 +8,9 @@ import firebase_admin
 from firebase_admin import firestore, credentials, storage
 import urllib.parse
 
+# [NEW] Severity classification service
+from services.severity_service import classify_severity, aggregate_case_severity
+
 # [1] Load model ONCE 
 model = YOLO("weight/best.pt")
 
@@ -42,6 +45,9 @@ async def process_damage_detection(case_id: str) -> dict:
         results = []
         bucket = storage.bucket('crashlens-233bf.firebasestorage.app')
 
+        # [NEW] Collects one severity per damaged image, for case-level aggregation
+        image_severities = []
+
         # [5] Process EACH image
         for img_doc in images_ref:
             img_data = img_doc.to_dict()
@@ -73,14 +79,20 @@ async def process_damage_detection(case_id: str) -> dict:
                     has_damage = len(r.boxes) > 0
                     
                     # [10] The "No Damage" Path
+                    # [NEW] Severity is deliberately SKIPPED here. The model would
+                    # still return a class for an undamaged car, which is meaningless
+                    # and confusing to show. severity stays null.
                     if not has_damage:
                         img_doc.reference.update({
                             "annotatedImage": None,
                             "hasDamage": False,
+                            "severity": None,
+                            "severityConfidence": None,
                         })
                         results.append({
                             "originalImage": image_url,
                             "hasDamage": False,
+                            "severity": None,
                             "detections": []
                         })
                         continue
@@ -99,6 +111,21 @@ async def process_damage_detection(case_id: str) -> dict:
                             "x2": round(x2, 2), "y2": round(y2, 2)
                         })
 
+                    # [NEW] Run severity on the SAME temp file already downloaded
+                    # for YOLO. Whole image, not crops — see severity_service.py.
+                    # A severity failure must not lose the detection results, so
+                    # it is caught separately.
+                    try:
+                        severity_result = classify_severity(temp_path)
+                        severity_label = severity_result["severity"]
+                        severity_conf = severity_result["confidence"]
+                        image_severities.append(severity_label)
+                        print(f"   Severity: {severity_label} ({severity_conf})")
+                    except Exception as severity_error:
+                        print(f"⚠️ Severity classification failed: {severity_error}")
+                        severity_label = None
+                        severity_conf = None
+
                     # [12] Generate and upload annotated image
                     annotated_frame = r.plot()
                     annotated_img_path = os.path.join(tempfile.gettempdir(), f"annotated_{uuid.uuid4()}.jpg")
@@ -113,6 +140,11 @@ async def process_damage_detection(case_id: str) -> dict:
                     img_doc.reference.update({
                         "annotatedImage": annotated_url,
                         "hasDamage": True,
+                        # [NEW] severity written in the SAME update, so the
+                        # Flutter "is it done yet" check (presence of hasDamage)
+                        # can never see a half-finished document.
+                        "severity": severity_label,
+                        "severityConfidence": severity_conf,
                     })
 
                     # [14] Save each detection as a separate document in the detections subcollection
@@ -132,6 +164,8 @@ async def process_damage_detection(case_id: str) -> dict:
                         "originalImage": image_url,
                         "annotatedImage": annotated_url,
                         "hasDamage": True,
+                        "severity": severity_label,
+                        "severityConfidence": severity_conf,
                         "detections": detections
                     })
 
@@ -143,9 +177,20 @@ async def process_damage_detection(case_id: str) -> dict:
                     os.remove(annotated_img_path)
 
         # [16] Update case status after ALL images have been processed
-        case_ref.update({"status": "تم الفحص"})
+        # [NEW] overallSeverity = worst severity across all damaged images.
+        # Written together with status, so "تم الفحص" always means
+        # detection AND severity are both finished.
+        overall_severity = aggregate_case_severity(image_severities)
+        case_ref.update({
+            "status": "تم الفحص",
+            "overallSeverity": overall_severity,
+        })
 
-        return {"status": "success", "data": results}
+        return {
+            "status": "success",
+            "overallSeverity": overall_severity,
+            "data": results
+        }
 
     except Exception as e:
         error_message = f"Damage Detection Error: {str(e)}"

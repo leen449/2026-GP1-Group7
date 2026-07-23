@@ -90,6 +90,100 @@ class CaseDetailsScreen extends StatelessWidget {
     );
   }
 
+  // ── Severity helpers ──────────────────────────────────────────────────────
+  // [NEW] Severity is written by the backend as one of: minor / moderate /
+  // severe, or null when no damage was detected on that image.
+  //
+  // Colour choice: green is already used for "سليمة" (undamaged), so minor
+  // damage uses amber rather than green to avoid reading as "no damage".
+  static const Map<String, String> _severityLabelAr = {
+    'minor': 'ضرر بسيط',
+    'moderate': 'ضرر متوسط',
+    'severe': 'ضرر بليغ',
+  };
+
+  static const Map<String, Color> _severityColor = {
+    'minor': Color(0xFFF59E0B), // amber
+    'moderate': Color(0xFFEA580C), // orange
+    'severe': Color(0xFFDC2626), // red
+  };
+
+  // Small chip shown under each analysed image.
+  Widget _severityChip(String? severity) {
+    if (severity == null || !_severityLabelAr.containsKey(severity)) {
+      return const SizedBox.shrink();
+    }
+
+    final color = _severityColor[severity]!;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Text(
+        _severityLabelAr[severity]!,
+        textDirection: TextDirection.rtl,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  // Case-level severity banner. The backend writes `overallSeverity` as the
+  // worst severity across all damaged images.
+  Widget _overallSeverityBox(String? overallSeverity) {
+    if (overallSeverity == null ||
+        !_severityLabelAr.containsKey(overallSeverity)) {
+      return const SizedBox.shrink();
+    }
+
+    final color = _severityColor[overallSeverity]!;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.35)),
+      ),
+      child: Row(
+        textDirection: TextDirection.rtl,
+        children: [
+          Icon(Icons.speed_rounded, color: color, size: 20),
+          const SizedBox(width: 8),
+          const Text(
+            'مستوى الضرر',
+            textDirection: TextDirection.rtl,
+            style: TextStyle(color: _textMuted, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _severityLabelAr[overallSeverity]!,
+              textDirection: TextDirection.rtl,
+              textAlign: TextAlign.left,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Status badge — same logic as HomeScreen ───────────────────────────────
 
   @override
@@ -303,8 +397,12 @@ class CaseDetailsScreen extends StatelessWidget {
               return _sectionCard(
                 title: 'نتائج تحليل الأضرار',
                 children: [
+                  // [NEW] Case-level severity, worst across all images.
+                  // Renders nothing when overallSeverity is null.
+                  _overallSeverityBox(caseData['overallSeverity'] as String?),
                   SizedBox(
-                    height: 120,
+                    // [NEW] Raised from 120 to fit the severity chip.
+                    height: 142,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: processedImages.length,
@@ -315,6 +413,12 @@ class CaseDetailsScreen extends StatelessWidget {
                             processedImages[index].data()
                                 as Map<String, dynamic>;
                         final bool hasDamage = item['hasDamage'] ?? false;
+
+                        // [NEW] Written by the backend in the same update as
+                        // hasDamage, so it is never missing when hasDamage is
+                        // present. Null means undamaged, or the severity model
+                        // failed on this image.
+                        final String? severity = item['severity'] as String?;
 
                         // [5] Show annotatedImage if damage exists, otherwise originalImage
                         final String url = hasDamage
@@ -404,6 +508,13 @@ class CaseDetailsScreen extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
+                                // [NEW] Severity chip. Collapses to nothing
+                                // when severity is null, so undamaged images
+                                // are unaffected.
+                                if (severity != null) ...[
+                                  const SizedBox(height: 4),
+                                  _severityChip(severity),
+                                ],
                               ],
                             ),
                           ),
