@@ -128,3 +128,7 @@ __pycache__/
 
 backend_api/severity_integration_decisions.md
 backend_api/technical_observations.md
+backend_api/vehicle_values_pipeline/data
+backend_api/vehicle_values_pipeline/data/syarah_cleaned_data.csv
+backend_api/vehicle_values_pipeline/data/vehicle_listings_raw.json
+backend_api/vehicle_values_pipeline/data/vehicle_values_lookup.json
