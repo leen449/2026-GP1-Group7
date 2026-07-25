@@ -335,6 +335,7 @@ class AllVehiclesScreen extends StatelessWidget {
     final name = _vehicleName(vehicleData);
     final year = vehicleData['year'] ?? '';
     final color = vehicleData['color'] ?? '';
+    final paint = _paintLabel(vehicleData['paintCategory']);
     final plate =
         vehicleData['arabicPlateNumber'] ?? vehicleData['plateNumber'] ?? '';
     final chassis = vehicleData['chassisNumber'] ?? '';
@@ -390,6 +391,7 @@ class AllVehiclesScreen extends StatelessWidget {
                 const SizedBox(height: 14),
                 _detailLine('السنة', year),
                 _detailLine('اللون', color),
+                _detailLine('نوع الطلاء', paint),
                 _detailLine('رقم اللوحة', plate),
                 _detailLine('رقم الهيكل', chassis, ltrValue: true),
               ],
@@ -407,6 +409,18 @@ class AllVehiclesScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // نوع الطلاء مخزَّن كمفتاح ثابت؛ نعرضه بالعربية.
+  static const Map<String, String> _paintCategoryLabels = {
+    'solid': 'سادة',
+    'metallic': 'ميتاليك',
+    'pearl': 'لؤلؤي',
+    'tricoat': 'مطفي',
+  };
+  String _paintLabel(dynamic key) {
+    final k = (key ?? '').toString();
+    return _paintCategoryLabels[k] ?? k;
   }
 
   Widget _detailLine(String title, dynamic value, {bool ltrValue = false}) {

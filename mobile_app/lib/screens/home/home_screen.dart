@@ -27,6 +27,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _userName = '';
   String _userDocId = '';
+  // نوع الطلاء مخزَّن كمفتاح ثابت؛ نعرضه بالعربية.
+  static const Map<String, String> _paintCategoryLabels = {
+    'solid': 'سادة',
+    'metallic': 'ميتاليك',
+    'pearl': 'لؤلؤي',
+    'tricoat': 'مطفي',
+  };
+  String _paintLabel(dynamic key) {
+    final k = (key ?? '').toString();
+    return _paintCategoryLabels[k] ?? k;
+  }
+
   Widget _centerInfoBox(String title, String value, {bool ltr = false}) {
     return Container(
       width: double.infinity,
@@ -624,6 +636,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         _centerInfoBox('السنة', v['year'] ?? ''),
                         _centerInfoBox('اللون', v['color'] ?? ''),
                         _centerInfoBox(
+                          'نوع الطلاء',
+                          _paintLabel(v['paintCategory']),
+                        ),
+                        _centerInfoBox(
                           'رقم اللوحة',
                           v['arabicPlateNumber'] ?? v['plateNumber'] ?? '',
                         ),
@@ -1026,7 +1042,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const Spacer(),
         const Text(
-          'التقارير الأخيرة',
+          'الحالات الأخيرة',
           textDirection: TextDirection.rtl,
           style: TextStyle(
             fontSize: 20,

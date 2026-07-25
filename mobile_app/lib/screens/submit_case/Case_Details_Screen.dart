@@ -105,7 +105,7 @@ class CaseDetailsScreen extends StatelessWidget {
   static const Map<String, Color> _severityColor = {
     'minor': Color(0xFFF59E0B), // amber
     'moderate': Color(0xFFEA580C), // orange
-    'severe': Color(0xFFDC2626), // red
+    'severe': Colors.red, // red
   };
 
   // Small chip shown under each analysed image.

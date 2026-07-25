@@ -22,6 +22,16 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   bool _isLoading = false;
 
+  // نوع الطلاء: يُعرض للمستخدم بالعربية، ويُخزَّن بمفتاح ثابت يقرأه الـ backend
+  // (get_paint_factor يقبل المفتاح أو النص العربي).
+  String? _paintCategory;
+  static const List<Map<String, String>> _paintCategories = [
+    {'key': 'solid', 'label': 'سادة'},
+    {'key': 'metallic', 'label': 'ميتاليك'},
+    {'key': 'pearl', 'label': 'لؤلؤي'},
+    {'key': 'tricoat', 'label': 'مطفي'},
+  ];
+
   @override
   void dispose() {
     _arabicPlateController.dispose();
@@ -71,6 +81,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         'arabicPlateNumber': normalizedArabicPlate,
         'model': _modelController.text.trim(),
         'color': _colorController.text.trim(),
+        'paintCategory': _paintCategory,
         'make': _makeController.text.trim(),
         'year': _yearController.text.trim(),
         'chassisNumber': _chassisController.text.trim(),
@@ -163,6 +174,69 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
             hintText: hintText,
             hintTextDirection: TextDirection.rtl,
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField({
+    required String label,
+    required String? value,
+    required List<Map<String, String>> items,
+    required void Function(String?) onChanged,
+    String? Function(String?)? validator,
+    String? hintText,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: Text(
+            label,
+            textAlign: TextAlign.right,
+            textDirection: TextDirection.rtl,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF071A3D),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          value: value,
+          isExpanded: true,
+          dropdownColor: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          alignment: AlignmentDirectional.centerEnd,
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Color(0xFF071A3D),
+          ),
+          validator: validator,
+          onChanged: onChanged,
+          decoration: _fieldDecoration().copyWith(
+            errorMaxLines: 3,
+            hintText: hintText,
+            hintTextDirection: TextDirection.rtl,
+          ),
+          items: items
+              .map(
+                (item) => DropdownMenuItem<String>(
+                  value: item['key'],
+                  child: Text(
+                    item['label']!,
+                    textAlign: TextAlign.right,
+                    textDirection: TextDirection.rtl,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF071A3D),
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
         ),
       ],
     );
@@ -363,6 +437,16 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                     controller: _colorController,
                     validator: _validateRequired,
                     textDirection: TextDirection.rtl,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildDropdownField(
+                    label: 'نوع الطلاء',
+                    value: _paintCategory,
+                    items: _paintCategories,
+                    hintText: 'اختر نوع الطلاء',
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'هذا الحقل مطلوب' : null,
+                    onChanged: (v) => setState(() => _paintCategory = v),
                   ),
                   const SizedBox(height: 14),
                   _buildField(

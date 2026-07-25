@@ -31,6 +31,16 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
   bool _isSaving = false; // true while saving to Firestore
   String? _errorMsg; // shown if OCR fails, prompts manual entry
 
+  // نوع الطلاء: يُعرض بالعربية، يُخزَّن بمفتاح ثابت. لا يملؤه الـ OCR
+  // (نوع الطلاء غير موجود في البطاقة) — اختيار المستخدم.
+  String? _paintCategory;
+  static const List<Map<String, String>> _paintCategories = [
+    {'key': 'solid', 'label': 'سادة'},
+    {'key': 'metallic', 'label': 'ميتاليك'},
+    {'key': 'pearl', 'label': 'لؤلؤي'},
+    {'key': 'tricoat', 'label': 'مطفي'},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -158,6 +168,10 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
     return (value ?? '').trim().isEmpty ? 'يرجى إدخال لون المركبة' : null;
   }
 
+  String? _validatePaintCategory(String? value) {
+    return (value == null || value.isEmpty) ? 'يرجى اختيار نوع الطلاء' : null;
+  }
+
   String? _validateChassisNumber(String? value) {
     // Required, exactly 17 alphanumeric characters
     final chassis = (value ?? '').trim();
@@ -204,6 +218,7 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
         'model': _modelController.text.trim(),
         'year': _yearController.text.trim(),
         'color': _colorController.text.trim(),
+        'paintCategory': _paintCategory,
         'chassisNumber': _chassisController.text.trim().toUpperCase(),
         'isArchived': false,
         'createdAt': FieldValue.serverTimestamp(),
@@ -450,6 +465,14 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                                 _colorController,
                                 validator: _validateColor,
                               ),
+                              _buildDropdownField(
+                                'نوع الطلاء',
+                                value: _paintCategory,
+                                items: _paintCategories,
+                                validator: _validatePaintCategory,
+                                onChanged: (v) =>
+                                    setState(() => _paintCategory = v),
+                              ),
                               _buildField(
                                 'رقم الهيكل',
                                 _chassisController,
@@ -510,6 +533,89 @@ class _VerifyDetailsScreenState extends State<VerifyDetailsScreen> {
                   ],
                 ),
         ),
+      ),
+    );
+  }
+
+  // ── Dropdown mirroring _buildField's look + the same Form validation ──
+  Widget _buildDropdownField(
+    String label, {
+    required String? value,
+    required List<Map<String, String>> items,
+    required void Function(String?) onChanged,
+    required String? Function(String?) validator,
+    String? hint,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF333333),
+            ),
+          ),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            value: value,
+            isExpanded: true,
+            dropdownColor: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            icon: const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF333333),
+            ),
+            validator: validator,
+            onChanged: onChanged,
+            style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A2E)),
+            items: items
+                .map(
+                  (item) => DropdownMenuItem<String>(
+                    value: item['key'],
+                    child: Text(item['label']!),
+                  ),
+                )
+                .toList(),
+            decoration: InputDecoration(
+              errorMaxLines: 3,
+              hintText: hint,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Colors.grey.shade300, width: 1.4),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(
+                  color: Color(0xFF2563EB),
+                  width: 1.8,
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Colors.red, width: 1.6),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Colors.red, width: 1.8),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              errorStyle: const TextStyle(fontSize: 11, color: Colors.red),
+            ),
+          ),
+        ],
       ),
     );
   }
