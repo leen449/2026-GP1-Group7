@@ -64,7 +64,8 @@ This repository is organized as follows:
 ├── backend_api/            # Backend services (FastAPI / Flask)
 │   ├── routes/
 │   ├── models/
-│   └── services/
+│   ├── services/
+|   └── vehicle_values_pipeline/
 ├── ml_model/
 │   ├── training/           # Notebooks & training scripts
 │   └── weights/            # Saved models 
