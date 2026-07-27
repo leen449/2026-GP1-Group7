@@ -11,3 +11,6 @@ ultralytics
 Pillow
 torch
 torchvision
+cryptography
+jinja2
+pytest
