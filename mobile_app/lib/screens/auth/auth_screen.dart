@@ -73,23 +73,26 @@ class _AuthScreenState extends State<AuthScreen> {
 
   String? _validateFirstName(String val) {
     if (val.trim().isEmpty) return 'يرجى إدخال الاسم الأول';
-    if (val.trim().length < 2)
+    if (val.trim().length < 2) {
       return 'يجب أن يكون الاسم الأول مكون من حرفين على الأقل';
+    }
     return null;
   }
 
   String? _validateLastName(String val) {
     if (val.trim().isEmpty) return 'يرجى إدخال اسم العائلة';
-    if (val.trim().length < 2)
+    if (val.trim().length < 2) {
       return 'يجب أن يكون اسم العائلة مكون من حرفين على الأقل';
+    }
     return null;
   }
 
   String? _validateNationalId(String val) {
     if (val.trim().isEmpty) return 'يرجى إدخال رقم الهوية / الإقامة';
     if (val.length != 10) return 'يجب أن يكون رقم الهوية مكون من 10 أرقام';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val))
+    if (!RegExp(r'^[0-9]+$').hasMatch(val)) {
       return 'يجب أن يحتوي رقم الهوية على أرقام فقط';
+    }
     if (!val.startsWith('1') && !val.startsWith('2')) {
       return 'يجب أن يبدأ الرقم بـ 1 (سعودي) أو 2 (مقيم)';
     }
@@ -98,8 +101,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
   String? _validatePhone(String val) {
     if (val.trim().isEmpty) return 'يرجى إدخال رقم الجوال';
-    if (!RegExp(r'^[0-9]+$').hasMatch(val))
+    if (!RegExp(r'^[0-9]+$').hasMatch(val)) {
       return 'يجب أن يحتوي رقم الجوال على أرقام فقط';
+    }
     if (val.startsWith('0')) return 'يجب ألا يبدأ رقم الجوال بـ 0';
     if (val.length != 9) return 'يجب أن يكون رقم الجوال 9 أرقام';
     if (!val.startsWith('5')) return 'يجب أن يبدأ رقم الجوال بـ 5';
@@ -180,34 +184,8 @@ class _AuthScreenState extends State<AuthScreen> {
         ? '+966${_signupPhoneController.text.trim()}'
         : '+966${_loginPhoneController.text.trim()}';
 
-    if (!isSignUp) {
-      final query = await FirebaseFirestore.instance
-          .collection('users')
-          .where('phoneNumber', isEqualTo: phone)
-          .limit(1)
-          .get();
-
-      if (query.docs.isEmpty) {
-        if (!mounted) return;
-        _showSnackBar('لا يوجد حساب بهذا الرقم، يرجى التسجيل أولاً');
-        return;
-      }
-    }
-
-
-    if (isSignUp) {
-  final query = await FirebaseFirestore.instance
-      .collection('users')
-      .where('phoneNumber', isEqualTo: phone)
-      .limit(1)
-      .get();
-
-  if (query.docs.isNotEmpty) {
-    if (!mounted) return;
-    _showSnackBar('هذا الرقم مسجل مسبقاً، يرجى تسجيل الدخول');
-    return;
-  }
-}
+    // ✅ لا نقرأ Firestore هنا لأن المستخدم لم يتم توثيقه بعد.
+    // التحقق من وجود الحساب يتم بعد نجاح OTP.
 
     await _auth.verifyPhoneNumber(
       phoneNumber: phone,
@@ -215,6 +193,7 @@ class _AuthScreenState extends State<AuthScreen> {
       verificationCompleted: (PhoneAuthCredential credential) async {
         try {
           await _auth.signInWithCredential(credential);
+
           final user = _auth.currentUser;
           if (user == null) return;
 
@@ -224,7 +203,14 @@ class _AuthScreenState extends State<AuthScreen> {
               .get();
 
           if (isSignUp) {
-            if (!userDoc.exists) await _saveUserToFirestore(phone);
+            if (userDoc.exists) {
+              await _auth.signOut();
+              if (!mounted) return;
+              _showSnackBar('هذا الرقم مسجل مسبقاً، يرجى تسجيل الدخول');
+              return;
+            }
+
+            await _saveUserToFirestore(phone);
           } else {
             if (!userDoc.exists) {
               await _auth.signOut();
@@ -247,9 +233,12 @@ class _AuthScreenState extends State<AuthScreen> {
 
       verificationFailed: (FirebaseAuthException e) {
         String msg = 'حدث خطأ، حاول مرة أخرى';
-        if (e.code == 'invalid-phone-number') msg = 'رقم الجوال غير صحيح';
-        if (e.code == 'too-many-requests')
+        if (e.code == 'invalid-phone-number') {
+          msg = 'رقم الجوال غير صحيح';
+        }
+        if (e.code == 'too-many-requests') {
           msg = 'تم تجاوز الحد المسموح من المحاولات. حاول لاحقًا';
+        }
         if (!mounted) return;
         _showSnackBar(msg);
       },

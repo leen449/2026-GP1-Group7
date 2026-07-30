@@ -33,7 +33,8 @@ class VerificationScreen extends StatefulWidget {
 
 class _VerificationScreenState extends State<VerificationScreen> {
   final List<TextEditingController> _controllers = List.generate(
-    6, (_) => TextEditingController(),
+    6,
+    (_) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
@@ -64,8 +65,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    for (final c in _controllers) c.dispose();
-    for (final f in _focusNodes) f.dispose();
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -94,7 +99,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
         backgroundColor: isSuccess ? Colors.green : Colors.red,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-margin: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.of(context).size.height * 0.80),
+        margin: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          MediaQuery.of(context).size.height * 0.80,
+        ),
       ),
     );
   }
@@ -134,25 +144,27 @@ margin: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.of(context).size.height * 0.80
         return;
       }
 
-      if (widget.isSignUp) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-        if (!userDoc.exists) {
-          await _saveUserToFirestore();
-        }
-      } else if (widget.onVerified == null) {
-        final query = await FirebaseFirestore.instance
-            .collection('users')
-            .where('phoneNumber', isEqualTo: widget.phone)
-            .limit(1)
-            .get();
+      // ✅ الآن فقط نقرأ Firestore لأن المستخدم أصبح موثّقًا.
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
 
-        if (query.docs.isEmpty) {
+      if (widget.isSignUp) {
+        if (userDoc.exists) {
           await FirebaseAuth.instance.signOut();
-          setState(() => _isLoading = false);
           if (!mounted) return;
+          setState(() => _isLoading = false);
+          _showSnackBar('هذا الرقم مسجل مسبقاً، يرجى تسجيل الدخول');
+          return;
+        }
+
+        await _saveUserToFirestore();
+      } else if (widget.onVerified == null) {
+        if (!userDoc.exists) {
+          await FirebaseAuth.instance.signOut();
+          if (!mounted) return;
+          setState(() => _isLoading = false);
           _showSnackBar('لا يوجد حساب بهذا الرقم. الرجاء إنشاء حساب جديد');
           return;
         }
@@ -161,19 +173,26 @@ margin: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.of(context).size.height * 0.80
       if (!mounted) return;
       _navigateAfterVerification();
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
+
       String msg = 'رمز غير صحيح. حاول مرة أخرى';
       if (e.code == 'session-expired') {
         msg = 'انتهت صلاحية الرمز. اطلب رمزاً جديداً';
       }
-      if (!mounted) return;
+
       _showSnackBar(msg);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showSnackBar('حدث خطأ أثناء التحقق. حاول مرة أخرى');
     }
   }
 
   Future<void> _saveUserToFirestore() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+
     await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
       'userID': user.uid,
       'name': widget.name,
@@ -188,19 +207,52 @@ margin: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.of(context).size.height * 0.80
 
   Future<void> _resendOTP() async {
     if (!_canResend) return;
+
     await FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: widget.phone,
       forceResendingToken: _resendToken,
+
       verificationCompleted: (credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
-        if (widget.isSignUp) await _saveUserToFirestore();
-        if (!mounted) return;
-        _navigateAfterVerification();
+        try {
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+          final user = FirebaseAuth.instance.currentUser;
+          if (user == null) return;
+
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
+          if (widget.isSignUp) {
+            if (userDoc.exists) {
+              await FirebaseAuth.instance.signOut();
+              if (!mounted) return;
+              _showSnackBar('هذا الرقم مسجل مسبقاً، يرجى تسجيل الدخول');
+              return;
+            }
+
+            await _saveUserToFirestore();
+          } else if (widget.onVerified == null && !userDoc.exists) {
+            await FirebaseAuth.instance.signOut();
+            if (!mounted) return;
+            _showSnackBar('لا يوجد حساب بهذا الرقم. الرجاء إنشاء حساب جديد');
+            return;
+          }
+
+          if (!mounted) return;
+          _navigateAfterVerification();
+        } catch (e) {
+          if (!mounted) return;
+          _showSnackBar('فشل التحقق. حاول مرة أخرى');
+        }
       },
+
       verificationFailed: (e) {
         if (!mounted) return;
         _showSnackBar(e.message ?? 'حدث خطأ. حاول مرة أخرى');
       },
+
       codeSent: (newId, newToken) {
         setState(() {
           _verificationId = newId;
@@ -210,6 +262,7 @@ margin: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.of(context).size.height * 0.80
         if (!mounted) return;
         _showSnackBar('تم إعادة إرسال الرمز بنجاح ', isSuccess: true);
       },
+
       codeAutoRetrievalTimeout: (_) {},
       timeout: const Duration(seconds: 60),
     );
@@ -240,7 +293,8 @@ margin: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.of(context).size.height * 0.80
           physics: const ClampingScrollPhysics(),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: sh -
+              minHeight:
+                  sh -
                   MediaQuery.of(context).padding.top -
                   MediaQuery.of(context).padding.bottom,
             ),
@@ -322,7 +376,8 @@ margin: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.of(context).size.height * 0.80
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(
-                          6, (i) => _otpBox(i, boxSize, boxGap),
+                          6,
+                          (i) => _otpBox(i, boxSize, boxGap),
                         ),
                       ),
                     ),
@@ -455,7 +510,9 @@ margin: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.of(context).size.height * 0.80
               _verifyOtp();
             }
           } else {
-            if (index > 0) _focusNodes[index - 1].requestFocus();
+            if (index > 0) {
+              _focusNodes[index - 1].requestFocus();
+            }
           }
         },
       ),
