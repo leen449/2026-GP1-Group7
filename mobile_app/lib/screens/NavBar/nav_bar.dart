@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../home/home_screen.dart';
 import '../submit_case/submit_case_screen.dart';
+import '../objection/submit_objection_screen.dart';
 
 class AppBottomNav extends StatefulWidget {
   const AppBottomNav({super.key});
@@ -27,7 +28,7 @@ class _AppBottomNavState extends State<AppBottomNav> {
     const HomeScreen(),
     const SubmitCaseScreen(),
     const Scaffold(body: Center(child: Text('History - Coming Soon'))),
-    const Scaffold(body: Center(child: Text('Claim - Coming Soon'))),
+    const SubmitObjectionScreen(),
   ];
 
   void _onTap(int index) {
