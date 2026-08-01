@@ -14,7 +14,7 @@ field, because status is a live value (valid / superseded / claim_pending)
 that the admin or a claim can change after issuance without re-signing.
 """
 from __future__ import annotations
-import os, json, base64, datetime, pathlib
+import os, json, base64, datetime, pathlib, hashlib, uuid
 from functools import lru_cache
 from typing import Optional
 
@@ -97,6 +97,60 @@ def build_report_record(data: ReportInput, report_id: str, report_number: str) -
     record.signature = sign_record(record)
     return record
 
+def create_report(data: ReportInput, base_url: str, store):
+    """
+    Create, sign, and store a new report record, then generate its
+    public verification URL and QR image.
+
+    Returns:
+        tuple:
+            record     -> the signed and stored ReportRecord
+            report_url -> public verification URL
+            qr_png     -> QR image as PNG bytes
+    """
+    report_id = str(uuid.uuid4())
+
+    seq = store.next_seq()
+    report_number = format_report_number(seq)
+
+    record = build_report_record(
+        data=data,
+        report_id=report_id,
+        report_number=report_number,
+    )
+
+    store.save(record)
+
+    report_url = verify_url(base_url, report_id)
+    qr_png = make_qr_png(report_url)
+
+    return record, report_url, qr_png
+
+
+def attach_pdf_hash(report_id: str, pdf_bytes: bytes, store) -> ReportRecord:
+    """
+    Calculate the SHA-256 fingerprint of the finalized PDF and attach it
+    to the stored report record.
+
+    The report is signed again because pdf_sha256 is one of the immutable
+    issued facts protected by the digital signature.
+    """
+    record = store.get(report_id)
+
+    if record is None:
+        raise ValueError(f"Report not found: {report_id}")
+
+    pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()
+
+    record.pdf_sha256 = pdf_hash
+
+    # pdf_sha256 is included in _canonical_facts, so the signature must
+    # be recreated after attaching the final PDF fingerprint.
+    record.signature = sign_record(record)
+
+    store.save(record)
+
+    return record
 
 # ── QR ───────────────────────────────────────────────────────────────────────
 def verify_url(base_url: str, report_id: str) -> str:

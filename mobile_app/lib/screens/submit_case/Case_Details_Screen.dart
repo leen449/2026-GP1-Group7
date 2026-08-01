@@ -1,17 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../services/report_service.dart';
+import '../report/report_screen.dart';
 import 'photo_preview_screen.dart';
 
-class CaseDetailsScreen extends StatelessWidget {
+class CaseDetailsScreen extends StatefulWidget {
   final String caseId;
 
-  const CaseDetailsScreen({super.key, required this.caseId});
+  const CaseDetailsScreen({
+    super.key,
+    required this.caseId,
+  });
 
+  @override
+  State<CaseDetailsScreen> createState() => _CaseDetailsScreenState();
+}
+
+class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
   static const Color _pageBg = Color(0xFFF7FAFF);
   static const Color _textDark = Color(0xFF071A3D);
   static const Color _textMuted = Color(0xFF8B97AA);
   static const Color _primaryBlue = Color(0xFF2563EB);
   static const Color _navy = Color(0xFF061943);
+
+  bool _isGeneratingReport = false;
 
   // ── Matches HomeScreen's _centerInfoBox ──────────────────────────────────
   Widget _infoBox(String title, String value, {bool ltr = false}) {
@@ -55,7 +68,10 @@ class CaseDetailsScreen extends StatelessWidget {
   }
 
   // ── Section card matching HomeScreen's card style ─────────────────────────
-  Widget _sectionCard({required String title, required List<Widget> children}) {
+  Widget _sectionCard({
+    required String title,
+    required List<Widget> children,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -91,11 +107,6 @@ class CaseDetailsScreen extends StatelessWidget {
   }
 
   // ── Severity helpers ──────────────────────────────────────────────────────
-  // [NEW] Severity is written by the backend as one of: minor / moderate /
-  // severe, or null when no damage was detected on that image.
-  //
-  // Colour choice: green is already used for "سليمة" (undamaged), so minor
-  // damage uses amber rather than green to avoid reading as "no damage".
   static const Map<String, String> _severityLabelAr = {
     'minor': 'ضرر بسيط',
     'moderate': 'ضرر متوسط',
@@ -103,12 +114,11 @@ class CaseDetailsScreen extends StatelessWidget {
   };
 
   static const Map<String, Color> _severityColor = {
-    'minor': Color(0xFFF59E0B), // amber
-    'moderate': Color(0xFFEA580C), // orange
-    'severe': Colors.red, // red
+    'minor': Color(0xFFF59E0B),
+    'moderate': Color(0xFFEA580C),
+    'severe': Colors.red,
   };
 
-  // Small chip shown under each analysed image.
   Widget _severityChip(String? severity) {
     if (severity == null || !_severityLabelAr.containsKey(severity)) {
       return const SizedBox.shrink();
@@ -137,8 +147,6 @@ class CaseDetailsScreen extends StatelessWidget {
     );
   }
 
-  // Case-level severity banner. The backend writes `overallSeverity` as the
-  // worst severity across all damaged images.
   Widget _overallSeverityBox(String? overallSeverity) {
     if (overallSeverity == null ||
         !_severityLabelAr.containsKey(overallSeverity)) {
@@ -164,7 +172,10 @@ class CaseDetailsScreen extends StatelessWidget {
           const Text(
             'مستوى الضرر',
             textDirection: TextDirection.rtl,
-            style: TextStyle(color: _textMuted, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              color: _textMuted,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -184,7 +195,146 @@ class CaseDetailsScreen extends StatelessWidget {
     );
   }
 
-  // ── Status badge — same logic as HomeScreen ───────────────────────────────
+  Future<void> _openReportScreen({
+    required String pdfUrl,
+    required String reportNumber,
+  }) async {
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReportScreen(
+          pdfUrl: pdfUrl,
+          reportNumber: reportNumber,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleReportButton({
+    required String? existingPdfUrl,
+    required String? existingReportNumber,
+  }) async {
+    if (_isGeneratingReport) return;
+
+    final savedPdfUrl = existingPdfUrl?.trim() ?? '';
+
+    if (savedPdfUrl.isNotEmpty) {
+      await _openReportScreen(
+        pdfUrl: savedPdfUrl,
+        reportNumber: existingReportNumber?.trim() ?? '',
+      );
+      return;
+    }
+
+    setState(() {
+      _isGeneratingReport = true;
+    });
+
+    try {
+      final result = await ReportService.generateReport(
+        caseId: widget.caseId,
+      );
+
+      if (!mounted) return;
+
+      await _openReportScreen(
+        pdfUrl: result.pdfUrl,
+        reportNumber: result.reportNumber,
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      final message = error
+          .toString()
+          .replaceFirst('Exception: ', '')
+          .trim();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            message.isEmpty ? 'تعذر إنشاء التقرير' : message,
+            textDirection: TextDirection.rtl,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingReport = false;
+        });
+      }
+    }
+  }
+
+  Widget _reportButton({
+    required String status,
+    required String? reportPdfUrl,
+    required String? reportNumber,
+  }) {
+    if (status != 'تم المراجعة') {
+      return const SizedBox.shrink();
+    }
+
+    final hasExistingReport =
+        reportPdfUrl != null && reportPdfUrl.trim().isNotEmpty;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: ElevatedButton(
+        onPressed: _isGeneratingReport
+            ? null
+            : () => _handleReportButton(
+                  existingPdfUrl: reportPdfUrl,
+                  existingReportNumber: reportNumber,
+                ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _navy,
+          disabledBackgroundColor: _navy.withOpacity(0.65),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+        ),
+        child: _isGeneratingReport
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                textDirection: TextDirection.rtl,
+                children: [
+                  Icon(
+                    hasExistingReport
+                        ? Icons.picture_as_pdf_rounded
+                        : Icons.description_rounded,
+                    size: 21,
+                  ),
+                  const SizedBox(width: 9),
+                  Text(
+                    hasExistingReport
+                        ? 'عرض التقرير'
+                        : 'إنشاء التقرير',
+                    textDirection: TextDirection.rtl,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -195,11 +345,14 @@ class CaseDetailsScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: _pageBg,
         elevation: 0,
-        automaticallyImplyLeading: false, // remove the default left arrow
+        automaticallyImplyLeading: false,
         leading: const SizedBox(),
         actions: [
           IconButton(
-            icon: const Icon(Icons.arrow_forward_ios_rounded, color: _textDark),
+            icon: const Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: _textDark,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -216,11 +369,13 @@ class CaseDetailsScreen extends StatelessWidget {
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('accidentCase')
-            .doc(caseId)
+            .doc(widget.caseId)
             .snapshots(),
         builder: (context, caseSnap) {
           if (caseSnap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
           }
 
           if (!caseSnap.hasData || !caseSnap.data!.exists) {
@@ -236,29 +391,48 @@ class CaseDetailsScreen extends StatelessWidget {
             );
           }
 
-          final caseData = caseSnap.data!.data() as Map<String, dynamic>;
+          final caseData =
+              caseSnap.data!.data() as Map<String, dynamic>;
+
           final vehicleId = caseData['vehicleId'] ?? '';
           final ownerId = caseData['ownerId'] ?? '';
           final najmReport =
               (caseData['najimReport'] as Map<String, dynamic>?) ?? {};
-          final status = caseData['status'] ?? '';
+          final String status = caseData['status']?.toString() ?? '';
+
+          final String? reportPdfUrl =
+              caseData['reportPdfUrl']?.toString();
+          final String? reportNumber =
+              caseData['reportNumber']?.toString();
 
           final createdAt = caseData['createdAt'] is Timestamp
               ? (caseData['createdAt'] as Timestamp).toDate()
               : null;
+
           final createdAtText = createdAt == null
               ? '-'
               : '${createdAt.day}/${createdAt.month}/${createdAt.year}';
 
           return SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(18, 14, 18, bottomPad + 24),
+            padding: EdgeInsets.fromLTRB(
+              18,
+              14,
+              18,
+              bottomPad + 24,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 // ── Request summary ──────────────────────────────────────
                 _sectionCard(
                   title: 'ملخص الطلب',
-                  children: [_infoBox('رقم الطلب', caseId, ltr: true)],
+                  children: [
+                    _infoBox(
+                      'رقم الطلب',
+                      widget.caseId,
+                      ltr: true,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 
@@ -269,14 +443,19 @@ class CaseDetailsScreen extends StatelessWidget {
                       .doc(ownerId)
                       .get(),
                   builder: (context, userSnap) {
-                    final userData = userSnap.hasData && userSnap.data!.exists
-                        ? userSnap.data!.data() as Map<String, dynamic>
-                        : <String, dynamic>{};
+                    final userData =
+                        userSnap.hasData && userSnap.data!.exists
+                            ? userSnap.data!.data()
+                                as Map<String, dynamic>
+                            : <String, dynamic>{};
 
                     return _sectionCard(
                       title: 'البيانات الشخصية',
                       children: [
-                        _infoBox('الاسم', userData['name'] ?? '-'),
+                        _infoBox(
+                          'الاسم',
+                          userData['name'] ?? '-',
+                        ),
                         _infoBox(
                           'رقم الهوية',
                           userData['nationalID'] ?? '-',
@@ -300,24 +479,41 @@ class CaseDetailsScreen extends StatelessWidget {
                       .doc(vehicleId)
                       .get(),
                   builder: (context, vehicleSnap) {
-                    final v = vehicleSnap.hasData && vehicleSnap.data!.exists
-                        ? vehicleSnap.data!.data() as Map<String, dynamic>
-                        : <String, dynamic>{};
+                    final vehicleData =
+                        vehicleSnap.hasData &&
+                                vehicleSnap.data!.exists
+                            ? vehicleSnap.data!.data()
+                                as Map<String, dynamic>
+                            : <String, dynamic>{};
 
                     return _sectionCard(
                       title: 'معلومات المركبة',
                       children: [
-                        _infoBox('ماركة المركبة', v['make'] ?? '-'),
-                        _infoBox('طراز المركبة', v['model'] ?? '-'),
-                        _infoBox('السنة', v['year']?.toString() ?? '-'),
-                        _infoBox('اللون', v['color'] ?? '-'),
+                        _infoBox(
+                          'ماركة المركبة',
+                          vehicleData['make'] ?? '-',
+                        ),
+                        _infoBox(
+                          'طراز المركبة',
+                          vehicleData['model'] ?? '-',
+                        ),
+                        _infoBox(
+                          'السنة',
+                          vehicleData['year']?.toString() ?? '-',
+                        ),
+                        _infoBox(
+                          'اللون',
+                          vehicleData['color'] ?? '-',
+                        ),
                         _infoBox(
                           'رقم اللوحة',
-                          v['arabicPlateNumber'] ?? v['plateNumber'] ?? '-',
+                          vehicleData['arabicPlateNumber'] ??
+                              vehicleData['plateNumber'] ??
+                              '-',
                         ),
                         _infoBox(
                           'رقم الهيكل',
-                          v['chassisNumber'] ?? '-',
+                          vehicleData['chassisNumber'] ?? '-',
                           ltr: true,
                         ),
                       ],
@@ -332,17 +528,34 @@ class CaseDetailsScreen extends StatelessWidget {
                   children: [
                     _infoBox(
                       'رقم الحادث',
-                      najmReport['accidentNumber']?.toString() ?? '-',
+                      najmReport['accidentNumber']
+                              ?.toString() ??
+                          '-',
                       ltr: true,
                     ),
-                    _infoBox('تاريخ الحادث', najmReport['accidentDate'] ?? '-'),
-                    _infoBox('موقع الضرر', najmReport['damageLocation'] ?? '-'),
+                    _infoBox(
+                      'تاريخ الحادث',
+                      najmReport['accidentDate'] ?? '-',
+                    ),
+                    _infoBox(
+                      'موقع الضرر',
+                      najmReport['damageLocation'] ?? '-',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
 
                 // ── Damage images ────────────────────────────────────────
                 _imagesSection(context),
+
+                if (status == 'تم المراجعة') ...[
+                  const SizedBox(height: 16),
+                  _reportButton(
+                    status: status,
+                    reportPdfUrl: reportPdfUrl,
+                    reportNumber: reportNumber,
+                  ),
+                ],
               ],
             ),
           );
@@ -353,43 +566,43 @@ class CaseDetailsScreen extends StatelessWidget {
 
   Widget _imagesSection(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      // [1] Read from images subcollection instead of damageAnalysis array
       stream: FirebaseFirestore.instance
           .collection('accidentCase')
-          .doc(caseId)
+          .doc(widget.caseId)
           .collection('images')
           .snapshots(),
       builder: (context, imagesSnap) {
-        if (imagesSnap.connectionState == ConnectionState.waiting) {
+        if (imagesSnap.connectionState ==
+            ConnectionState.waiting) {
           return _sectionCard(
             title: 'صور الأضرار',
-            children: const [Center(child: CircularProgressIndicator())],
+            children: const [
+              Center(
+                child: CircularProgressIndicator(),
+              ),
+            ],
           );
         }
 
         final images = imagesSnap.data?.docs ?? [];
 
-        // [2] Read case status to determine which scenario to show
         return StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
               .collection('accidentCase')
-              .doc(caseId)
+              .doc(widget.caseId)
               .snapshots(),
           builder: (context, caseSnap) {
             final caseData =
-                caseSnap.data?.data() as Map<String, dynamic>? ?? {};
+                caseSnap.data?.data() as Map<String, dynamic>? ??
+                    {};
+
             final String status = caseData['status'] ?? '';
 
-            // ==========================================
-            // SCENARIO 1: AI Analysis is Complete
-            // Show the Annotated Gallery
-            // ==========================================
-            // [3] Check if any image has hasDamage field — means AI processing is done
             final processedImages = images
                 .where(
-                  (doc) => (doc.data() as Map<String, dynamic>).containsKey(
-                    'hasDamage',
-                  ),
+                  (doc) =>
+                      (doc.data() as Map<String, dynamic>)
+                          .containsKey('hasDamage'),
                 )
                 .toList();
 
@@ -397,69 +610,80 @@ class CaseDetailsScreen extends StatelessWidget {
               return _sectionCard(
                 title: 'نتائج تحليل الأضرار',
                 children: [
-                  // [NEW] Case-level severity, worst across all images.
-                  // Renders nothing when overallSeverity is null.
-                  _overallSeverityBox(caseData['overallSeverity'] as String?),
+                  _overallSeverityBox(
+                    caseData['overallSeverity'] as String?,
+                  ),
                   SizedBox(
-                    // [NEW] Raised from 120 to fit the severity chip.
                     height: 142,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: processedImages.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(width: 12),
                       itemBuilder: (context, index) {
-                        // [4] Read each image document
                         final item =
                             processedImages[index].data()
                                 as Map<String, dynamic>;
-                        final bool hasDamage = item['hasDamage'] ?? false;
 
-                        // [NEW] Written by the backend in the same update as
-                        // hasDamage, so it is never missing when hasDamage is
-                        // present. Null means undamaged, or the severity model
-                        // failed on this image.
-                        final String? severity = item['severity'] as String?;
+                        final bool hasDamage =
+                            item['hasDamage'] ?? false;
 
-                        // [5] Show annotatedImage if damage exists, otherwise originalImage
+                        final String? severity =
+                            item['severity'] as String?;
+
                         final String url = hasDamage
                             ? (item['annotatedImage'] ??
-                                  item['downloadUrl'] ??
-                                  '')
+                                item['downloadUrl'] ??
+                                '')
                             : (item['downloadUrl'] ?? '');
 
                         return GestureDetector(
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => PhotoPreviewScreen(imageUrl: url),
+                              builder: (_) =>
+                                  PhotoPreviewScreen(
+                                imageUrl: url,
+                              ),
                             ),
                           ),
                           child: SizedBox(
                             width: 90,
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.center,
                               children: [
                                 Stack(
                                   children: [
                                     ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius:
+                                          BorderRadius.circular(12),
                                       child: Image.network(
                                         url,
                                         width: 90,
                                         height: 90,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => Container(
+                                        errorBuilder:
+                                            (_, __, ___) =>
+                                                Container(
                                           width: 90,
                                           height: 90,
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFEAF2FF),
-                                            borderRadius: BorderRadius.circular(
+                                          decoration:
+                                              BoxDecoration(
+                                            color: const Color(
+                                              0xFFEAF2FF,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(
                                               12,
                                             ),
                                           ),
                                           child: const Icon(
-                                            Icons.broken_image_outlined,
-                                            color: Color(0xFF0B4A7D),
+                                            Icons
+                                                .broken_image_outlined,
+                                            color: Color(
+                                              0xFF0B4A7D,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -468,7 +692,8 @@ class CaseDetailsScreen extends StatelessWidget {
                                       top: 6,
                                       right: 6,
                                       child: Container(
-                                        padding: const EdgeInsets.all(4),
+                                        padding:
+                                            const EdgeInsets.all(4),
                                         decoration: BoxDecoration(
                                           color: hasDamage
                                               ? Colors.red
@@ -476,17 +701,23 @@ class CaseDetailsScreen extends StatelessWidget {
                                           shape: BoxShape.circle,
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.black.withOpacity(
+                                              color: Colors.black
+                                                  .withOpacity(
                                                 0.2,
                                               ),
                                               blurRadius: 4,
-                                              offset: const Offset(0, 2),
+                                              offset:
+                                                  const Offset(
+                                                0,
+                                                2,
+                                              ),
                                             ),
                                           ],
                                         ),
                                         child: Icon(
                                           hasDamage
-                                              ? Icons.warning_amber_rounded
+                                              ? Icons
+                                                  .warning_amber_rounded
                                               : Icons.check,
                                           color: Colors.white,
                                           size: 14,
@@ -497,7 +728,9 @@ class CaseDetailsScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  hasDamage ? 'ضرر مكتشف' : 'سليمة',
+                                  hasDamage
+                                      ? 'ضرر مكتشف'
+                                      : 'سليمة',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -506,11 +739,9 @@ class CaseDetailsScreen extends StatelessWidget {
                                         : Colors.green,
                                   ),
                                   maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  overflow:
+                                      TextOverflow.ellipsis,
                                 ),
-                                // [NEW] Severity chip. Collapses to nothing
-                                // when severity is null, so undamaged images
-                                // are unaffected.
                                 if (severity != null) ...[
                                   const SizedBox(height: 4),
                                   _severityChip(severity),
@@ -526,14 +757,12 @@ class CaseDetailsScreen extends StatelessWidget {
               );
             }
 
-            // ==========================================
-            // SCENARIO 2: AI is currently processing
-            // ==========================================
             final hasAnyImages = images.isNotEmpty;
             final allImagesHaveResult =
                 hasAnyImages &&
                 images.every((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
+                  final data =
+                      doc.data() as Map<String, dynamic>;
                   return data.containsKey('hasDamage');
                 });
 
@@ -546,9 +775,12 @@ class CaseDetailsScreen extends StatelessWidget {
                 children: [
                   Center(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 24,
+                      ),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment:
+                            MainAxisAlignment.center,
                         children: const [
                           CircularProgressIndicator(
                             color: Color(0xFF1E3A6E),
@@ -572,16 +804,14 @@ class CaseDetailsScreen extends StatelessWidget {
               );
             }
 
-            // ==========================================
-            // SCENARIO 3: Fallback (AI Failed or no images)
-            // ==========================================
             if (images.isEmpty) {
               return _sectionCard(
                 title: 'صور الأضرار',
                 children: const [
                   Center(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
+                      padding:
+                          EdgeInsets.symmetric(vertical: 8),
                       child: Text(
                         'لا توجد صور مرفوعة',
                         textDirection: TextDirection.rtl,
@@ -597,7 +827,6 @@ class CaseDetailsScreen extends StatelessWidget {
               );
             }
 
-            // [6] Show original images if AI failed
             return _sectionCard(
               title: 'صور الأضرار',
               children: [
@@ -606,32 +835,43 @@ class CaseDetailsScreen extends StatelessWidget {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: images.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(width: 10),
                     itemBuilder: (context, index) {
-                      final imgData =
-                          images[index].data() as Map<String, dynamic>;
-                      final url = imgData['downloadUrl'] ?? '';
+                      final imageData =
+                          images[index].data()
+                              as Map<String, dynamic>;
+
+                      final url =
+                          imageData['downloadUrl'] ?? '';
 
                       return GestureDetector(
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => PhotoPreviewScreen(imageUrl: url),
+                            builder: (_) =>
+                                PhotoPreviewScreen(
+                              imageUrl: url,
+                            ),
                           ),
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius:
+                              BorderRadius.circular(12),
                           child: Image.network(
                             url,
                             width: 90,
                             height: 90,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorBuilder: (_, __, ___) =>
+                                Container(
                               width: 90,
                               height: 90,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEAF2FF),
-                                borderRadius: BorderRadius.circular(12),
+                                color:
+                                    const Color(0xFFEAF2FF),
+                                borderRadius:
+                                    BorderRadius.circular(12),
                               ),
                               child: const Icon(
                                 Icons.broken_image_outlined,

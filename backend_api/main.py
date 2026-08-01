@@ -7,7 +7,7 @@ from routes.ocr import router as ocr_router
 from routes.najm import router as najm_router
 from routes.detection import router as detection_router
 from routes.verify import router as verify_router
-
+from routes.reports import router as reports_router
 
 # ──────────────S───────────────────────────────────────────────────────
 # Firebase Admin — initialize once at startup
@@ -33,6 +33,11 @@ app.include_router(ocr_router,  prefix="/ocr",       tags=["OCR"])
 app.include_router(najm_router, prefix="/ocr/najm",  tags=["Najm OCR"])
 app.include_router(detection_router, prefix="/damage", tags=["Damage Detection"])
 app.include_router(verify_router, tags=["Verification"])
+app.include_router(
+    reports_router,
+    prefix="/reports",
+    tags=["Reports"],
+)
 
 @app.get("/")
 def root():
