@@ -37,7 +37,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   bool _isLoading = true;
   bool _isSubmitting = false;
 
-  static const Color primaryColor = Color(0xFF2563EB);
+  static const Color primaryColor = Color(0xFF1E3A6E);
   static const Color darkTextColor = Color(0xFF111827);
   static const Color secondaryTextColor = Color(0xFF64748B);
   static const Color backgroundColor = Color(0xFFF8FAFC);
@@ -384,17 +384,6 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       );
   }
 
-  int _remainingDays(DateTime issuedAt) {
-    final deadline = issuedAt.add(const Duration(days: 10));
-    final difference = deadline.difference(DateTime.now());
-
-    if (difference.isNegative) {
-      return 0;
-    }
-
-    return difference.inDays + 1;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -545,7 +534,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                 style: const TextStyle(
                   color: darkTextColor,
                   fontSize: 19,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 5),
@@ -684,19 +673,6 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                       ),
                     ),
                   ],
-                ),
-
-                const SizedBox(height: 14),
-
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    'متبقي ${_remainingDays(item.issuedAt)} أيام للاعتراض',
-                    style: const TextStyle(
-                      color: secondaryTextColor,
-                      fontSize: 12,
-                    ),
-                  ),
                 ),
               ],
             ),
