@@ -367,6 +367,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           elevation: 0,
           scrolledUnderElevation: 0,
           backgroundColor: Colors.white,
+          automaticallyImplyLeading: false,
           centerTitle: true,
           title: const Text(
             'تقديم اعتراض',
@@ -374,13 +375,6 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
               color: darkTextColor,
               fontSize: 21,
               fontWeight: FontWeight.w700,
-            ),
-          ),
-          leading: IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: darkTextColor,
             ),
           ),
         ),
