@@ -273,7 +273,7 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
     required String? reportPdfUrl,
     required String? reportNumber,
   }) {
-    if (status != 'تم المراجعة') {
+    if (status != 'تم المراجعة' && status != 'تم الفحص') {
       return const SizedBox.shrink();
     }
 
@@ -548,7 +548,7 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
                 // ── Damage images ────────────────────────────────────────
                 _imagesSection(context),
 
-                if (status == 'تم المراجعة') ...[
+                if (status == 'تم المراجعة' || status == 'تم الفحص') ...[
                   const SizedBox(height: 16),
                   _reportButton(
                     status: status,
