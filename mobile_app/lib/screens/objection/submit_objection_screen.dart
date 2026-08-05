@@ -511,15 +511,18 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 5),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: secondaryTextColor,
-                  fontSize: 13,
-                  height: 1.5,
+              if (subtitle.isNotEmpty) ...[
+                const SizedBox(height: 5),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: secondaryTextColor,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
                 ),
-              ),
+              ],
+              
             ],
           ),
         ),
@@ -737,7 +740,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         _buildSectionHeader(
           icon: Icons.chat_bubble_outline_rounded,
           title: 'سبب الاعتراض',
-          subtitle: 'يرجى توضيح سبب اعتراضك على الحالة المختارة.',
+          subtitle: '',
         ),
         const SizedBox(height: 14),
         TextField(
