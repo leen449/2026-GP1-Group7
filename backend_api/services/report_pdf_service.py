@@ -20,8 +20,18 @@ _LINE = (0.12, 0.12, 0.12)
 _BAND_FILL = (0.94, 0.94, 0.94)
 _BRAND = "#173d6b"
 
-_FIRST_PAGE_DAMAGE_ROWS = 4
+# Maximum number of damage rows on the first page while keeping
+# the same approved row height and enough room for Total + QR/footer.
+_FIRST_PAGE_MAX_DAMAGE_ROWS = 5
+
+# Continuation pages keep the existing capacity.
 _CONTINUATION_PAGE_DAMAGE_ROWS = 8
+
+# Keep exactly the same approved damage-row height that was used
+# when the table had four fixed rows.
+_FIRST_PAGE_DAMAGE_ROW_H = (
+    568.0 - (390.0 + 29.0)
+) / 4
 
 
 def _e(value: object) -> str:
@@ -240,6 +250,13 @@ def _draw_notices_and_qr(
     qr_size = 78.0
     qr_x1 = (_PAGE_W - qr_size) / 2
 
+    # Dynamic bottom so the notices move together with the QR/footer
+    # while remaining inside the A4 page.
+    notice_bottom = min(
+        qr_y1 + 92.0,
+        _PAGE_H - 12.0,
+    )
+
     page.insert_image(
         fitz.Rect(
             qr_x1,
@@ -268,7 +285,7 @@ def _draw_notices_and_qr(
             left,
             qr_y1 - 6,
             qr_x1 - 15,
-            806,
+            notice_bottom,
         ),
         (
             '<div class="value" '
@@ -287,7 +304,7 @@ def _draw_notices_and_qr(
             qr_x1 + qr_size + 15,
             qr_y1 - 6,
             right,
-            806,
+            notice_bottom,
         ),
         (
             '<div class="ar value" '
@@ -526,7 +543,6 @@ def _draw_first_page(
 
     # ── Main integrated table ───────────────────────────────────────────────
     main_y1 = 196.0
-    full_main_y2 = 674.0
 
     outer_x = right - 37.0
     inner_x = outer_x - 58.0
@@ -534,9 +550,34 @@ def _draw_first_page(
 
     owner_y2 = 274.0
     vehicle_y2 = 390.0
-    damage_y2 = 568.0
 
-    main_y2 = damage_y2 if has_continuation else full_main_y2
+    # ── Dynamic damage section ──────────────────────────────────────────────
+    # Keep the approved damage-table header height.
+    header_h = 29.0
+
+    visible_damage_rows = len(first_page_damages)
+
+    # Defensive fallback only. Reports normally cannot be generated
+    # without at least one damage.
+    if visible_damage_rows < 1:
+        visible_damage_rows = 1
+
+    damage_y2 = (
+        vehicle_y2
+        + header_h
+        + (_FIRST_PAGE_DAMAGE_ROW_H * visible_damage_rows)
+    )
+
+    # Keep exactly the same total-section height as the approved design:
+    # 674 - 568 = 106 pt.
+    total_section_h = 106.0
+    full_main_y2 = damage_y2 + total_section_h
+
+    main_y2 = (
+        damage_y2
+        if has_continuation
+        else full_main_y2
+    )
 
     _draw_box(
         page,
@@ -787,11 +828,10 @@ def _draw_first_page(
             font_size=7.8,
         )
 
-    # Damage table: the first page always keeps four visible rows.
+    # ── Damage table ────────────────────────────────────────────────────────
+    # The number of visible rows now matches the actual number of damages.
     damage_left = left
     damage_right = inner_x
-
-    header_h = 29.0
 
     no_x = damage_left + 31.0
     type_x = damage_left + 144.0
@@ -884,13 +924,9 @@ def _draw_first_page(
         bold=True,
     )
 
-    damage_row_h = (
-        damage_y2 - (
-            vehicle_y2 + header_h
-        )
-    ) / _FIRST_PAGE_DAMAGE_ROWS
+    damage_row_h = _FIRST_PAGE_DAMAGE_ROW_H
 
-    for i in range(_FIRST_PAGE_DAMAGE_ROWS):
+    for i, damage in enumerate(first_page_damages):
         y1 = (
             vehicle_y2
             + header_h
@@ -918,18 +954,11 @@ def _draw_first_page(
             font_size=7.5,
         )
 
-        if i < len(first_page_damages):
-            damage = first_page_damages[i]
-
-            type_value = damage.type
-            severity_value = damage.severity
-            cost_value = _money(
-                damage.cost_sar
-            )
-        else:
-            type_value = ""
-            severity_value = ""
-            cost_value = ""
+        type_value = damage.type
+        severity_value = damage.severity
+        cost_value = _money(
+            damage.cost_sar
+        )
 
         _html_box(
             page,
@@ -979,6 +1008,8 @@ def _draw_first_page(
             font_size=7.15,
         )
 
+    # If all damages fit on the first page, place the Total + QR/footer
+    # immediately after the actual last damage row.
     if not has_continuation:
         _draw_total_section(
             page,
@@ -992,11 +1023,14 @@ def _draw_first_page(
             label_col_x=label_col_x,
         )
 
+        footer_line_y = full_main_y2 + 16.0
+        qr_y1 = footer_line_y + 24.0
+
         _draw_notices_and_qr(
             page,
             qr_png,
-            footer_line_y=690.0,
-            qr_y1=714.0,
+            footer_line_y=footer_line_y,
+            qr_y1=qr_y1,
         )
 
 
@@ -1309,10 +1343,12 @@ def build_report_pdf(
     """Build the finalized CrashLens assessment PDF.
 
     Behavior:
-      * 4 damages or fewer:
-          one page, keeping the approved four-row layout exactly.
-      * More than 4 damages:
-          the first page keeps the same approved four-row layout;
+      * Up to 5 damages:
+          one page with exactly the number of actual damage rows.
+          No empty damage rows are added.
+
+      * More than 5 damages:
+          the first five damages remain on the first page;
           extra damages continue on one or more continuation pages;
           the total, QR, and objection notices appear only after the final
           damage row on the last page.
@@ -1332,11 +1368,11 @@ def build_report_pdf(
     damages = list(record.damages)
 
     first_page_damages = damages[
-        :_FIRST_PAGE_DAMAGE_ROWS
+        :_FIRST_PAGE_MAX_DAMAGE_ROWS
     ]
 
     remaining_damages = damages[
-        _FIRST_PAGE_DAMAGE_ROWS:
+        _FIRST_PAGE_MAX_DAMAGE_ROWS:
     ]
 
     doc = fitz.open()
@@ -1362,7 +1398,7 @@ def build_report_pdf(
         ]
 
         next_damage_number = (
-            _FIRST_PAGE_DAMAGE_ROWS + 1
+            len(first_page_damages) + 1
         )
 
         for chunk_index, chunk in enumerate(chunks):

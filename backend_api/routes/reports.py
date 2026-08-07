@@ -68,56 +68,100 @@ def _read_damage_items(
     case_data: dict[str, Any],
 ) -> list[DamageItem]:
     """
-    Read detections from:
+    Read damage detections from either:
 
-        accidentCase/{caseId}/images/{imageId}/detections/{detectionId}
+    1) case document field:
+       accidentCase/{caseId}.damageAnalysis[*].detections[*]
 
-    Severity is currently stored on the parent image document.
+    or, for newer/alternative case structure:
 
-    cost_sar is temporarily 0.0 until the cost-estimation feature is connected.
-    Later, only the cost_sar assignment below needs to change.
+    2) images subcollection:
+       accidentCase/{caseId}/images/{imageId}/detections/{detectionId}
+
+    cost_sar is temporarily 0.0 until cost estimation is connected.
     """
     damages: list[DamageItem] = []
 
-    for image_snapshot in case_reference.collection("images").stream():
-        image_data = image_snapshot.to_dict() or {}
+    # ── First: read the structure currently used by existing cases ──────────
+    damage_analysis = case_data.get("damageAnalysis")
 
-        if image_data.get("hasDamage") is False:
-            continue
-
-        image_severity = image_data.get("severity")
-
-        if image_severity is None or not str(image_severity).strip():
-            image_severity = case_data.get("overallSeverity")
-
-        severity = (
-            str(image_severity).strip()
-            if image_severity is not None and str(image_severity).strip()
-            else "غير محدد"
-        )
-
-        detection_snapshots = (
-            image_snapshot.reference
-            .collection("detections")
-            .stream()
-        )
-
-        for detection_snapshot in detection_snapshots:
-            detection_data = detection_snapshot.to_dict() or {}
-            damage_type = detection_data.get("label")
-
-            if damage_type is None or not str(damage_type).strip():
+    if isinstance(damage_analysis, list):
+        for analysis_item in damage_analysis:
+            if not isinstance(analysis_item, dict):
                 continue
 
-            damages.append(
-                DamageItem(
-                    type=str(damage_type).strip(),
-                    severity=severity,
+            detections = analysis_item.get("detections")
 
-                    # Temporary until the cost-estimation service is completed.
-                    cost_sar=0.0,
-                )
+            if not isinstance(detections, list):
+                continue
+
+            item_severity = analysis_item.get("severity")
+
+            if item_severity is None or not str(item_severity).strip():
+                item_severity = case_data.get("overallSeverity")
+
+            severity = (
+                str(item_severity).strip()
+                if item_severity is not None and str(item_severity).strip()
+                else "غير محدد"
             )
+
+            for detection in detections:
+                if not isinstance(detection, dict):
+                    continue
+
+                damage_type = detection.get("label")
+
+                if damage_type is None or not str(damage_type).strip():
+                    continue
+
+                damages.append(
+                    DamageItem(
+                        type=str(damage_type).strip(),
+                        severity=severity,
+                        cost_sar=0.0,
+                    )
+                )
+
+    # ── Second: fallback to images subcollection ────────────────────────────
+    if not damages:
+        for image_snapshot in case_reference.collection("images").stream():
+            image_data = image_snapshot.to_dict() or {}
+
+            if image_data.get("hasDamage") is False:
+                continue
+
+            image_severity = image_data.get("severity")
+
+            if image_severity is None or not str(image_severity).strip():
+                image_severity = case_data.get("overallSeverity")
+
+            severity = (
+                str(image_severity).strip()
+                if image_severity is not None and str(image_severity).strip()
+                else "غير محدد"
+            )
+
+            detection_snapshots = (
+                image_snapshot.reference
+                .collection("detections")
+                .stream()
+            )
+
+            for detection_snapshot in detection_snapshots:
+                detection_data = detection_snapshot.to_dict() or {}
+                damage_type = detection_data.get("label")
+
+                if damage_type is None or not str(damage_type).strip():
+                    continue
+
+                damages.append(
+                    DamageItem(
+                        type=str(damage_type).strip(),
+                        severity=severity,
+                        cost_sar=0.0,
+                    )
+                )
 
     if not damages:
         raise HTTPException(
@@ -129,7 +173,6 @@ def _read_damage_items(
         )
 
     return damages
-
 
 def _build_report_input(
     *,

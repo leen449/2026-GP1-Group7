@@ -268,73 +268,59 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
     }
   }
 
-  Widget _reportButton({
-    required String status,
-    required String? reportPdfUrl,
-    required String? reportNumber,
-  }) {
-    if (status != 'تم المراجعة') {
-      return const SizedBox.shrink();
-    }
-
-    final hasExistingReport =
-        reportPdfUrl != null && reportPdfUrl.trim().isNotEmpty;
-
-    return SizedBox(
-      width: double.infinity,
-      height: 54,
-      child: ElevatedButton(
-        onPressed: _isGeneratingReport
-            ? null
-            : () => _handleReportButton(
-                  existingPdfUrl: reportPdfUrl,
-                  existingReportNumber: reportNumber,
-                ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _navy,
-          disabledBackgroundColor: _navy.withOpacity(0.65),
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-        ),
-        child: _isGeneratingReport
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: Colors.white,
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                textDirection: TextDirection.rtl,
-                children: [
-                  Icon(
-                    hasExistingReport
-                        ? Icons.picture_as_pdf_rounded
-                        : Icons.description_rounded,
-                    size: 21,
-                  ),
-                  const SizedBox(width: 9),
-                  Text(
-                    hasExistingReport
-                        ? 'عرض التقرير'
-                        : 'إنشاء التقرير',
-                    textDirection: TextDirection.rtl,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
+ Widget _reportButton({
+  required String status,
+  required String? reportPdfUrl,
+  required String? reportNumber,
+}) {
+  if (status != 'تم المراجعة') {
+    return const SizedBox.shrink();
   }
+
+  final hasExistingReport =
+      reportPdfUrl != null && reportPdfUrl.trim().isNotEmpty;
+
+  return SizedBox(
+    width: double.infinity,
+    height: 54,
+    child: ElevatedButton(
+      onPressed: _isGeneratingReport
+          ? null
+          : () => _handleReportButton(
+                existingPdfUrl: reportPdfUrl,
+                existingReportNumber: reportNumber,
+              ),
+      style: ElevatedButton.styleFrom(
+        elevation: 0,
+        backgroundColor: _primaryBlue,
+        disabledBackgroundColor: const Color(0xFF93C5FD),
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+      child: _isGeneratingReport
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Colors.white,
+              ),
+            )
+          : Text(
+              hasExistingReport
+                  ? 'عرض التقرير'
+                  : 'إنشاء التقرير',
+              textDirection: TextDirection.rtl,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {

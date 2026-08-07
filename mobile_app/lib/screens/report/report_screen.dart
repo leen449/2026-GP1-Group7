@@ -12,8 +12,10 @@ class ReportScreen extends StatelessWidget {
     required this.reportNumber,
   });
 
-  static const Color _pageBg = Color(0xFFF7FAFF);
-  static const Color _textDark = Color(0xFF071A3D);
+  // Same colors used in SubmitObjectionScreen
+  static const Color primaryColor = Color(0xFF2563EB);
+  static const Color darkTextColor = Color(0xFF111827);
+  static const Color backgroundColor = Color(0xFFF8FAFC);
 
   Future<void> _downloadReport(BuildContext context) async {
     final uri = Uri.tryParse(pdfUrl);
@@ -49,58 +51,64 @@ class ReportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _pageBg,
-      appBar: AppBar(
-  backgroundColor: _pageBg,
-  elevation: 0,
-  automaticallyImplyLeading: false,
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: backgroundColor,
+        appBar: AppBar(
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          backgroundColor: Colors.white,
+          centerTitle: true,
+          automaticallyImplyLeading: false,
 
-  leading: IconButton(
-    tooltip: 'تنزيل التقرير',
-    icon: const Icon(
-      Icons.download_rounded,
-      color: _textDark,
-    ),
-    onPressed: () => _downloadReport(context),
-  ),
+          // Same back arrow style as SubmitObjectionScreen
+          leading: IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: darkTextColor,
+            ),
+          ),
 
-  actions: [
-    IconButton(
-      icon: const Icon(
-        Icons.arrow_forward_ios_rounded,
-        color: _textDark,
-      ),
-      onPressed: () => Navigator.pop(context),
-    ),
-  ],
-
-  title: Text(
-    reportNumber.isEmpty ? 'التقرير' : reportNumber,
-    style: const TextStyle(
-      color: _textDark,
-      fontWeight: FontWeight.w800,
-      fontSize: 18,
-    ),
-  ),
-
-  centerTitle: true,
-),
-      body: SfPdfViewer.network(
-        pdfUrl,
-        canShowScrollHead: false,
-        canShowScrollStatus: false,
-        enableDoubleTapZooming: true,
-        onDocumentLoadFailed: (details) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'تعذر تحميل التقرير: ${details.description}',
-                textDirection: TextDirection.rtl,
+          // Download stays on the opposite side
+          actions: [
+            IconButton(
+              tooltip: 'تنزيل التقرير',
+              onPressed: () => _downloadReport(context),
+              icon: const Icon(
+                Icons.download_rounded,
+                color: primaryColor,
               ),
             ),
-          );
-        },
+          ],
+
+          title: Text(
+            reportNumber.isEmpty ? 'التقرير' : reportNumber,
+            style: const TextStyle(
+              color: darkTextColor,
+              fontSize: 21,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+
+        body: SfPdfViewer.network(
+          pdfUrl,
+          canShowScrollHead: false,
+          canShowScrollStatus: false,
+          enableDoubleTapZooming: true,
+          onDocumentLoadFailed: (details) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'تعذر تحميل التقرير: ${details.description}',
+                  textDirection: TextDirection.rtl,
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
