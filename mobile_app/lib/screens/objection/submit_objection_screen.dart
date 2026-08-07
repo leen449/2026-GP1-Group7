@@ -28,7 +28,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final TextEditingController _reasonController = TextEditingController();
-
+  // List of cases eligible for objection
   List<EligibleObjectionCase> _eligibleCases = [];
 
   String? _selectedCaseId;
@@ -53,22 +53,27 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     super.dispose();
   }
 
+  // Loads all cases that are eligible for objection
+  // Conditions:
+  // Belongs to the current user
+  // Case status is "تم الفحص"
+  // A report exists
+  // Report is within the 10-day objection period
+  // No previous objection has been submitted
   Future<void> _loadEligibleCases() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
+      // Get the currently authenticated user
       final currentUser = _auth.currentUser;
-      debugPrint('Current user UID: ${currentUser?.uid}');
 
       if (currentUser == null) {
         throw Exception('يجب تسجيل الدخول أولًا.');
       }
 
-      /*
-       * 1. إحضار حالات المستخدم التي حالتها "تم الفحص" فقط.
-       */
+      // Retrieve all completed cases for the current user
       final casesSnapshot = await _firestore
           .collection('accidentCase')
           .where('ownerId', isEqualTo: currentUser.uid)
@@ -77,12 +82,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
       final List<EligibleObjectionCase> eligibleCases = [];
 
-      /*
-       * 2. فحص كل حالة:
-       * - هل سبق تقديم اعتراض عليها؟
-       * - هل يوجد تقرير مرتبط بها؟
-       * - هل ما زال التقرير داخل مهلة 10 أيام؟
-       */
+      // Loop through each case and validate its eligibility
       for (final caseDocument in casesSnapshot.docs) {
         final caseData = caseDocument.data();
 
@@ -91,9 +91,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
             ? caseData['caseID'] as String
             : caseDocument.id;
 
-        /*
-         * التحقق من عدم وجود اعتراض سابق لنفس الحالة.
-         */
+        // Check whether an objection already exists
         final existingObjection = await _firestore
             .collection('objection')
             .where('caseId', isEqualTo: caseId)
@@ -104,9 +102,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           continue;
         }
 
-        /*
-         * إحضار التقرير المرتبط بالحالة.
-         */
+        // Retrieve the report associated with the case
         final reportSnapshot = await _firestore
             .collection('reports')
             .where('caseId', isEqualTo: caseId)
@@ -131,9 +127,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           const Duration(days: 10),
         );
 
-        /*
-         * إذا انتهت مدة الاعتراض، لا نعرض الحالة.
-         */
+        // Skip the case if the objection period has expired
         if (DateTime.now().isAfter(objectionDeadline)) {
           continue;
         }
@@ -141,7 +135,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         final dynamic totalCostValue = reportData['totalCost'];
 
         final num totalCost = totalCostValue is num ? totalCostValue : 0;
-
+        // Add the eligible case to the display list
         eligibleCases.add(
           EligibleObjectionCase(
             caseId: caseId,
@@ -152,9 +146,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         );
       }
 
-      /*
-       * ترتيب الأحدث أولًا.
-       */
+      // Sort cases by the newest report first
       eligibleCases.sort(
         (first, second) => second.issuedAt.compareTo(first.issuedAt),
       );
@@ -190,6 +182,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     }
   }
 
+  // Validates the input and submits a new objection to Firestore
   Future<void> _submitObjection() async {
     FocusScope.of(context).unfocus();
 
@@ -218,10 +211,6 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     });
 
     try {
-      /*
-       * إعادة التحقق قبل الإنشاء لمنع تكرار الاعتراض
-       * إذا تغيرت البيانات أثناء فتح الصفحة.
-       */
       final existingObjection = await _firestore
           .collection('objection')
           .where('caseId', isEqualTo: _selectedCaseId)
@@ -232,9 +221,6 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         throw Exception('سبق تقديم اعتراض على هذه الحالة.');
       }
 
-      /*
-       * إعادة التحقق من حالة الكيس.
-       */
       final caseQuery = await _firestore
           .collection('accidentCase')
           .where('caseID', isEqualTo: _selectedCaseId)
@@ -266,9 +252,6 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         throw Exception('لا يمكن تقديم اعتراض لأن حالة الكيس تغيرت.');
       }
 
-      /*
-       * إعادة التحقق من مهلة التقرير.
-       */
       final reportSnapshot = await _firestore
           .collection('reports')
           .where('caseId', isEqualTo: _selectedCaseId)
@@ -293,9 +276,6 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         throw Exception('انتهت المدة المحددة لتقديم اعتراض على هذه الحالة.');
       }
 
-      /*
-       * إنشاء معرف مستقل وعشوائي للاعتراض.
-       */
       final objectionReference = _firestore.collection('objection').doc();
 
       await objectionReference.set({
@@ -310,10 +290,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
       _showMessage('تم تقديم الاعتراض بنجاح.', isError: false);
 
-      /*
-       * إزالة الحالة من القائمة لأنها لم تعد مؤهلة
-       * لاعتراض جديد.
-       */
+      // Remove the submitted case from the eligible list
       setState(() {
         _eligibleCases.removeWhere((item) => item.caseId == _selectedCaseId);
 
@@ -522,7 +499,6 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                   ),
                 ),
               ],
-              
             ],
           ),
         ),
@@ -530,6 +506,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     );
   }
 
+  // Builds a selectable card displaying the case information
   Widget _buildCaseCard(EligibleObjectionCase item) {
     final bool isSelected = _selectedCaseId == item.caseId;
 
@@ -734,6 +711,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     );
   }
 
+  // Builds the objection reason input section
   Widget _buildReasonSection() {
     return Column(
       children: [
@@ -770,6 +748,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     );
   }
 
+  // Displays a message when no eligible cases are available
   Widget _buildEmptyState() {
     return Container(
       width: double.infinity,
