@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../NavBar/nav_bar.dart';
 
 class EligibleObjectionCase {
   const EligibleObjectionCase({
@@ -288,7 +289,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
       if (!mounted) return;
 
-      _showMessage('تم تقديم الاعتراض بنجاح.', isError: false);
+      _showSuccessDialog();
 
       // Remove the submitted case from the eligible list
       setState(() {
@@ -333,6 +334,96 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         ),
       );
   }
+  Future<void> _showSuccessDialog() async {
+  await showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 28,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF4CAF50),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 42,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              const Text(
+                'تم تقديم الاعتراض بنجاح',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: darkTextColor,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    // Close the success dialog.
+                    Navigator.of(dialogContext).pop();
+
+                    // Go to the home page 
+                    Navigator.of(
+                      context,
+                      rootNavigator: true,
+                    ).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (_) => const AppBottomNav(),
+                      ),
+                      (route) => false,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    minimumSize: const Size(
+                      double.infinity,
+                      48,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
+                  child: const Text(
+                    'حسنًا',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {
