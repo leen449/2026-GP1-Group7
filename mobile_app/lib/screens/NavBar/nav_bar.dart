@@ -3,6 +3,7 @@ import 'dart:ui';
 import '../home/home_screen.dart';
 import '../submit_case/submit_case_screen.dart';
 import '../objection/submit_objection_screen.dart';
+import '../history/history_screen.dart';
 
 class AppBottomNav extends StatefulWidget {
   const AppBottomNav({super.key});
@@ -27,7 +28,7 @@ class _AppBottomNavState extends State<AppBottomNav> {
   final List<Widget> _pages = [
     const HomeScreen(),
     const SubmitCaseScreen(),
-    const Scaffold(body: Center(child: Text('History - Coming Soon'))),
+const HistoryScreen(),
     const SubmitObjectionScreen(),
   ];
 

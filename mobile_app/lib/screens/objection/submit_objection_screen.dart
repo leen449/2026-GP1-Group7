@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../NavBar/nav_bar.dart';
 
 class EligibleObjectionCase {
   const EligibleObjectionCase({
@@ -20,8 +21,7 @@ class SubmitObjectionScreen extends StatefulWidget {
   const SubmitObjectionScreen({super.key});
 
   @override
-  State<SubmitObjectionScreen> createState() =>
-      _SubmitObjectionScreenState();
+  State<SubmitObjectionScreen> createState() => _SubmitObjectionScreenState();
 }
 
 class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
@@ -29,7 +29,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final TextEditingController _reasonController = TextEditingController();
-
+  // List of cases eligible for objection
   List<EligibleObjectionCase> _eligibleCases = [];
 
   String? _selectedCaseId;
@@ -37,7 +37,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   bool _isLoading = true;
   bool _isSubmitting = false;
 
-  static const Color primaryColor = Color(0xFF2563EB);
+  static const Color primaryColor = Color(0xFF1E3A6E);
   static const Color darkTextColor = Color(0xFF111827);
   static const Color secondaryTextColor = Color(0xFF64748B);
   static const Color backgroundColor = Color(0xFFF8FAFC);
@@ -54,22 +54,27 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     super.dispose();
   }
 
+  // Loads all cases that are eligible for objection
+  // Conditions:
+  // Belongs to the current user
+  // Case status is "تم الفحص"
+  // A report exists
+  // Report is within the 10-day objection period
+  // No previous objection has been submitted
   Future<void> _loadEligibleCases() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
+      // Get the currently authenticated user
       final currentUser = _auth.currentUser;
-      debugPrint('Current user UID: ${currentUser?.uid}');
 
       if (currentUser == null) {
         throw Exception('يجب تسجيل الدخول أولًا.');
       }
 
-      /*
-       * 1. إحضار حالات المستخدم التي حالتها "تم الفحص" فقط.
-       */
+      // Retrieve all completed cases for the current user
       final casesSnapshot = await _firestore
           .collection('accidentCase')
           .where('ownerId', isEqualTo: currentUser.uid)
@@ -78,23 +83,16 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
       final List<EligibleObjectionCase> eligibleCases = [];
 
-      /*
-       * 2. فحص كل حالة:
-       * - هل سبق تقديم اعتراض عليها؟
-       * - هل يوجد تقرير مرتبط بها؟
-       * - هل ما زال التقرير داخل مهلة 10 أيام؟
-       */
+      // Loop through each case and validate its eligibility
       for (final caseDocument in casesSnapshot.docs) {
         final caseData = caseDocument.data();
 
         final String caseId =
             (caseData['caseID'] as String?)?.trim().isNotEmpty == true
-                ? caseData['caseID'] as String
-                : caseDocument.id;
+            ? caseData['caseID'] as String
+            : caseDocument.id;
 
-        /*
-         * التحقق من عدم وجود اعتراض سابق لنفس الحالة.
-         */
+        // Check whether an objection already exists
         final existingObjection = await _firestore
             .collection('objection')
             .where('caseId', isEqualTo: caseId)
@@ -105,9 +103,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           continue;
         }
 
-        /*
-         * إحضار التقرير المرتبط بالحالة.
-         */
+        // Retrieve the report associated with the case
         final reportSnapshot = await _firestore
             .collection('reports')
             .where('caseId', isEqualTo: caseId)
@@ -128,21 +124,19 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         }
 
         final DateTime issuedAt = issuedAtValue.toDate();
-        final DateTime objectionDeadline =
-            issuedAt.add(const Duration(days: 10));
+        final DateTime objectionDeadline = issuedAt.add(
+          const Duration(days: 10),
+        );
 
-        /*
-         * إذا انتهت مدة الاعتراض، لا نعرض الحالة.
-         */
+        // Skip the case if the objection period has expired
         if (DateTime.now().isAfter(objectionDeadline)) {
           continue;
         }
 
         final dynamic totalCostValue = reportData['totalCost'];
 
-        final num totalCost =
-            totalCostValue is num ? totalCostValue : 0;
-
+        final num totalCost = totalCostValue is num ? totalCostValue : 0;
+        // Add the eligible case to the display list
         eligibleCases.add(
           EligibleObjectionCase(
             caseId: caseId,
@@ -153,9 +147,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         );
       }
 
-      /*
-       * ترتيب الأحدث أولًا.
-       */
+      // Sort cases by the newest report first
       eligibleCases.sort(
         (first, second) => second.issuedAt.compareTo(first.issuedAt),
       );
@@ -191,6 +183,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     }
   }
 
+  // Validates the input and submits a new objection to Firestore
   Future<void> _submitObjection() async {
     FocusScope.of(context).unfocus();
 
@@ -205,18 +198,12 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     }
 
     if (reason.isEmpty) {
-      _showMessage(
-        'يرجى كتابة سبب الاعتراض.',
-        isError: true,
-      );
+      _showMessage('يرجى كتابة سبب الاعتراض.', isError: true);
       return;
     }
 
     if (reason.length < 10) {
-      _showMessage(
-        'يرجى توضيح سبب الاعتراض بشكل أكبر.',
-        isError: true,
-      );
+      _showMessage('يرجى توضيح سبب الاعتراض بشكل أكبر.', isError: true);
       return;
     }
 
@@ -225,10 +212,6 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     });
 
     try {
-      /*
-       * إعادة التحقق قبل الإنشاء لمنع تكرار الاعتراض
-       * إذا تغيرت البيانات أثناء فتح الصفحة.
-       */
       final existingObjection = await _firestore
           .collection('objection')
           .where('caseId', isEqualTo: _selectedCaseId)
@@ -239,9 +222,6 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         throw Exception('سبق تقديم اعتراض على هذه الحالة.');
       }
 
-      /*
-       * إعادة التحقق من حالة الكيس.
-       */
       final caseQuery = await _firestore
           .collection('accidentCase')
           .where('caseID', isEqualTo: _selectedCaseId)
@@ -270,14 +250,9 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       final caseData = caseDocument.data();
 
       if (caseData?['status'] != 'تم الفحص') {
-        throw Exception(
-          'لا يمكن تقديم اعتراض لأن حالة الكيس تغيرت.',
-        );
+        throw Exception('لا يمكن تقديم اعتراض لأن حالة الكيس تغيرت.');
       }
 
-      /*
-       * إعادة التحقق من مهلة التقرير.
-       */
       final reportSnapshot = await _firestore
           .collection('reports')
           .where('caseId', isEqualTo: _selectedCaseId)
@@ -296,21 +271,13 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       }
 
       final DateTime issuedAt = issuedAtValue.toDate();
-      final DateTime deadline = issuedAt.add(
-        const Duration(days: 10),
-      );
+      final DateTime deadline = issuedAt.add(const Duration(days: 10));
 
       if (DateTime.now().isAfter(deadline)) {
-        throw Exception(
-          'انتهت المدة المحددة لتقديم اعتراض على هذه الحالة.',
-        );
+        throw Exception('انتهت المدة المحددة لتقديم اعتراض على هذه الحالة.');
       }
 
-      /*
-       * إنشاء معرف مستقل وعشوائي للاعتراض.
-       */
-      final objectionReference =
-          _firestore.collection('objection').doc();
+      final objectionReference = _firestore.collection('objection').doc();
 
       await objectionReference.set({
         'caseId': _selectedCaseId,
@@ -322,19 +289,11 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
       if (!mounted) return;
 
-      _showMessage(
-        'تم تقديم الاعتراض بنجاح.',
-        isError: false,
-      );
+      _showSuccessDialog();
 
-      /*
-       * إزالة الحالة من القائمة لأنها لم تعد مؤهلة
-       * لاعتراض جديد.
-       */
+      // Remove the submitted case from the eligible list
       setState(() {
-        _eligibleCases.removeWhere(
-          (item) => item.caseId == _selectedCaseId,
-        );
+        _eligibleCases.removeWhere((item) => item.caseId == _selectedCaseId);
 
         _selectedCaseId = null;
         _reasonController.clear();
@@ -347,10 +306,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         _isSubmitting = false;
       });
 
-      _showMessage(
-        error.message ?? 'تعذر تقديم الاعتراض.',
-        isError: true,
-      );
+      _showMessage(error.message ?? 'تعذر تقديم الاعتراض.', isError: true);
     } catch (error) {
       if (!mounted) return;
 
@@ -365,35 +321,109 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     }
   }
 
-  void _showMessage(
-    String message, {
-    required bool isError,
-  }) {
+  void _showMessage(String message, {required bool isError}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(
-            message,
-            textAlign: TextAlign.right,
-          ),
-          backgroundColor:
-              isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+          content: Text(message, textAlign: TextAlign.right),
+          backgroundColor: isError
+              ? const Color(0xFFDC2626)
+              : const Color(0xFF16A34A),
           behavior: SnackBarBehavior.floating,
         ),
       );
   }
+  Future<void> _showSuccessDialog() async {
+  await showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 28,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF4CAF50),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 42,
+                ),
+              ),
 
-  int _remainingDays(DateTime issuedAt) {
-    final deadline = issuedAt.add(const Duration(days: 10));
-    final difference = deadline.difference(DateTime.now());
+              const SizedBox(height: 20),
 
-    if (difference.isNegative) {
-      return 0;
-    }
+              const Text(
+                'تم تقديم الاعتراض بنجاح',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: darkTextColor,
+                ),
+              ),
 
-    return difference.inDays + 1;
-  }
+              const SizedBox(height: 24),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    // Close the success dialog.
+                    Navigator.of(dialogContext).pop();
+
+                    // Go to the home page 
+                    Navigator.of(
+                      context,
+                      rootNavigator: true,
+                    ).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (_) => const AppBottomNav(),
+                      ),
+                      (route) => false,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    minimumSize: const Size(
+                      double.infinity,
+                      48,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
+                  child: const Text(
+                    'حسنًا',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -405,6 +435,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           elevation: 0,
           scrolledUnderElevation: 0,
           backgroundColor: Colors.white,
+          automaticallyImplyLeading: false,
           centerTitle: true,
           title: const Text(
             'تقديم اعتراض',
@@ -412,13 +443,6 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
               color: darkTextColor,
               fontSize: 21,
               fontWeight: FontWeight.w700,
-            ),
-          ),
-          leading: IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: darkTextColor,
             ),
           ),
         ),
@@ -436,15 +460,18 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: primaryColor,
-        ),
+        child: CircularProgressIndicator(color: primaryColor),
       );
     }
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        18,
+        20,
+        MediaQuery.of(context).size.height * 0.14,
+      ),
       children: [
         const Text(
           'اختر الحالة التي ترغب في الاعتراض عليها، ثم وضّح سبب اعتراضك.',
@@ -460,18 +487,29 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         _buildSectionHeader(
           icon: Icons.description_outlined,
           title: 'اختر الحالة',
-          subtitle:
-              'تظهر فقط الحالات التي يمكنك تقديم اعتراض عليها.',
+          subtitle: 'تظهر فقط الحالات التي يمكنك تقديم اعتراض عليها.',
         ),
 
         const SizedBox(height: 14),
 
-       
-
         if (_eligibleCases.isEmpty)
           _buildEmptyState()
+        else if (_eligibleCases.length <= 2)
+          ..._eligibleCases.map(_buildCaseCard)
         else
-          ..._eligibleCases.map(_buildCaseCard),
+          SizedBox(
+            height: 450, // مساحة تعرض تقريبًا بطاقتين
+            child: Scrollbar(
+              thumbVisibility: true,
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                itemCount: _eligibleCases.length,
+                itemBuilder: (context, index) {
+                  return _buildCaseCard(_eligibleCases[index]);
+                },
+              ),
+            ),
+          ),
 
         const SizedBox(height: 28),
 
@@ -503,10 +541,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                   )
                 : const Text(
                     'تقديم الاعتراض',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                   ),
           ),
         ),
@@ -529,11 +564,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
             color: const Color(0xFFEFF6FF),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(
-            icon,
-            color: primaryColor,
-            size: 23,
-          ),
+          child: Icon(icon, color: primaryColor, size: 23),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -543,20 +574,22 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
               Text(
                 title,
                 style: const TextStyle(
-                  color: darkTextColor,
+                  color: Color(0xFF1E293B),
                   fontSize: 19,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 5),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: secondaryTextColor,
-                  fontSize: 13,
-                  height: 1.5,
+              if (subtitle.isNotEmpty) ...[
+                const SizedBox(height: 5),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: secondaryTextColor,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -564,8 +597,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     );
   }
 
- 
-
+  // Builds a selectable card displaying the case information
   Widget _buildCaseCard(EligibleObjectionCase item) {
     final bool isSelected = _selectedCaseId == item.caseId;
 
@@ -587,9 +619,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: isSelected
-                    ? primaryColor
-                    : const Color(0xFFE2E8F0),
+                color: isSelected ? primaryColor : const Color(0xFFE2E8F0),
                 width: isSelected ? 1.8 : 1,
               ),
               boxShadow: [
@@ -656,10 +686,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 15),
-                  child: Divider(
-                    height: 1,
-                    color: Color(0xFFE2E8F0),
-                  ),
+                  child: Divider(height: 1, color: Color(0xFFE2E8F0)),
                 ),
 
                 Row(
@@ -668,7 +695,8 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                       child: _buildCardDetail(
                         icon: Icons.calendar_month_outlined,
                         label: 'تاريخ إصدار التقرير',
-                        value: '${item.issuedAt.day}/${item.issuedAt.month}/${item.issuedAt.year}',
+                        value:
+                            '${item.issuedAt.day}/${item.issuedAt.month}/${item.issuedAt.year}',
                       ),
                     ),
                     Container(
@@ -684,19 +712,6 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                       ),
                     ),
                   ],
-                ),
-
-                const SizedBox(height: 14),
-
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    'متبقي ${_remainingDays(item.issuedAt)} أيام للاعتراض',
-                    style: const TextStyle(
-                      color: secondaryTextColor,
-                      fontSize: 12,
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -720,11 +735,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
             color: const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: primaryColor,
-          ),
+          child: Icon(icon, size: 20, color: primaryColor),
         ),
         const SizedBox(width: 11),
         Expanded(
@@ -734,8 +745,9 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
               Text(
                 label,
                 style: const TextStyle(
-                  color: secondaryTextColor,
-                  fontSize: 12,
+                  color: Color(0xFF475569),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 4),
@@ -765,18 +777,15 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   }) {
     return Column(
       children: [
-        Icon(
-          icon,
-          color: primaryColor,
-          size: 21,
-        ),
+        Icon(icon, color: primaryColor, size: 21),
         const SizedBox(height: 6),
         Text(
           label,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color: secondaryTextColor,
-            fontSize: 11,
+            color: Color(0xFF475569),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 5),
@@ -793,13 +802,14 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     );
   }
 
+  // Builds the objection reason input section
   Widget _buildReasonSection() {
     return Column(
       children: [
         _buildSectionHeader(
           icon: Icons.chat_bubble_outline_rounded,
           title: 'سبب الاعتراض',
-          subtitle: 'يرجى توضيح سبب اعتراضك على الحالة المختارة.',
+          subtitle: '',
         ),
         const SizedBox(height: 14),
         TextField(
@@ -811,25 +821,17 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           textDirection: TextDirection.rtl,
           decoration: InputDecoration(
             hintText: 'اكتب سبب اعتراضك هنا...',
-            hintStyle: const TextStyle(
-              color: Color(0xFF94A3B8),
-              fontSize: 14,
-            ),
+            hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
             filled: true,
             fillColor: Colors.white,
             contentPadding: const EdgeInsets.all(16),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(
-                color: Color(0xFFCBD5E1),
-              ),
+              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(
-                color: primaryColor,
-                width: 1.5,
-              ),
+              borderSide: const BorderSide(color: primaryColor, width: 1.5),
             ),
           ),
         ),
@@ -837,27 +839,19 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     );
   }
 
+  // Displays a message when no eligible cases are available
   Widget _buildEmptyState() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 35,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 35),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFFE2E8F0),
-        ),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: const Column(
         children: [
-          Icon(
-            Icons.inbox_outlined,
-            size: 52,
-            color: Color(0xFF94A3B8),
-          ),
+          Icon(Icons.inbox_outlined, size: 52, color: Color(0xFF94A3B8)),
           SizedBox(height: 14),
           Text(
             'لا توجد حالات متاحة للاعتراض',
