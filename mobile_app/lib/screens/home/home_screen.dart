@@ -12,7 +12,11 @@ import '../vehicle/all_vehicles_screen.dart';
 import '../submit_case/Case_Details_Screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, required this.onOpenHistory});
+
+  // Switches the bottom nav bar to the history tab, instead of pushing a new
+  // route on top of it (which would cover the nav bar — see AppBottomNav).
+  final VoidCallback onOpenHistory;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -301,24 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openHistory() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          backgroundColor: Colors.white,
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0,
-            title: const Text(
-              'السجل',
-              style: TextStyle(color: _textDark, fontWeight: FontWeight.w700),
-            ),
-            iconTheme: const IconThemeData(color: _textDark),
-          ),
-          body: const Center(child: Text('History Page')),
-        ),
-      ),
-    );
+    widget.onOpenHistory();
   }
 
   void _showOcrFailedDialog() {
@@ -1016,30 +1003,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _reportHistoryHeader() {
     return Row(
       children: [
-        GestureDetector(
-          onTap: _openHistory,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            textDirection: TextDirection.rtl,
-            children: const [
-              Icon(
-                Icons.arrow_back_ios_new_rounded,
-                size: 14,
-                color: _primaryBlue,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'عرض الكل',
-                textDirection: TextDirection.rtl,
-                style: TextStyle(
-                  color: _primaryBlue,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
+        _ViewAllLink(onTap: _openHistory),
         const Spacer(),
         const Text(
           'الحالات الأخيرة',
@@ -1076,11 +1040,11 @@ class _HomeScreenState extends State<HomeScreen> {
       bgColor = const Color(0xFFEAF1FF);
       textColor = const Color(0xFF2563EB);
       icon = Icons.hourglass_empty_rounded;
-    } else if (s == 'فشل الفحص' || s == 'ocr_failed') {
-      displayStatus = 'فشل الفحص'; // Failed OCR or Failed AI
-      bgColor = const Color(0xFFFFEEF0);
-      textColor = Colors.red;
-      icon = Icons.warning_amber_rounded;
+    } else if (s == 'تم المراجعة' || s == 'valid') {
+      displayStatus = 'تم المراجعة'; // Failed OCR or Failed AI
+      bgColor = const Color(0xFFDCFCE7);
+      textColor = Colors.green;
+      icon = Icons.check;
     } else {
       // Default / 'قيد التحليل' (While AI is currently processing)
       displayStatus = 'قيد التحليل';
@@ -1136,6 +1100,10 @@ class _HomeScreenState extends State<HomeScreen> {
       bgColor = const Color(0xFFFFEEF0);
       iconColor = Colors.red;
       icon = Icons.gpp_bad_outlined;
+    } else if (s == 'تم المراجعة' || s == 'valid') {
+      bgColor = const Color(0xFFDCFCE7);
+      iconColor = Colors.green;
+      icon = Icons.check_circle_outline_rounded;
     } else {
       // Default / 'قيد التحليل'
       bgColor = const Color(0xFFFFF1E6);
@@ -1335,6 +1303,72 @@ class _HomeScreenState extends State<HomeScreen> {
           }).toList(),
         );
       },
+    );
+  }
+}
+
+// "عرض الكل" link on the home page. Was a bare GestureDetector with zero tap
+// feedback; now it ripples and does a small press-down bounce, like a real
+// interactive link, before switching to the history tab.
+class _ViewAllLink extends StatefulWidget {
+  const _ViewAllLink({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  State<_ViewAllLink> createState() => _ViewAllLinkState();
+}
+
+class _ViewAllLinkState extends State<_ViewAllLink> {
+  static const Color _primaryBlue = Color(0xFF2563EB);
+
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        splashColor: _primaryBlue.withOpacity(0.15),
+        highlightColor: _primaryBlue.withOpacity(0.08),
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: () {
+          setState(() => _pressed = false);
+          widget.onTap();
+        },
+        child: AnimatedScale(
+          scale: _pressed ? 0.92 : 1.0,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              textDirection: TextDirection.rtl,
+              children: [
+                Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 14,
+                  color: _primaryBlue,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'عرض الكل',
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(
+                    color: _primaryBlue,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

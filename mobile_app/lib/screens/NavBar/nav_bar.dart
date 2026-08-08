@@ -25,13 +25,6 @@ class _AppBottomNavState extends State<AppBottomNav> {
     _NavItemData(label: 'الاعتراضات', icon: Icons.assignment_outlined),
   ];
 
-  final List<Widget> _pages = [
-    const HomeScreen(),
-    const SubmitCaseScreen(),
-const HistoryScreen(),
-    const SubmitObjectionScreen(),
-  ];
-
   void _onTap(int index) {
     if (index == _currentIndex) return;
     setState(() => _currentIndex = index);
@@ -39,12 +32,19 @@ const HistoryScreen(),
 
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      HomeScreen(onOpenHistory: () => _onTap(2)),
+      const SubmitCaseScreen(),
+      const HistoryScreen(),
+      const SubmitObjectionScreen(),
+    ];
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
           // الصفحات
-          IndexedStack(index: _currentIndex, children: _pages),
+          IndexedStack(index: _currentIndex, children: pages),
           // الناف بار فوق المحتوى
           Positioned(bottom: 0, left: 0, right: 0, child: _buildNavBar()),
         ],

@@ -18,7 +18,7 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
   static const Color _pageBg = Color(0xFFF7FAFF);
   static const Color _textDark = Color(0xFF071A3D);
   static const Color _textMuted = Color(0xFF8B97AA);
-  static const Color _primaryBlue = Color(0xFF2563EB);
+  static const Color _primaryBlue = Color(0xFF1E3A6E);
   static const Color _navy = Color(0xFF061943);
 
   bool _isGeneratingReport = false;
@@ -481,7 +481,7 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
           disabledBackgroundColor: const Color(0xFF93C5FD),
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(30),
           ),
         ),
         child: _isGeneratingReport
