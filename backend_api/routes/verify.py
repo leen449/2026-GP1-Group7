@@ -20,7 +20,7 @@ from services import report_verification_service as svc
 from services.report_store import get_store
 
 # One setting to change for deployment: local IP now, real domain later.
-BASE_URL = os.environ.get("CRASHLENS_BASE_URL", "http://192.168.0.9:8000")
+BASE_URL = os.environ.get("CRASHLENS_BASE_URL", "http://192.168.0.15:8000")
 
 router = APIRouter()
 

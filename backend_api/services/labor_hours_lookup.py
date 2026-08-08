@@ -22,10 +22,14 @@ SPECIAL HANDLING
                          unknown, use the averaged ("ambiguous") row (dent 4.25).
     left/right mirror -> not costed (no estimator row) -> returns None.
 
-NOT EMITTED BY THE MODEL (fenders, sills, roof): carparts-seg has no class for these,
-so they are NOT on the request path. Their expert hours are preserved in
-UNMAPPED_PARTS so the data isn't lost and a future fender-capable model (or the
-nearest-part routing at integration) can use them.
+GENERIC fender/sill/roof: the part-seg model (exp04+) emits these as SIDELESS classes
+(no front/back or left/right). Their moderate-hours values are identical across sides
+(verified against the Tagdeer form), so a single canonical "fender"/"sill" row lives in
+LOOKUP below with najm_zone left as None (side can't be inferred from the class alone —
+verification against Najm's left/right zone is skipped for these, not guessed). "roof"
+already had no side. The original side-specific rows stay in UNMAPPED_PARTS, preserved
+for a future side-aware model; get_unmapped_hours() remains available as a fallback for
+any part still unmapped.
 
 Storage mirrors the other factor services: real values in code as seed + fallback,
 overridable at config/laborHours in Firestore (no redeploy).
@@ -60,6 +64,12 @@ LOOKUP = {
 
     # trunk row; tailgate is aliased to it below.
     "trunk":             {"najm_zone": "المؤخرة",       "hours": {"dent": 2.5, "scratch": 1.5, "glass": 1}},
+
+    # generic (sideless) panels the part-seg model now emits directly — see module
+    # docstring. najm_zone is None: side isn't derivable from the class alone.
+    "fender":            {"najm_zone": None,            "hours": {"dent": 2, "scratch": 1.2, "crack": 2.2, "lamp": 0.5}},
+    "sill":              {"najm_zone": None,            "hours": {"dent": 1.5, "scratch": 1}},
+    "roof":              {"najm_zone": "الأعلى",        "hours": {"dent": 4, "scratch": 2}},
 }
 
 # Model classes that alias onto an existing row.

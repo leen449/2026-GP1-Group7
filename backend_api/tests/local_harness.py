@@ -6,7 +6,7 @@ from models.report import ReportInput, UserInfo, VehicleInfo, DamageItem
 from services import report_verification_service as svc
 from services.report_store import InMemoryReportStore
 
-BASE_URL = "http://192.168.0.9:8000"
+BASE_URL = "http://192.168.0.15:8000"
 store = InMemoryReportStore()
 
 # ---- mock finalized case (the fields you listed) ----
@@ -43,7 +43,8 @@ print(f"3. Signature check (genuine):  {'VALID' if svc.verify_record(store.get(r
 
 # ---- render the real verify page ----
 good = store.get(report_id)
-pathlib.Path("verify_page.html").write_text(svc.render_verify_html(good, svc.verify_record(good)))
+pathlib.Path("verify_page.html").write_text(
+    svc.render_verify_html(good, svc.verify_record(good)), encoding="utf-8")
 print("4. Wrote verify_page.html (valid)")
 
 # ---- TAMPER: change a stored cost, re-verify ----
@@ -52,6 +53,6 @@ tampered.damages[1].cost_sar = 200          # attacker lowers the headlight cost
 tampered.total_cost_sar = 2350
 print(f"5. Signature check (tampered): {'VALID' if svc.verify_record(tampered) else 'INVALID'}")
 pathlib.Path("verify_page_tampered.html").write_text(
-    svc.render_verify_html(tampered, svc.verify_record(tampered)))
+    svc.render_verify_html(tampered, svc.verify_record(tampered)), encoding="utf-8")
 print("6. Wrote verify_page_tampered.html (should show failure)")
 print("\nDONE — core logic works with no server and no PDF.")

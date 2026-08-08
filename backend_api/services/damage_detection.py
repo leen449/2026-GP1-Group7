@@ -15,7 +15,7 @@ from services.severity_service import classify_severity, aggregate_case_severity
 model = YOLO("weight/best.pt")
 
 def _ensure_firebase_initialized():
-    # [2] Reusing the exact same initialization logic 
+    # [2] Reusing the exact same initialization logic
     if not firebase_admin._apps:
         try:
             cred = credentials.Certificate("serviceAccountKey.json")
@@ -26,6 +26,20 @@ def _ensure_firebase_initialized():
         except Exception as e:
             print(f"❌ Firebase Admin initialization failed: {e}")
             raise
+
+
+def _clear_collection(db, collection_ref) -> None:
+    """Delete every existing doc in a subcollection before writing fresh ones,
+    so re-running detection on an already-analyzed case (a documented retry
+    path) REPLACES its boxes instead of appending a duplicate copy on top of
+    the old ones (see technical_observations.md #2.2)."""
+    docs = list(collection_ref.stream())
+    if not docs:
+        return
+    batch = db.batch()
+    for doc in docs:
+        batch.delete(doc.reference)
+    batch.commit()
 
 async def process_damage_detection(case_id: str) -> dict:
     try:
@@ -68,6 +82,11 @@ async def process_damage_detection(case_id: str) -> dict:
             # [6] If there's no URL, skip this image
             if not image_url:
                 continue
+
+            # [NEW] Clear any detections from a prior run on this image BEFORE
+            # writing new ones, so re-analyzing a case replaces stale boxes
+            # instead of stacking duplicates on top of them.
+            _clear_collection(db, img_doc.reference.collection("detections"))
 
             temp_path = None
             annotated_img_path = None

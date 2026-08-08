@@ -31,29 +31,20 @@ class ReportResult {
 class ReportService {
   // نفس عنوان الباك إند.
   // نعدله لاحقًا إذا تغير الـIP أو صار عندكم رابط نشر حقيقي.
-  static const String _baseUrl = 'http://192.168.0.9:8000';
+  static const String _baseUrl = 'http://192.168.0.15:8000';
 
-  static Future<ReportResult> generateReport({
-    required String caseId,
-  }) async {
+  static Future<ReportResult> generateReport({required String caseId}) async {
     final cleanedCaseId = caseId.trim();
 
     if (cleanedCaseId.isEmpty) {
       throw Exception('رقم الطلب غير موجود');
     }
 
-    final uri = Uri.parse(
-      '$_baseUrl/reports/cases/$cleanedCaseId/generate',
-    );
+    final uri = Uri.parse('$_baseUrl/reports/cases/$cleanedCaseId/generate');
 
     try {
       final response = await http
-          .post(
-            uri,
-            headers: {
-              'Accept': 'application/json',
-            },
-          )
+          .post(uri, headers: {'Accept': 'application/json'})
           .timeout(const Duration(seconds: 60));
 
       Map<String, dynamic> responseData = {};

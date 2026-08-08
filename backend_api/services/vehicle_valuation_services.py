@@ -12,7 +12,7 @@ no scanning, no query cost beyond a single read.
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-import normalize   # the shared key logic — must be the same module the pipeline used
+from services import normalize   # the shared key logic — must be the same module the pipeline used
 
 COLLECTION = "vehicleValues"
 _db = None

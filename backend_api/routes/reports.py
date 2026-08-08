@@ -68,17 +68,24 @@ def _read_damage_items(
     case_data: dict[str, Any],
 ) -> list[DamageItem]:
     """
-    Read damage detections from either:
+    Read PRICED damage line-items from either:
 
     1) case document field:
        accidentCase/{caseId}.damageAnalysis[*].detections[*]
+       (legacy case shape — no cost data exists for it, so cost_sar stays 0.0
+       here; unrelated to cost estimation, which only the current shape below has)
 
-    or, for newer/alternative case structure:
+    or, for the current case structure:
 
     2) images subcollection:
-       accidentCase/{caseId}/images/{imageId}/detections/{detectionId}
+       accidentCase/{caseId}/images/{imageId}/costItems/{itemId}
+       (written by cost_estimation_services.py — the same priced damageType/
+       lineCostSar line items the Case Details screen already shows)
 
-    cost_sar is temporarily 0.0 until cost estimation is connected.
+    A costItem whose lineCostSar is still null (unassigned / no matching
+    labor-hours row — see the case's reviewReasons) is left OFF the official
+    report rather than shown as a misleading "0.00 SAR" on a signed document;
+    that case should be resolved administratively before its report is issued.
     """
     damages: list[DamageItem] = []
 
@@ -123,7 +130,9 @@ def _read_damage_items(
                     )
                 )
 
-    # ── Second: fallback to images subcollection ────────────────────────────
+    # ── Second: current structure — PRICED costItems per image ──────────────
+    any_cost_items_seen = False
+
     if not damages:
         for image_snapshot in case_reference.collection("images").stream():
             image_data = image_snapshot.to_dict() or {}
@@ -142,33 +151,48 @@ def _read_damage_items(
                 else "غير محدد"
             )
 
-            detection_snapshots = (
+            cost_item_snapshots = (
                 image_snapshot.reference
-                .collection("detections")
+                .collection("costItems")
                 .stream()
             )
 
-            for detection_snapshot in detection_snapshots:
-                detection_data = detection_snapshot.to_dict() or {}
-                damage_type = detection_data.get("label")
+            for cost_item_snapshot in cost_item_snapshots:
+                any_cost_items_seen = True
+                cost_item_data = cost_item_snapshot.to_dict() or {}
+                damage_type = cost_item_data.get("damageType")
 
                 if damage_type is None or not str(damage_type).strip():
                     continue
+
+                line_cost = cost_item_data.get("lineCostSar")
+
+                if line_cost is None:
+                    continue   # not priced yet — leave off the official report
 
                 damages.append(
                     DamageItem(
                         type=str(damage_type).strip(),
                         severity=severity,
-                        cost_sar=0.0,
+                        cost_sar=float(line_cost),
                     )
                 )
 
     if not damages:
+        if any_cost_items_seen:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Cost estimation has run for this case but produced no priced "
+                    "line items (all damages are unassigned or missing labor-hours "
+                    "data). Resolve this administratively before generating the report."
+                ),
+            )
         raise HTTPException(
             status_code=422,
             detail=(
-                "No damage detections were found for this case. "
-                "The report cannot be generated."
+                "No priced damage line items were found for this case. "
+                "Run cost estimation (POST /cost/{case_id}) before generating the report."
             ),
         )
 
