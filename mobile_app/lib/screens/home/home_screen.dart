@@ -1032,8 +1032,8 @@ class _HomeScreenState extends State<HomeScreen> {
         s == 'approved' ||
         s == 'completed') {
       displayStatus = 'تم الفحص'; // Final state after AI finishes successfully
-      bgColor = const Color(0xFFFFF1E6);
-      textColor = const Color(0xFFE27A2E);
+      bgColor = const Color(0xFFDCFCE7);
+textColor = const Color(0xFF16A34A);
       icon = Icons.check_circle_outline_rounded;
     } else if (s == 'قيد المراجعة' || s == 'pending') {
       displayStatus = 'قيد المراجعة'; // Initial state before Najm OCR
@@ -1089,8 +1089,8 @@ class _HomeScreenState extends State<HomeScreen> {
         s == 'تم الفحص' ||
         s == 'approved' ||
         s == 'completed') {
-      bgColor = const Color(0xFFFFF1E6);
-      iconColor = const Color(0xFFE27A2E);
+      bgColor = const Color(0xFFDCFCE7);
+      iconColor = const Color(0xFF16A34A);
       icon = Icons.verified_user_outlined;
     } else if (s == 'قيد المراجعة' || s == 'pending') {
       bgColor = const Color(0xFFEAF1FF);
@@ -1122,13 +1122,22 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _reportList() {
     if (_userDocId.isEmpty) return const SizedBox();
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('accidentCase')
-          .where('ownerId', isEqualTo: _userDocId)
-          .orderBy('createdAt', descending: true)
-          .limit(3)
-          .snapshots(),
+    final currentUser = FirebaseAuth.instance.currentUser;
+
+if (currentUser == null) {
+  return const SizedBox();
+}
+
+final ownerIds = <String>{
+  currentUser.uid,
+  _userDocId,
+}.where((id) => id.trim().isNotEmpty).toList();
+
+return StreamBuilder<QuerySnapshot>(
+  stream: FirebaseFirestore.instance
+      .collection('accidentCase')
+      .where('ownerId', whereIn: ownerIds)
+      .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -1136,9 +1145,30 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
-        final reports = snapshot.data?.docs ?? [];
+final allReports = snapshot.data?.docs ?? [];
 
-        if (reports.isEmpty) {
+final reports = allReports.where((doc) {
+  final data = doc.data() as Map<String, dynamic>;
+  return data['isSubmitted'] == true;
+}).toList();
+
+reports.sort((a, b) {
+  final aData = a.data() as Map<String, dynamic>;
+  final bData = b.data() as Map<String, dynamic>;
+
+  final aTimestamp = aData['createdAt'] as Timestamp?;
+  final bTimestamp = bData['createdAt'] as Timestamp?;
+
+  final aDate =
+      aTimestamp?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0);
+  final bDate =
+      bTimestamp?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+  return bDate.compareTo(aDate);
+});
+
+final latestReports = reports.take(3).toList();
+        if (latestReports.isEmpty) {
           return Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -1148,7 +1178,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: const Center(
               child: Text(
-                'لا توجد تقارير حتى الآن',
+                'لا توجد حالات حتى الآن',
                 textDirection: TextDirection.rtl,
                 style: TextStyle(
                   color: _textMuted,
@@ -1161,8 +1191,8 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         return Column(
-          children: reports.map((doc) {
-            final r = doc.data() as Map<String, dynamic>;
+children: latestReports.map((doc) {
+              final r = doc.data() as Map<String, dynamic>;
             final status = r['status'] ?? '';
             final date = r['createdAt'] != null
                 ? (r['createdAt'] as Timestamp).toDate()
