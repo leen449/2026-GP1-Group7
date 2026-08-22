@@ -658,16 +658,20 @@ decoration: BoxDecoration(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: isSelected
-                    ? _primaryBlue
-                    : _textDark,
-                fontSize: 14,
-                fontWeight: isSelected
-                    ? FontWeight.w800
-                    : FontWeight.w600,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                maxLines: 1,
+                style: TextStyle(
+                  color: isSelected
+                      ? _primaryBlue
+                      : _textDark,
+                  fontSize: 14,
+                  fontWeight: isSelected
+                      ? FontWeight.w800
+                      : FontWeight.w600,
+                ),
               ),
             ),
             const SizedBox(height: 5),
@@ -751,9 +755,11 @@ BoxShadow(
                   
 
                   // نفس Badge المستخدم في الـHome
-                  _historyStatusBadge(
-                    record.status,
-                    isCase: isCase,
+                  Flexible(
+                    child: _historyStatusBadge(
+                      record.status,
+                      isCase: isCase,
+                    ),
                   ),
 
                   const SizedBox(width: 10),
@@ -797,14 +803,18 @@ BoxShadow(
                           mainAxisAlignment:
                               MainAxisAlignment.end,
                           children: [
-                            Text(
-                              _formatArabicDate(
-                                record.createdAt,
-                              ),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: _textDark,
-                                fontWeight: FontWeight.w600,
+                            Flexible(
+                              child: Text(
+                                _formatArabicDate(
+                                  record.createdAt,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: _textDark,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 6),
@@ -959,13 +969,17 @@ icon = Icons.check_circle_outline_rounded;
           color: textColor,
         ),
         const SizedBox(width: 5),
-        Text(
-          displayStatus,
-          textDirection: TextDirection.rtl,
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 12,
-            color: textColor,
+        Flexible(
+          child: Text(
+            displayStatus,
+            textDirection: TextDirection.rtl,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+              color: textColor,
+            ),
           ),
         ),
       ],
