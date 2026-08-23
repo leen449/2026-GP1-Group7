@@ -755,11 +755,9 @@ BoxShadow(
                   
 
                   // نفس Badge المستخدم في الـHome
-                  Flexible(
-                    child: _historyStatusBadge(
-                      record.status,
-                      isCase: isCase,
-                    ),
+                  _historyStatusBadge(
+                    record.status,
+                    isCase: isCase,
                   ),
 
                   const SizedBox(width: 10),
@@ -951,38 +949,44 @@ icon = Icons.check_circle_outline_rounded;
     }
   }
 
-  return Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: 12,
-      vertical: 7,
-    ),
-    decoration: BoxDecoration(
-      color: bgColor,
-      borderRadius: BorderRadius.circular(14),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 15,
-          color: textColor,
-        ),
-        const SizedBox(width: 5),
-        Flexible(
-          child: Text(
-            displayStatus,
-            textDirection: TextDirection.rtl,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 12,
-              color: textColor,
+  return ConstrainedBox(
+    // Caps the badge's own width so an unusually long status string (or a
+    // large accessibility text-scale factor) can't overflow the card row —
+    // without competing for space with the Expanded id/date column next to it.
+    constraints: const BoxConstraints(maxWidth: 150),
+    child: Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 7,
+      ),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 15,
+            color: textColor,
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              displayStatus,
+              textDirection: TextDirection.rtl,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+                color: textColor,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }

@@ -90,7 +90,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       !_isSubmitting;
   // ─────────────────────────────────────────────────────────────────
   //backend URL (used for OCR trigger)
-  static const backendUrl = 'http://192.168.0.15:8000';
+  static const backendUrl = 'http://172.20.10.2:8000';
   // ─────────────────────────────────────────────────────────────────
   @override
   void initState() {

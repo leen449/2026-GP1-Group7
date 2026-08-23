@@ -563,6 +563,13 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
               (caseData['najimReport'] as Map<String, dynamic>?) ?? {};
           final String status = caseData['status']?.toString() ?? '';
 
+          debugPrint(
+            '[caseDebug] caseId=${widget.caseId} rawStatus="$status" '
+            'length=${status.length} runes=${status.runes.toList()} '
+            'matchesLiteral=${status == 'تم المراجعة'} '
+            'reportId=${caseData['reportId']}',
+          );
+
           final String? reportPdfUrl = caseData['reportPdfUrl']?.toString();
           final String? reportNumber = caseData['reportNumber']?.toString();
 

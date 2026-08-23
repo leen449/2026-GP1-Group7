@@ -6,15 +6,23 @@ import '../NavBar/nav_bar.dart';
 class EligibleObjectionCase {
   const EligibleObjectionCase({
     required this.caseId,
-    required this.reportId,
-    required this.issuedAt,
-    required this.totalCost,
+    this.reportId,
+    required this.referenceDate,
+    this.totalCost,
   });
 
   final String caseId;
-  final String reportId;
-  final DateTime issuedAt;
-  final num totalCost;
+  // Null when no report has been generated for this case yet — a case is
+  // objectable as soon as it's reviewed, independent of report creation.
+  final String? reportId;
+  // The report's issued_at when a report exists, otherwise the case's own
+  // createdAt — used for display and list ordering only.
+  final DateTime referenceDate;
+  // The report's total_cost_sar when a report exists, otherwise the case's
+  // own (pre-report) estimatedCostSar if available.
+  final num? totalCost;
+
+  bool get hasReport => reportId != null;
 }
 
 class SubmitObjectionScreen extends StatefulWidget {
@@ -57,7 +65,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   // Loads all cases that are eligible for objection
   // Conditions:
   // Belongs to the current user
-  // Case status is "تم الفحص"
+  // Case status is "تم المراجعة" (report can only be generated at this status)
   // A report exists
   // Report is within the 10-day objection period
   // No previous objection has been submitted
@@ -74,23 +82,68 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         throw Exception('يجب تسجيل الدخول أولًا.');
       }
 
-      // Retrieve all completed cases for the current user
-      final casesSnapshot = await _firestore
-          .collection('accidentCase')
-          .where('ownerId', isEqualTo: currentUser.uid)
-          .where('status', isEqualTo: 'تم الفحص')
-          .get();
+      debugPrint('[objDebug] currentUser.uid = ${currentUser.uid}');
+
+      // Some accidentCase documents save ownerId as the Firebase Auth UID,
+      // others save it as the user's document id inside the users
+      // collection (see the same workaround in history_screen.dart /
+      // home_screen.dart). Collect both possible ids so cases created
+      // through either code path are found.
+      final Set<String> possibleOwnerIds = {currentUser.uid};
+
+      final String? phoneNumber = currentUser.phoneNumber;
+
+      if (phoneNumber != null && phoneNumber.trim().isNotEmpty) {
+        final userQuery = await _firestore
+            .collection('users')
+            .where('phoneNumber', isEqualTo: phoneNumber)
+            .limit(1)
+            .get();
+
+        if (userQuery.docs.isNotEmpty) {
+          possibleOwnerIds.add(userQuery.docs.first.id);
+        }
+      }
+
+      debugPrint('[objDebug] possibleOwnerIds = $possibleOwnerIds');
+
+      // Retrieve all reviewed cases for the current user, across every
+      // possible ownerId, then de-dup by document id.
+      final Map<String, QueryDocumentSnapshot<Map<String, dynamic>>>
+      uniqueCaseDocuments = {};
+
+      for (final ownerId in possibleOwnerIds) {
+        final caseSnapshot = await _firestore
+            .collection('accidentCase')
+            .where('ownerId', isEqualTo: ownerId)
+            .where('status', isEqualTo: 'تم المراجعة')
+            .get();
+
+        for (final document in caseSnapshot.docs) {
+          uniqueCaseDocuments[document.id] = document;
+        }
+      }
+
+      debugPrint(
+        '[objDebug] cases matching possibleOwnerIds+status=تم المراجعة: '
+        '${uniqueCaseDocuments.length}',
+      );
 
       final List<EligibleObjectionCase> eligibleCases = [];
 
       // Loop through each case and validate its eligibility
-      for (final caseDocument in casesSnapshot.docs) {
+      for (final caseDocument in uniqueCaseDocuments.values) {
         final caseData = caseDocument.data();
 
         final String caseId =
             (caseData['caseID'] as String?)?.trim().isNotEmpty == true
             ? caseData['caseID'] as String
             : caseDocument.id;
+
+        debugPrint(
+          '[objDebug] case doc=${caseDocument.id} caseId=$caseId '
+          'rawStatus=${caseData['status']} reportId=${caseData['reportId']}',
+        );
 
         // Check whether an objection already exists
         final existingObjection = await _firestore
@@ -100,56 +153,93 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
             .get();
 
         if (existingObjection.docs.isNotEmpty) {
+          debugPrint('[objDebug] $caseId SKIP: objection already exists');
           continue;
         }
 
-        // Retrieve the report associated with the case
-        final reportSnapshot = await _firestore
-            .collection('reports')
-            .where('caseId', isEqualTo: caseId)
-            .limit(1)
-            .get();
+        // A case is objectable as soon as it's reviewed, whether or not a
+        // report has been generated for it yet. The report is linked from
+        // the case document (reportId) — report documents themselves have
+        // no caseId field, so they must be fetched by id rather than
+        // queried. When present, the 10-day objection window is measured
+        // from the report's issued_at, matching the printed PDF notice;
+        // when absent, there's nothing issued yet to start that clock, so
+        // the case stays eligible.
+        final String? reportId = (caseData['reportId'] as String?)?.trim();
 
-        if (reportSnapshot.docs.isEmpty) {
-          continue;
+        String? resolvedReportId;
+        DateTime? issuedAt;
+        num? totalCost;
+
+        if (reportId != null && reportId.isNotEmpty) {
+          final reportSnapshot = await _firestore
+              .collection('reports')
+              .doc(reportId)
+              .get();
+
+          if (reportSnapshot.exists) {
+            final reportData = reportSnapshot.data() ?? {};
+
+            // issued_at is stored as an ISO date string, not a Timestamp.
+            final String? issuedAtValue = reportData['issued_at'] as String?;
+            issuedAt = issuedAtValue != null
+                ? DateTime.tryParse(issuedAtValue)
+                : null;
+
+            if (issuedAt != null) {
+              final DateTime objectionDeadline = issuedAt.add(
+                const Duration(days: 10),
+              );
+
+              if (DateTime.now().isAfter(objectionDeadline)) {
+                debugPrint(
+                  '[objDebug] $caseId SKIP: deadline passed '
+                  '(issuedAt=$issuedAt)',
+                );
+                continue;
+              }
+            }
+
+            final dynamic totalCostValue = reportData['total_cost_sar'];
+            totalCost = totalCostValue is num ? totalCostValue : null;
+            resolvedReportId = reportSnapshot.id;
+          } else {
+            debugPrint(
+              '[objDebug] $caseId: report doc $reportId not found '
+              '(or not readable) — treating as not-yet-generated',
+            );
+          }
         }
 
-        final reportDocument = reportSnapshot.docs.first;
-        final reportData = reportDocument.data();
+        final DateTime referenceDate =
+            issuedAt ??
+            (caseData['createdAt'] is Timestamp
+                ? (caseData['createdAt'] as Timestamp).toDate()
+                : DateTime.now());
 
-        final dynamic issuedAtValue = reportData['issuedAt'];
+        final num? estimatedCost =
+            totalCost ??
+            (caseData['estimatedCostSar'] is num
+                ? caseData['estimatedCostSar'] as num
+                : null);
 
-        if (issuedAtValue is! Timestamp) {
-          continue;
-        }
-
-        final DateTime issuedAt = issuedAtValue.toDate();
-        final DateTime objectionDeadline = issuedAt.add(
-          const Duration(days: 10),
+        debugPrint(
+          '[objDebug] $caseId ELIGIBLE (hasReport=${resolvedReportId != null})',
         );
-
-        // Skip the case if the objection period has expired
-        if (DateTime.now().isAfter(objectionDeadline)) {
-          continue;
-        }
-
-        final dynamic totalCostValue = reportData['totalCost'];
-
-        final num totalCost = totalCostValue is num ? totalCostValue : 0;
         // Add the eligible case to the display list
         eligibleCases.add(
           EligibleObjectionCase(
             caseId: caseId,
-            reportId: reportDocument.id,
-            issuedAt: issuedAt,
-            totalCost: totalCost,
+            reportId: resolvedReportId,
+            referenceDate: referenceDate,
+            totalCost: estimatedCost,
           ),
         );
       }
 
-      // Sort cases by the newest report first
+      // Sort cases by the newest first
       eligibleCases.sort(
-        (first, second) => second.issuedAt.compareTo(first.issuedAt),
+        (first, second) => second.referenceDate.compareTo(first.referenceDate),
       );
 
       if (!mounted) return;
@@ -159,6 +249,10 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         _isLoading = false;
       });
     } on FirebaseException catch (error) {
+      debugPrint(
+        '[objDebug] FirebaseException: ${error.code} ${error.message}',
+      );
+
       if (!mounted) return;
 
       setState(() {
@@ -249,43 +343,73 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
       final caseData = caseDocument.data();
 
-      if (caseData?['status'] != 'تم الفحص') {
+      if (caseData?['status'] != 'تم المراجعة') {
         throw Exception('لا يمكن تقديم اعتراض لأن حالة الكيس تغيرت.');
       }
 
-      final reportSnapshot = await _firestore
-          .collection('reports')
-          .where('caseId', isEqualTo: _selectedCaseId)
-          .limit(1)
-          .get();
+      // A case is objectable as soon as it's reviewed, whether or not a
+      // report has been generated for it yet. The report is linked from
+      // the case document (reportId) — report documents themselves have
+      // no caseId field, so they must be fetched by id rather than
+      // queried. When there's no report yet, there's nothing to flag under
+      // claim review and no 10-day clock has started, so we just skip
+      // straight to creating the objection.
+      final String? reportId = (caseData?['reportId'] as String?)?.trim();
 
-      if (reportSnapshot.docs.isEmpty) {
-        throw Exception('لم يتم العثور على تقرير لهذه الحالة.');
-      }
+      DocumentSnapshot<Map<String, dynamic>>? reportSnapshot;
 
-      final reportData = reportSnapshot.docs.first.data();
-      final dynamic issuedAtValue = reportData['issuedAt'];
+      if (reportId != null && reportId.isNotEmpty) {
+        final snapshot = await _firestore
+            .collection('reports')
+            .doc(reportId)
+            .get();
 
-      if (issuedAtValue is! Timestamp) {
-        throw Exception('تاريخ إصدار التقرير غير صالح.');
-      }
+        if (snapshot.exists) {
+          final reportData = snapshot.data() ?? {};
 
-      final DateTime issuedAt = issuedAtValue.toDate();
-      final DateTime deadline = issuedAt.add(const Duration(days: 10));
+          // issued_at is stored as an ISO date string, not a Timestamp.
+          final String? issuedAtValue = reportData['issued_at'] as String?;
+          final DateTime? issuedAt = issuedAtValue != null
+              ? DateTime.tryParse(issuedAtValue)
+              : null;
 
-      if (DateTime.now().isAfter(deadline)) {
-        throw Exception('انتهت المدة المحددة لتقديم اعتراض على هذه الحالة.');
+          if (issuedAt != null) {
+            final DateTime deadline = issuedAt.add(const Duration(days: 10));
+
+            if (DateTime.now().isAfter(deadline)) {
+              throw Exception(
+                'انتهت المدة المحددة لتقديم اعتراض على هذه الحالة.',
+              );
+            }
+          }
+
+          reportSnapshot = snapshot;
+        }
       }
 
       final objectionReference = _firestore.collection('objection').doc();
 
-      await objectionReference.set({
+      // Mark the report under claim review atomically with creating the
+      // objection, so one is never written without the other. `status` is
+      // explicitly excluded from the report's signed facts (see
+      // _canonical_facts in report_verification_service.py), so this plain
+      // field update doesn't invalidate the signature. Skipped entirely
+      // when no report exists yet — there's nothing to flag.
+      final batch = _firestore.batch();
+
+      batch.set(objectionReference, {
         'caseId': _selectedCaseId,
         'reason': reason,
         'objectionStatus': 'قيد المراجعة',
         'adminFeedback': '',
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      if (reportSnapshot != null) {
+        batch.update(reportSnapshot.reference, {'status': 'claim_pending'});
+      }
+
+      await batch.commit();
 
       if (!mounted) return;
 
@@ -334,96 +458,85 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         ),
       );
   }
+
   Future<void> _showSuccessDialog() async {
-  await showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (dialogContext) {
-      return Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 28,
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF4CAF50),
-                  shape: BoxShape.circle,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF4CAF50),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check, color: Colors.white, size: 42),
                 ),
-                child: const Icon(
-                  Icons.check,
-                  color: Colors.white,
-                  size: 42,
+
+                const SizedBox(height: 20),
+
+                const Text(
+                  'تم تقديم الاعتراض بنجاح',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: darkTextColor,
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
-              const Text(
-                'تم تقديم الاعتراض بنجاح',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: darkTextColor,
-                ),
-              ),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Close the success dialog.
+                      Navigator.of(dialogContext).pop();
 
-              const SizedBox(height: 24),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // Close the success dialog.
-                    Navigator.of(dialogContext).pop();
-
-                    // Go to the home page 
-                    Navigator.of(
-                      context,
-                      rootNavigator: true,
-                    ).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                        builder: (_) => const AppBottomNav(),
+                      // Go to the home page
+                      Navigator.of(
+                        context,
+                        rootNavigator: true,
+                      ).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const AppBottomNav()),
+                        (route) => false,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
                       ),
-                      (route) => false,
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    minimumSize: const Size(
-                      double.infinity,
-                      48,
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                  ),
-                  child: const Text(
-                    'حسنًا',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                    child: const Text(
+                      'حسنًا',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -664,7 +777,11 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                           ),
                           SizedBox(width: 5),
                           Text(
-                            'تم الفحص',
+                            // Every case in this list was fetched with
+                            // status == 'تم المراجعة' (see _loadEligibleCases),
+                            // so that's its real, current status — not the
+                            // unrelated 'تم الفحص' stage.
+                            'تم المراجعة',
                             style: TextStyle(
                               color: Color(0xFF15803D),
                               fontSize: 13,
@@ -694,9 +811,11 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                     Expanded(
                       child: _buildCardDetail(
                         icon: Icons.calendar_month_outlined,
-                        label: 'تاريخ إصدار التقرير',
+                        label: item.hasReport
+                            ? 'تاريخ إصدار التقرير'
+                            : 'تاريخ المراجعة',
                         value:
-                            '${item.issuedAt.day}/${item.issuedAt.month}/${item.issuedAt.year}',
+                            '${item.referenceDate.day}/${item.referenceDate.month}/${item.referenceDate.year}',
                       ),
                     ),
                     Container(
@@ -707,8 +826,12 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                     Expanded(
                       child: _buildCardDetail(
                         icon: Icons.payments_outlined,
-                        label: 'إجمالي المبلغ',
-                        value: '${item.totalCost} ريال',
+                        label: item.hasReport
+                            ? 'إجمالي المبلغ'
+                            : 'التكلفة التقديرية',
+                        value: item.totalCost != null
+                            ? '${item.totalCost} ريال'
+                            : 'غير متاحة بعد',
                       ),
                     ),
                   ],

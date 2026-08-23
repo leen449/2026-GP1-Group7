@@ -6,7 +6,7 @@ from models.report import ReportInput, UserInfo, VehicleInfo, DamageItem
 from services import report_verification_service as svc
 from services.report_store import InMemoryReportStore
 
-BASE_URL = "http://192.168.0.15:8000"
+BASE_URL = "http://172.20.10.2:8000"
 store = InMemoryReportStore()
 
 # ---- mock finalized case (the fields you listed) ----

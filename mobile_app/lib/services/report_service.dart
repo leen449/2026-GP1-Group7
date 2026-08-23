@@ -31,7 +31,7 @@ class ReportResult {
 class ReportService {
   // نفس عنوان الباك إند.
   // نعدله لاحقًا إذا تغير الـIP أو صار عندكم رابط نشر حقيقي.
-  static const String _baseUrl = 'http://192.168.0.15:8000';
+  static const String _baseUrl = 'http://172.20.10.2:8000';
 
   static Future<ReportResult> generateReport({required String caseId}) async {
     final cleanedCaseId = caseId.trim();
