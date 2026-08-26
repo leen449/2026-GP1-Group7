@@ -44,6 +44,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
   bool _isLoading = true;
   bool _isSubmitting = false;
+  String? _reasonError;
 
   static const Color primaryColor = Color(0xFF1E3A6E);
   static const Color darkTextColor = Color(0xFF111827);
@@ -292,14 +293,18 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     }
 
     if (reason.isEmpty) {
-      _showMessage('يرجى كتابة سبب الاعتراض.', isError: true);
-      return;
-    }
+  setState(() {
+    _reasonError = 'يرجى كتابة سبب الاعتراض.';
+  });
+  return;
+}
 
     if (reason.length < 10) {
-      _showMessage('يرجى توضيح سبب الاعتراض بشكل أكبر.', isError: true);
-      return;
-    }
+  setState(() {
+    _reasonError = 'يرجى توضيح سبب الاعتراض بشكل أوضح.';
+  });
+  return;
+}
 
     setState(() {
       _isSubmitting = true;
@@ -446,18 +451,55 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   }
 
   void _showMessage(String message, {required bool isError}) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message, textAlign: TextAlign.right),
-          backgroundColor: isError
-              ? const Color(0xFFDC2626)
-              : const Color(0xFF16A34A),
-          behavior: SnackBarBehavior.floating,
+  final screenHeight = MediaQuery.of(context).size.height;
+  final topPadding = MediaQuery.of(context).padding.top;
+
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: SizedBox(
+          height: 44,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Transform.translate(
+              offset: const Offset(0, -3),
+              child: Text(
+                message,
+                textAlign: TextAlign.right,
+                textDirection: TextDirection.rtl,
+                style: const TextStyle(
+                  height: 1.0,
+                ),
+              ),
+            ),
+          ),
         ),
-      );
-  }
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 0,
+        ),
+        backgroundColor: isError
+            ? const Color(0xFFDC2626)
+            : const Color(0xFF16A34A),
+        behavior: SnackBarBehavior.floating,
+
+        // Position the message directly below the AppBar
+        margin: EdgeInsets.only(
+          top: topPadding + kToolbarHeight + 35,
+          left: 16,
+          right: 16,
+          bottom:
+              screenHeight -
+              topPadding -
+              kToolbarHeight -
+              70,
+        ),
+
+        duration: const Duration(seconds: 3),
+      ),
+    );
+}
 
   Future<void> _showSuccessDialog() async {
     await showDialog(
@@ -927,40 +969,87 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
   // Builds the objection reason input section
   Widget _buildReasonSection() {
-    return Column(
-      children: [
-        _buildSectionHeader(
-          icon: Icons.chat_bubble_outline_rounded,
-          title: 'سبب الاعتراض',
-          subtitle: '',
-        ),
-        const SizedBox(height: 14),
-        TextField(
-          controller: _reasonController,
-          maxLength: 1000,
-          minLines: 5,
-          maxLines: 7,
-          textAlign: TextAlign.right,
-          textDirection: TextDirection.rtl,
-          decoration: InputDecoration(
-            hintText: 'اكتب سبب اعتراضك هنا...',
-            hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.all(16),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: primaryColor, width: 1.5),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _buildSectionHeader(
+        icon: Icons.chat_bubble_outline_rounded,
+        title: 'سبب الاعتراض',
+        subtitle: '',
+      ),
+
+      // Show the validation message under the section title
+      if (_reasonError != null) ...[
+        const SizedBox(height: 6),
+        Padding(
+          padding: const EdgeInsets.only(right: 54),
+          child: Text(
+            _reasonError!,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              color: Color(0xFFDC2626),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
       ],
-    );
-  }
+
+      const SizedBox(height: 14),
+
+      TextField(
+        controller: _reasonController,
+        maxLength: 1000,
+        minLines: 5,
+        maxLines: 7,
+        textAlign: TextAlign.right,
+        textDirection: TextDirection.rtl,
+
+        // Remove the error as soon as the user starts typing
+        onChanged: (value) {
+          if (_reasonError != null && value.trim().isNotEmpty) {
+            setState(() {
+              _reasonError = null;
+            });
+          }
+        },
+
+        decoration: InputDecoration(
+          hintText: 'اكتب سبب اعتراضك هنا...',
+          hintStyle: const TextStyle(
+            color: Color(0xFF94A3B8),
+            fontSize: 14,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.all(16),
+
+          // Normal border
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: _reasonError != null
+                  ? const Color(0xFFDC2626)
+                  : const Color(0xFFCBD5E1),
+              width: _reasonError != null ? 1.5 : 1,
+            ),
+          ),
+
+          // Border while the user is typing
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: _reasonError != null
+                  ? const Color(0xFFDC2626)
+                  : primaryColor,
+              width: 1.5,
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+}
 
   // Displays a message when no eligible cases are available
   Widget _buildEmptyState() {
