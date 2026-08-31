@@ -21,8 +21,8 @@ class _AppBottomNavState extends State<AppBottomNav> {
   static const List<_NavItemData> _items = [
     _NavItemData(label: 'الرئيسية', icon: Icons.home_rounded),
     _NavItemData(label: 'طلب تقدير', icon: Icons.directions_car),
+    _NavItemData(label: 'تقديم اعتراض', icon: Icons.assignment_outlined),
     _NavItemData(label: 'السجلات', icon: Icons.description_outlined),
-    _NavItemData(label: 'الاعتراضات', icon: Icons.assignment_outlined),
   ];
 
   void _onTap(int index) {
@@ -33,10 +33,10 @@ class _AppBottomNavState extends State<AppBottomNav> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      HomeScreen(onOpenHistory: () => _onTap(2)),
+      HomeScreen(onOpenHistory: () => _onTap(3)),
       const SubmitCaseScreen(),
-      const HistoryScreen(),
       const SubmitObjectionScreen(),
+      const HistoryScreen(),
     ];
 
     return Scaffold(
@@ -82,6 +82,7 @@ class _AppBottomNavState extends State<AppBottomNav> {
                 ],
               ),
               child: Row(
+                textDirection: TextDirection.rtl,
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: List.generate(
                   _items.length,
