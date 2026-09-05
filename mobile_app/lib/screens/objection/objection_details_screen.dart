@@ -4,10 +4,7 @@ import 'package:flutter/material.dart';
 class ObjectionDetailsScreen extends StatelessWidget {
   final String objectionId;
 
-  const ObjectionDetailsScreen({
-    super.key,
-    required this.objectionId,
-  });
+  const ObjectionDetailsScreen({super.key, required this.objectionId});
 
   // نفس ألوان الـ Home بالضبط
   static const Color _pageBg = Color(0xFFF7FAFF);
@@ -56,9 +53,7 @@ class ObjectionDetailsScreen extends StatelessWidget {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
-                child: CircularProgressIndicator(
-                  color: _primaryBlue,
-                ),
+                child: CircularProgressIndicator(color: _primaryBlue),
               );
             }
 
@@ -103,12 +98,13 @@ class ObjectionDetailsScreen extends StatelessWidget {
 
             return SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(18, 14, 18, 30),
-child: Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   // معلومات الاعتراض
                   _sectionCard(
                     title: 'معلومات الاعتراض',
+                    headerWidget: _statusBadge(status),
                     children: [
                       _infoRow(
                         title: 'رقم الاعتراض',
@@ -129,11 +125,6 @@ child: Column(
                         value: _formatDate(createdAt),
                         icon: Icons.calendar_month_outlined,
                       ),
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: _statusBadge(status),
-                      ),
                     ],
                   ),
 
@@ -149,9 +140,7 @@ child: Column(
                         decoration: BoxDecoration(
                           color: _pageBg,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(0xFFE8EEF7),
-                          ),
+                          border: Border.all(color: const Color(0xFFE8EEF7)),
                         ),
                         child: Text(
                           reason.trim().isEmpty
@@ -184,9 +173,7 @@ child: Column(
                               ? const Color(0xFFF7FAFF)
                               : const Color(0xFFEAF1FF),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(0xFFE8EEF7),
-                          ),
+                          border: Border.all(color: const Color(0xFFE8EEF7)),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,7 +189,7 @@ child: Column(
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-child: Text(
+                              child: Text(
                                 adminFeedback.isEmpty
                                     ? 'لم يتم الرد على الاعتراض بعد'
                                     : adminFeedback,
@@ -235,6 +222,7 @@ child: Text(
   Widget _sectionCard({
     required String title,
     required List<Widget> children,
+    Widget? headerWidget,
   }) {
     return Container(
       width: double.infinity,
@@ -242,9 +230,7 @@ child: Text(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFFE8EEF7),
-        ),
+        border: Border.all(color: const Color(0xFFE8EEF7)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.035),
@@ -256,16 +242,28 @@ child: Text(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(
-            title,
+          // Section title and optional status badge
+          Row(
             textDirection: TextDirection.rtl,
-            style: const TextStyle(
-              color: _textDark,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                textAlign: TextAlign.right,
+                textDirection: TextDirection.rtl,
+                style: const TextStyle(
+                  color: _textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+
+              if (headerWidget != null) headerWidget,
+            ],
           ),
+
           const SizedBox(height: 14),
+
           ...children,
         ],
       ),
@@ -280,19 +278,16 @@ child: Text(
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 12,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: _pageBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFE8EEF7),
-        ),
+        border: Border.all(color: const Color(0xFFE8EEF7)),
       ),
       child: Row(
+        textDirection: TextDirection.rtl,
         children: [
+          // Icon on the right
           Container(
             width: 38,
             height: 38,
@@ -300,32 +295,36 @@ child: Text(
               color: Color(0xFFEAF2FF),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              color: _primaryBlue,
-              size: 20,
-            ),
+            child: Icon(icon, color: _primaryBlue, size: 20),
           ),
+
           const SizedBox(width: 11),
+
+          // Title and value
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              textDirection: TextDirection.rtl,
               children: [
                 Text(
                   title,
+                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
                   style: const TextStyle(
                     color: _textMuted,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+
                 const SizedBox(height: 4),
-                Directionality(
-                  textDirection:
-                      ltr ? TextDirection.ltr : TextDirection.rtl,
+
+                SizedBox(
+                  width: double.infinity,
                   child: Text(
                     value.trim().isEmpty ? '—' : value,
                     textAlign: TextAlign.right,
+                    textDirection: ltr ? TextDirection.ltr : TextDirection.rtl,
                     style: const TextStyle(
                       color: _textDark,
                       fontSize: 13,
@@ -348,14 +347,12 @@ child: Text(
     Color bgColor;
     Color textColor;
     IconData icon;
-if (s == 'قيد المراجعة' || s == 'pending') {
+    if (s == 'قيد المراجعة' || s == 'pending') {
       displayStatus = 'قيد المراجعة';
       bgColor = const Color(0xFFEAF1FF);
       textColor = const Color(0xFF2563EB);
       icon = Icons.hourglass_empty_rounded;
-    } else if (s == 'مرفوض' ||
-        s == 'مرفوضة' ||
-        s == 'rejected') {
+    } else if (s == 'مرفوض' || s == 'مرفوضة' || s == 'rejected') {
       displayStatus = 'مرفوض';
       bgColor = const Color(0xFFFFEEF0);
       textColor = Colors.red;
@@ -368,10 +365,7 @@ if (s == 'قيد المراجعة' || s == 'pending') {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 7,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(14),
@@ -379,11 +373,7 @@ if (s == 'قيد المراجعة' || s == 'pending') {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 15,
-            color: textColor,
-          ),
+          Icon(icon, size: 15, color: textColor),
           const SizedBox(width: 5),
           Text(
             displayStatus,
