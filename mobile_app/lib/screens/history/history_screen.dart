@@ -5,21 +5,11 @@ import 'package:flutter/material.dart';
 import '../submit_case/Case_Details_Screen.dart';
 import '../objection/objection_details_screen.dart';
 
-enum HistoryRecordType {
-  caseRecord,
-  objection,
-}
+enum HistoryRecordType { caseRecord, objection }
 
-enum HistoryViewFilter {
-  all,
-  cases,
-  objections,
-}
+enum HistoryViewFilter { all, cases, objections }
 
-enum HistorySortOrder {
-  newestFirst,
-  oldestFirst,
-}
+enum HistorySortOrder { newestFirst, oldestFirst }
 
 class HistoryRecord {
   const HistoryRecord({
@@ -97,9 +87,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
        * لذلك نجمع الاحتمالين حتى تظهر جميع بيانات المستخدم بدون
        * التأثير على الصفحات القديمة أو الجديدة.
        */
-      final Set<String> possibleOwnerIds = {
-        currentUser.uid,
-      };
+      final Set<String> possibleOwnerIds = {currentUser.uid};
 
       final String? phoneNumber = currentUser.phoneNumber;
 
@@ -120,7 +108,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
        * لم نستخدم orderBy حتى لا تحتاج الصفحة Composite Index جديدًا.
        */
       final Map<String, QueryDocumentSnapshot<Map<String, dynamic>>>
-          uniqueCaseDocuments = {};
+      uniqueCaseDocuments = {};
 
       for (final ownerId in possibleOwnerIds) {
         final caseSnapshot = await _firestore
@@ -150,16 +138,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
         }
 
         final String caseId =
-            data['caseID']?.toString().trim().
-
-isNotEmpty == true
-                ? data['caseID'].toString().trim()
-                : document.id;
+            data['caseID']?.toString().trim().isNotEmpty == true
+            ? data['caseID'].toString().trim()
+            : document.id;
 
         final String status =
             data['status']?.toString().trim().isNotEmpty == true
-                ? data['status'].toString().trim()
-                : 'قيد المراجعة';
+            ? data['status'].toString().trim()
+            : 'قيد المراجعة';
 
         final DateTime? createdAt = _timestampToDate(data['createdAt']);
 
@@ -184,14 +170,14 @@ isNotEmpty == true
       final List<HistoryRecord> objectionRecords = [];
 
       if (userCaseIds.isNotEmpty) {
-        final objectionSnapshot =
-            await _firestore.collection('objection').get();
+        final objectionSnapshot = await _firestore
+            .collection('objection')
+            .get();
 
         for (final document in objectionSnapshot.docs) {
           final data = document.data();
 
-          final String relatedCaseId =
-              data['caseId']?.toString().trim() ?? '';
+          final String relatedCaseId = data['caseId']?.toString().trim() ?? '';
 
           if (!userCaseIds.contains(relatedCaseId)) {
             continue;
@@ -199,8 +185,8 @@ isNotEmpty == true
 
           final String status =
               data['objectionStatus']?.toString().trim().isNotEmpty == true
-                  ? data['objectionStatus'].toString().trim()
-                  : 'قيد المراجعة';
+              ? data['objectionStatus'].toString().trim()
+              : 'قيد المراجعة';
 
           objectionRecords.add(
             HistoryRecord(
@@ -230,18 +216,14 @@ isNotEmpty == true
 
       setState(() {
         _isLoading = false;
-        _errorMessage =
-            error.message ?? 'حدث خطأ أثناء تحميل السجلات.';
+        _errorMessage = error.message ?? 'حدث خطأ أثناء تحميل السجلات.';
       });
     } catch (error) {
       if (!mounted) return;
 
       setState(() {
         _isLoading = false;
-        _errorMessage = error
-            .toString()
-            .replaceFirst('Exception: ', '')
-            .trim();
+        _errorMessage = error.toString().replaceFirst('Exception: ', '').trim();
       });
     }
   }
@@ -300,8 +282,7 @@ isNotEmpty == true
       context: context,
       backgroundColor: Colors.transparent,
       builder: (bottomSheetContext) {
-
-return Directionality(
+        return Directionality(
           textDirection: TextDirection.rtl,
           child: Container(
             padding: EdgeInsets.fromLTRB(
@@ -312,9 +293,7 @@ return Directionality(
             ),
             decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(26),
-              ),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -384,19 +363,12 @@ return Directionality(
         onTap: () => Navigator.pop(context, value),
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 13,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
-            color: isSelected
-                ? const Color(0xFFEFF6FF)
-                : _pageBackground,
+            color: isSelected ? const Color(0xFFEFF6FF) : _pageBackground,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isSelected
-                  ? _primaryBlue
-                  : _cardBorder,
+              color: isSelected ? _primaryBlue : _cardBorder,
               width: isSelected ? 1.4 : 1,
             ),
           ),
@@ -409,11 +381,7 @@ return Directionality(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: _primaryBlue,
-                  size: 22,
-                ),
+                child: Icon(icon, color: _primaryBlue, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -429,7 +397,7 @@ return Directionality(
                       ),
                     ),
 
-const SizedBox(height: 3),
+                    const SizedBox(height: 3),
                     Text(
                       subtitle,
                       style: const TextStyle(
@@ -446,9 +414,7 @@ const SizedBox(height: 3),
                 isSelected
                     ? Icons.radio_button_checked_rounded
                     : Icons.radio_button_off_rounded,
-                color: isSelected
-                    ? _primaryBlue
-                    : _textMuted,
+                color: isSelected ? _primaryBlue : _textMuted,
               ),
             ],
           ),
@@ -460,30 +426,24 @@ const SizedBox(height: 3),
   // ─────────────────────────────────────────────────────────────
   // فتح صفحة التفاصيل
   // ─────────────────────────────────────────────────────────────
-  
-void _openRecordDetails(HistoryRecord record) {
-  if (record.type == HistoryRecordType.caseRecord) {
+
+  void _openRecordDetails(HistoryRecord record) {
+    if (record.type == HistoryRecordType.caseRecord) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => CaseDetailsScreen(caseId: record.id)),
+      );
+
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => CaseDetailsScreen(
-          caseId: record.id,
-        ),
+        builder: (_) => ObjectionDetailsScreen(objectionId: record.id),
       ),
     );
-
-    return;
   }
-
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => ObjectionDetailsScreen(
-        objectionId: record.id,
-      ),
-    ),
-  );
-}
 
   @override
   Widget build(BuildContext context) {
@@ -517,12 +477,7 @@ void _openRecordDetails(HistoryRecord record) {
             color: _primaryBlue,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(
-                18,
-                4,
-                18,
-                bottomNavigationSpace,
-              ),
+              padding: EdgeInsets.fromLTRB(18, 4, 18, bottomNavigationSpace),
               children: [
                 const Text(
                   'يمكنك متابعة جميع الحالات والاعتراضات السابقة',
@@ -538,9 +493,7 @@ void _openRecordDetails(HistoryRecord record) {
 
                 Row(
                   children: [
-                    Expanded(
-                      child: _buildCategoryTabs(),
-                    ),
+                    Expanded(child: _buildCategoryTabs()),
                     const SizedBox(width: 10),
 
                     // زر الفلتر أيقونة فقط.
@@ -556,15 +509,12 @@ void _openRecordDetails(HistoryRecord record) {
                             width: 54,
                             height: 54,
 
-decoration: BoxDecoration(
+                            decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: _cardBorder,
-                              ),
+                              border: Border.all(color: _cardBorder),
                               boxShadow: [
                                 BoxShadow(
-                                  color:
-                                      Colors.black.withOpacity(0.035),
+                                  color: Colors.black.withOpacity(0.035),
                                   blurRadius: 12,
                                   offset: const Offset(0, 5),
                                 ),
@@ -650,9 +600,7 @@ decoration: BoxDecoration(
         curve: Curves.easeInOut,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFFEFF6FF)
-              : Colors.transparent,
+          color: isSelected ? const Color(0xFFEFF6FF) : Colors.transparent,
           borderRadius: BorderRadius.circular(13),
         ),
         child: Column(
@@ -664,13 +612,9 @@ decoration: BoxDecoration(
                 title,
                 maxLines: 1,
                 style: TextStyle(
-                  color: isSelected
-                      ? _primaryBlue
-                      : _textDark,
+                  color: isSelected ? _primaryBlue : _textDark,
                   fontSize: 14,
-                  fontWeight: isSelected
-                      ? FontWeight.w800
-                      : FontWeight.w600,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                 ),
               ),
             ),
@@ -694,11 +638,7 @@ decoration: BoxDecoration(
     if (_isLoading) {
       return const Padding(
         padding: EdgeInsets.only(top: 100),
-        child: Center(
-          child: CircularProgressIndicator(
-            color: _primaryBlue,
-          ),
-        ),
+        child: Center(child: CircularProgressIndicator(color: _primaryBlue)),
       );
     }
 
@@ -708,357 +648,318 @@ decoration: BoxDecoration(
 
     final records = _visibleRecords;
 
-if (records.isEmpty) {
+    if (records.isEmpty) {
       return _buildEmptyState();
     }
 
-    return Column(
-      children: records.map(_buildRecordCard).toList(),
-    );
+    return Column(children: records.map(_buildRecordCard).toList());
   }
-Widget _buildRecordCard(HistoryRecord record) {
-  final bool isCase =
-      record.type == HistoryRecordType.caseRecord;
 
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () => _openRecordDetails(record),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: const Color(0xFFE8EEF7),
+  Widget _buildRecordCard(HistoryRecord record) {
+    final bool isCase = record.type == HistoryRecordType.caseRecord;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _openRecordDetails(record),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE8EEF7)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.035),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-          boxShadow: [
-BoxShadow(
-              color: Colors.black.withOpacity(0.035),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Directionality(
-              textDirection: TextDirection.ltr,
-              child: Row(
-                children: [
-                  // نفس سهم الـHome ورأسه لليسار
-                  
+          child: Column(
+            children: [
+              Directionality(
+                textDirection: TextDirection.ltr,
+                child: Row(
+                  children: [
+                    // نفس سهم الـHome ورأسه لليسار
 
-                  // نفس Badge المستخدم في الـHome
-                  _historyStatusBadge(
-                    record.status,
-                    isCase: isCase,
-                  ),
+                    // نفس Badge المستخدم في الـHome
+                    _historyStatusBadge(record.status, isCase: isCase),
 
-                  const SizedBox(width: 10),
+                    const SizedBox(width: 10),
 
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          isCase
-                              ? 'رقم الحالة'
-                              : 'رقم الاعتراض',
-                          textDirection: TextDirection.ltr,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: _textMuted,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-
-                        const SizedBox(height: 3),
-
-                        Directionality(
-                          textDirection: TextDirection.ltr,
-                          child: Text(
-                            record.id,
-                            textAlign: TextAlign.right,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            isCase ? 'رقم الحالة' : 'رقم الاعتراض',
+                            textDirection: TextDirection.ltr,
                             style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: _textDark,
+                              fontSize: 12,
+                              color: _textMuted,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
 
-                        const SizedBox(height: 6),
+                          const SizedBox(height: 3),
 
-                        Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment.end,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                _formatArabicDate(
-                                  record.createdAt,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: _textDark,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                          Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: Text(
+                              record.id,
+                              textAlign: TextAlign.right,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: _textDark,
                               ),
                             ),
-                            const SizedBox(width: 6),
+                          ),
 
-                            // أيقونة تقويم  
-                            const Icon(
-                              Icons.calendar_month_outlined,
-                              size: 16,
-                              color: _textMuted,
-                            ),
-                          ],
+                          const SizedBox(height: 6),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  _formatArabicDate(record.createdAt),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: _textDark,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+
+                              // أيقونة تقويم
+                              const Icon(
+                                Icons.calendar_month_outlined,
+                                size: 16,
+                                color: _textMuted,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 10),
+
+                    // نفس شكل الأيقونة الدائرية في الـHome
+                    _historyRecordIcon(record.status, isCase: isCase),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // زر عرض التفاصيل
+              Align(
+                alignment: Alignment.centerLeft,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => _openRecordDetails(record),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      textDirection: TextDirection.ltr,
+                      children: [
+                        Text(
+                          'عرض التفاصيل',
+                          textDirection: TextDirection.rtl,
+                          style: TextStyle(
+                            color: _primaryBlue,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: _primaryBlue,
+                        ),
+                        SizedBox(width: 6),
                       ],
                     ),
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-                  const SizedBox(width: 10),
+  Widget _historyStatusBadge(String status, {required bool isCase}) {
+    final s = status.trim();
 
-                  // نفس شكل الأيقونة الدائرية في الـHome
-                  _historyRecordIcon(
-                    record.status,
-                    isCase: isCase,
-                  ),
-                ],
+    String displayStatus;
+    Color bgColor;
+    Color textColor;
+    IconData icon;
+
+    if (isCase) {
+      // Internal processing statuses are hidden from the user.
+      // They are all displayed as "قيد المراجعة" until the admin approves the case.
+      if (s == 'قيد المراجعة' ||
+          s == 'قيد التحليل' ||
+          s == 'تم الفحص' ||
+          s == 'pending' ||
+          s == 'مكتمل' ||
+          s == 'approved' ||
+          s == 'completed') {
+        displayStatus = 'قيد المراجعة';
+        bgColor = const Color(0xFFEAF1FF);
+        textColor = const Color(0xFF2563EB);
+        icon = Icons.hourglass_empty_rounded;
+      } else if (s == 'تم المراجعة' || s == 'valid') {
+        // The case is shown as reviewed only after admin approval.
+        displayStatus = 'تم المراجعة';
+        bgColor = const Color(0xFFDCFCE7);
+        textColor = Colors.green;
+        icon = Icons.check;
+      } else if (s == 'فشل الفحص' || s == 'ocr_failed') {
+        // Inspection failure is shown to the user because it requires attention.
+        displayStatus = 'فشل الفحص';
+        bgColor = const Color(0xFFFFEEF0);
+        textColor = Colors.red;
+        icon = Icons.gpp_bad_outlined;
+      } else {
+        // Any unknown internal status is safely displayed as under review.
+        displayStatus = 'قيد المراجعة';
+        bgColor = const Color(0xFFEAF1FF);
+        textColor = const Color(0xFF2563EB);
+        icon = Icons.hourglass_empty_rounded;
+      }
+    } else {
+      // الاعتراضات بنفس Palette وأسلوب الـHome
+      if (s == 'قيد المراجعة' || s == 'pending') {
+        displayStatus = 'قيد المراجعة';
+        bgColor = const Color(0xFFEAF1FF);
+        textColor = const Color(0xFF2563EB);
+        icon = Icons.hourglass_empty_rounded;
+      } else if (s == 'مرفوض' || s == 'مرفوضة' || s == 'rejected') {
+        displayStatus = 'مرفوض';
+        bgColor = const Color(0xFFFFEEF0);
+        textColor = Colors.red;
+        icon = Icons.gpp_bad_outlined;
+      } else {
+        displayStatus = s.isEmpty ? 'تمت المعالجة' : s;
+        bgColor = const Color(0xFFDCFCE7);
+        textColor = Colors.green;
+        icon = Icons.check;
+      }
+    }
+
+    return ConstrainedBox(
+      // Caps the badge's own width so an unusually long status string (or a
+      // large accessibility text-scale factor) can't overflow the card row —
+      // without competing for space with the Expanded id/date column next to it.
+      constraints: const BoxConstraints(maxWidth: 150),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: textColor),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                displayStatus,
+                textDirection: TextDirection.rtl,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  color: textColor,
+                ),
               ),
             ),
-
-            const SizedBox(height: 12),
-
-            // زر عرض التفاصيل
-            Align(
-  alignment: Alignment.centerLeft,
-  child: InkWell(
-    borderRadius: BorderRadius.circular(20),
-    onTap: () => _openRecordDetails(record),
-    child: const Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 4,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        textDirection: TextDirection.ltr,
-        children: [
-          Text(
-            'عرض التفاصيل',
-            textDirection: TextDirection.rtl,
-            style: TextStyle(
-              color: _primaryBlue,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          Icon(
-            Icons.chevron_right_rounded,
-            size: 20,
-            color: _primaryBlue,
-          ),
-          SizedBox(width: 6),
-          
-        ],
-      ),
-    ),
-  ),
-),
           ],
         ),
       ),
-    ),
-  );
-}
-Widget _historyStatusBadge(
-  String status, {
-  required bool isCase,
-}) {
-  final s = status.trim();
-
-  String displayStatus;
-  Color bgColor;
-  Color textColor;
-  IconData icon;
-
-  if (isCase) {
-    // نفس الحالات والألوان والأيقونات الموجودة في Home
-    if (s == 'مكتمل' ||
-        s == 'تم الفحص' ||
-        s == 'approved' ||
-        s == 'completed') {
-      displayStatus = 'تم الفحص';
-bgColor = const Color(0xFFDCFCE7);
-textColor = const Color(0xFF16A34A);
-icon = Icons.check_circle_outline_rounded;
-    } else if (s == 'قيد المراجعة' || s == 'pending') {
-      displayStatus = 'قيد المراجعة';
-      bgColor = const Color(0xFFEAF1FF);
-      textColor = const Color(0xFF2563EB);
-      icon = Icons.hourglass_empty_rounded;
-    } else if (s == 'فشل الفحص' || s == 'ocr_failed') {
-      displayStatus = 'فشل الفحص';
-      bgColor = const Color(0xFFFFEEF0);
-      textColor = Colors.red;
-      icon = Icons.gpp_bad_outlined;
-    } else if (s == 'تم المراجعة' || s == 'valid') {
-      displayStatus = 'تم المراجعة';
-      bgColor = const Color(0xFFDCFCE7);
-      textColor = Colors.green;
-      icon = Icons.check;
-    } else {
-      displayStatus = 'قيد التحليل';
-      bgColor = const Color(0xFFFFF1E6);
-      textColor = const Color(0xFFE27A2E);
-      icon = Icons.access_time_rounded;
-    }
-  } else {
-    // الاعتراضات بنفس Palette وأسلوب الـHome
-    if (s == 'قيد المراجعة' || s == 'pending') {
-      displayStatus = 'قيد المراجعة';
-      bgColor = const Color(0xFFEAF1FF);
-      textColor = const Color(0xFF2563EB);
-      icon = Icons.hourglass_empty_rounded;
-    } else if (s == 'مرفوض' ||
-        s == 'مرفوضة' ||
-        s == 'rejected') {
-      displayStatus = 'مرفوض';
-      bgColor = const Color(0xFFFFEEF0);
-      textColor = Colors.red;
-      icon = Icons.gpp_bad_outlined;
-    } else {
-      displayStatus =
-          s.isEmpty ? 'تمت المعالجة' : s;
-      bgColor = const Color(0xFFDCFCE7);
-      textColor = Colors.green;
-      icon = Icons.check;
-    }
+    );
   }
 
-  return ConstrainedBox(
-    // Caps the badge's own width so an unusually long status string (or a
-    // large accessibility text-scale factor) can't overflow the card row —
-    // without competing for space with the Expanded id/date column next to it.
-    constraints: const BoxConstraints(maxWidth: 150),
-    child: Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 15,
-            color: textColor,
-          ),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              displayStatus,
-              textDirection: TextDirection.rtl,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
-                color: textColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-Widget _historyRecordIcon(
-  String status, {
-  required bool isCase,
-}) {
-  final s = status.trim();
+  Widget _historyRecordIcon(String status, {required bool isCase}) {
+    final s = status.trim();
 
-  Color bgColor;
-  Color iconColor;
-  IconData icon;
+    Color bgColor;
+    Color iconColor;
+    IconData icon;
 
-  if (!isCase) {
-    if (s == 'قيد المراجعة' || s == 'pending') {
-      bgColor = const Color(0xFFEAF1FF);
-      iconColor = const Color(0xFF2E63D9);
-      icon = Icons.assignment_outlined;
-    } else if (s == 'مرفوض' ||
-        s == 'مرفوضة' ||
-        s == 'rejected') {
-bgColor = const Color(0xFFFFEEF0);
-      iconColor = Colors.red;
-      icon = Icons.gpp_bad_outlined;
+    if (!isCase) {
+      // Objection statuses
+      if (s == 'قيد المراجعة' || s == 'pending') {
+        bgColor = const Color(0xFFEAF1FF);
+        iconColor = const Color(0xFF2E63D9);
+        icon = Icons.assignment_outlined;
+      } else if (s == 'مرفوض' || s == 'مرفوضة' || s == 'rejected') {
+        bgColor = const Color(0xFFFFEEF0);
+        iconColor = Colors.red;
+        icon = Icons.gpp_bad_outlined;
+      } else {
+        bgColor = const Color(0xFFDCFCE7);
+        iconColor = Colors.green;
+        icon = Icons.check_circle_outline_rounded;
+      }
     } else {
-      bgColor = const Color(0xFFDCFCE7);
-      iconColor = Colors.green;
-      icon = Icons.check_circle_outline_rounded;
+      // Case statuses
+
+      // Internal processing statuses are shown to the user
+      // with the same "under review" appearance.
+      if (s == 'قيد المراجعة' ||
+          s == 'قيد التحليل' ||
+          s == 'تم الفحص' ||
+          s == 'pending' ||
+          s == 'مكتمل' ||
+          s == 'approved' ||
+          s == 'completed') {
+        bgColor = const Color(0xFFEAF1FF);
+        iconColor = const Color(0xFF2E63D9);
+        icon = Icons.search_rounded;
+      } else if (s == 'تم المراجعة' || s == 'valid') {
+        // The reviewed appearance is shown only after admin approval.
+        bgColor = const Color(0xFFDCFCE7);
+        iconColor = Colors.green;
+        icon = Icons.check_circle_outline_rounded;
+      } else if (s == 'فشل الفحص' || s == 'ocr_failed') {
+        // Inspection failure remains visible to the user.
+        bgColor = const Color(0xFFFFEEF0);
+        iconColor = Colors.red;
+        icon = Icons.gpp_bad_outlined;
+      } else {
+        // Unknown internal case statuses default to "under review".
+        bgColor = const Color(0xFFEAF1FF);
+        iconColor = const Color(0xFF2E63D9);
+        icon = Icons.search_rounded;
+      }
     }
-  } else if (s == 'مكتمل' ||
-      s == 'تم الفحص' ||
-      s == 'approved' ||
-      s == 'completed') {
-    bgColor = const Color(0xFFDCFCE7);
-    iconColor = const Color(0xFF16A34A);
-    
-    icon = Icons.verified_user_outlined;
-  } else if (s == 'قيد المراجعة' || s == 'pending') {
-    bgColor = const Color(0xFFEAF1FF);
-    iconColor = const Color(0xFF2E63D9);
-    icon = Icons.search_rounded;
-  } else if (s == 'فشل الفحص' || s == 'ocr_failed') {
-    bgColor = const Color(0xFFFFEEF0);
-    iconColor = Colors.red;
-    icon = Icons.gpp_bad_outlined;
-  } else if (s == 'تم المراجعة' || s == 'valid') {
-    bgColor = const Color(0xFFDCFCE7);
-    iconColor = Colors.green;
-    icon = Icons.check_circle_outline_rounded;
-  } else {
-    bgColor = const Color(0xFFFFF1E6);
-    iconColor = const Color(0xFFE27A2E);
-    icon = Icons.description_outlined;
+
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+      child: Icon(icon, color: iconColor, size: 25),
+    );
   }
-
-  return Container(
-    width: 46,
-    height: 46,
-    decoration: BoxDecoration(
-      color: bgColor,
-      shape: BoxShape.circle,
-    ),
-    child: Icon(
-      icon,
-      color: iconColor,
-      size: 25,
-    ),
-  );
-}
-
-
-  
 
   String _formatArabicDate(DateTime? date) {
     if (date == null) {
@@ -1090,8 +991,7 @@ bgColor = const Color(0xFFFFEEF0);
     switch (_selectedView) {
       case HistoryViewFilter.all:
         title = 'لا توجد سجلات';
-        subtitle =
-            'ستظهر هنا الحالات والاعتراضات التي قمت بتقديمها.';
+        subtitle = 'ستظهر هنا الحالات والاعتراضات التي قمت بتقديمها.';
         break;
 
       case HistoryViewFilter.cases:
@@ -1108,10 +1008,7 @@ bgColor = const Color(0xFFFFEEF0);
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 60),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 34,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 34),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(19),
@@ -1120,8 +1017,7 @@ bgColor = const Color(0xFFFFEEF0);
       child: Column(
         children: [
           Container(
-
-width: 62,
+            width: 62,
             height: 62,
             decoration: const BoxDecoration(
               color: Color(0xFFEFF6FF),
@@ -1162,10 +1058,7 @@ width: 62,
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 60),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 30,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(19),
@@ -1206,10 +1099,7 @@ width: 62,
               backgroundColor: _navy,
               foregroundColor: Colors.white,
               elevation: 0,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(13),
               ),
@@ -1220,4 +1110,3 @@ width: 62,
     );
   }
 }
-
