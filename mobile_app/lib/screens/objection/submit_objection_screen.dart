@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -12,14 +14,8 @@ class EligibleObjectionCase {
   });
 
   final String caseId;
-  // Null when no report has been generated for this case yet — a case is
-  // objectable as soon as it's reviewed, independent of report creation.
   final String? reportId;
-  // The report's issued_at when a report exists, otherwise the case's own
-  // createdAt — used for display and list ordering only.
   final DateTime referenceDate;
-  // The report's total_cost_sar when a report exists, otherwise the case's
-  // own (pre-report) estimatedCostSar if available.
   final num? totalCost;
 
   bool get hasReport => reportId != null;
@@ -29,7 +25,8 @@ class SubmitObjectionScreen extends StatefulWidget {
   const SubmitObjectionScreen({super.key});
 
   @override
-  State<SubmitObjectionScreen> createState() => _SubmitObjectionScreenState();
+  State<SubmitObjectionScreen> createState() =>
+      _SubmitObjectionScreenState();
 }
 
 class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
@@ -37,14 +34,22 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final TextEditingController _reasonController = TextEditingController();
-  // List of cases eligible for objection
+
   List<EligibleObjectionCase> _eligibleCases = [];
 
   String? _selectedCaseId;
 
   bool _isLoading = true;
   bool _isSubmitting = false;
+
   String? _reasonError;
+
+  // Real-time listeners
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+      _casesSubscription;
+
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+      _objectionsSubscription;
 
   static const Color primaryColor = Color(0xFF1E3A6E);
   static const Color darkTextColor = Color(0xFF111827);
@@ -54,29 +59,49 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Load cases when the page opens
     _loadEligibleCases();
+
+    // Automatically refresh when accident cases change
+    _casesSubscription = _firestore
+        .collection('accidentCase')
+        .snapshots()
+        .listen((_) {
+      if (mounted) {
+        _loadEligibleCases();
+      }
+    });
+
+    // Automatically refresh when objections change
+    _objectionsSubscription = _firestore
+        .collection('objection')
+        .snapshots()
+        .listen((_) {
+      if (mounted) {
+        _loadEligibleCases();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _casesSubscription?.cancel();
+    _objectionsSubscription?.cancel();
+
     _reasonController.dispose();
+
     super.dispose();
   }
 
-  // Loads all cases that are eligible for objection
-  // Conditions:
-  // Belongs to the current user
-  // Case status is "تم المراجعة" (report can only be generated at this status)
-  // A report exists
-  // Report is within the 10-day objection period
-  // No previous objection has been submitted
   Future<void> _loadEligibleCases() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Get the currently authenticated user
       final currentUser = _auth.currentUser;
 
       if (currentUser == null) {
@@ -85,39 +110,48 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
       debugPrint('[objDebug] currentUser.uid = ${currentUser.uid}');
 
-      // Some accidentCase documents save ownerId as the Firebase Auth UID,
-      // others save it as the user's document id inside the users
-      // collection (see the same workaround in history_screen.dart /
-      // home_screen.dart). Collect both possible ids so cases created
-      // through either code path are found.
-      final Set<String> possibleOwnerIds = {currentUser.uid};
+      final Set<String> possibleOwnerIds = {
+        currentUser.uid,
+      };
 
       final String? phoneNumber = currentUser.phoneNumber;
 
       if (phoneNumber != null && phoneNumber.trim().isNotEmpty) {
         final userQuery = await _firestore
             .collection('users')
-            .where('phoneNumber', isEqualTo: phoneNumber)
+            .where(
+              'phoneNumber',
+              isEqualTo: phoneNumber,
+            )
             .limit(1)
             .get();
 
         if (userQuery.docs.isNotEmpty) {
-          possibleOwnerIds.add(userQuery.docs.first.id);
+          possibleOwnerIds.add(
+            userQuery.docs.first.id,
+          );
         }
       }
 
-      debugPrint('[objDebug] possibleOwnerIds = $possibleOwnerIds');
+      debugPrint(
+        '[objDebug] possibleOwnerIds = $possibleOwnerIds',
+      );
 
-      // Retrieve all reviewed cases for the current user, across every
-      // possible ownerId, then de-dup by document id.
-      final Map<String, QueryDocumentSnapshot<Map<String, dynamic>>>
-      uniqueCaseDocuments = {};
+      final Map<
+          String,
+          QueryDocumentSnapshot<Map<String, dynamic>>> uniqueCaseDocuments = {};
 
       for (final ownerId in possibleOwnerIds) {
         final caseSnapshot = await _firestore
             .collection('accidentCase')
-            .where('ownerId', isEqualTo: ownerId)
-            .where('status', isEqualTo: 'تم المراجعة')
+            .where(
+              'ownerId',
+              isEqualTo: ownerId,
+            )
+            .where(
+              'status',
+              isEqualTo: 'تم المراجعة',
+            )
             .get();
 
         for (final document in caseSnapshot.docs) {
@@ -132,41 +166,40 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
       final List<EligibleObjectionCase> eligibleCases = [];
 
-      // Loop through each case and validate its eligibility
       for (final caseDocument in uniqueCaseDocuments.values) {
         final caseData = caseDocument.data();
 
         final String caseId =
             (caseData['caseID'] as String?)?.trim().isNotEmpty == true
-            ? caseData['caseID'] as String
-            : caseDocument.id;
+                ? caseData['caseID'] as String
+                : caseDocument.id;
 
         debugPrint(
-          '[objDebug] case doc=${caseDocument.id} caseId=$caseId '
-          'rawStatus=${caseData['status']} reportId=${caseData['reportId']}',
+          '[objDebug] case doc=${caseDocument.id} '
+          'caseId=$caseId '
+          'rawStatus=${caseData['status']} '
+          'reportId=${caseData['reportId']}',
         );
 
-        // Check whether an objection already exists
         final existingObjection = await _firestore
             .collection('objection')
-            .where('caseId', isEqualTo: caseId)
+            .where(
+              'caseId',
+              isEqualTo: caseId,
+            )
             .limit(1)
             .get();
 
         if (existingObjection.docs.isNotEmpty) {
-          debugPrint('[objDebug] $caseId SKIP: objection already exists');
+          debugPrint(
+            '[objDebug] $caseId SKIP: objection already exists',
+          );
+
           continue;
         }
 
-        // A case is objectable as soon as it's reviewed, whether or not a
-        // report has been generated for it yet. The report is linked from
-        // the case document (reportId) — report documents themselves have
-        // no caseId field, so they must be fetched by id rather than
-        // queried. When present, the 10-day objection window is measured
-        // from the report's issued_at, matching the printed PDF notice;
-        // when absent, there's nothing issued yet to start that clock, so
-        // the case stays eligible.
-        final String? reportId = (caseData['reportId'] as String?)?.trim();
+        final String? reportId =
+            (caseData['reportId'] as String?)?.trim();
 
         String? resolvedReportId;
         DateTime? issuedAt;
@@ -181,8 +214,9 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           if (reportSnapshot.exists) {
             final reportData = reportSnapshot.data() ?? {};
 
-            // issued_at is stored as an ISO date string, not a Timestamp.
-            final String? issuedAtValue = reportData['issued_at'] as String?;
+            final String? issuedAtValue =
+                reportData['issued_at'] as String?;
+
             issuedAt = issuedAtValue != null
                 ? DateTime.tryParse(issuedAtValue)
                 : null;
@@ -197,12 +231,17 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                   '[objDebug] $caseId SKIP: deadline passed '
                   '(issuedAt=$issuedAt)',
                 );
+
                 continue;
               }
             }
 
-            final dynamic totalCostValue = reportData['total_cost_sar'];
-            totalCost = totalCostValue is num ? totalCostValue : null;
+            final dynamic totalCostValue =
+                reportData['total_cost_sar'];
+
+            totalCost =
+                totalCostValue is num ? totalCostValue : null;
+
             resolvedReportId = reportSnapshot.id;
           } else {
             debugPrint(
@@ -212,22 +251,21 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           }
         }
 
-        final DateTime referenceDate =
-            issuedAt ??
+        final DateTime referenceDate = issuedAt ??
             (caseData['createdAt'] is Timestamp
                 ? (caseData['createdAt'] as Timestamp).toDate()
                 : DateTime.now());
 
-        final num? estimatedCost =
-            totalCost ??
+        final num? estimatedCost = totalCost ??
             (caseData['estimatedCostSar'] is num
                 ? caseData['estimatedCostSar'] as num
                 : null);
 
         debugPrint(
-          '[objDebug] $caseId ELIGIBLE (hasReport=${resolvedReportId != null})',
+          '[objDebug] $caseId ELIGIBLE '
+          '(hasReport=${resolvedReportId != null})',
         );
-        // Add the eligible case to the display list
+
         eligibleCases.add(
           EligibleObjectionCase(
             caseId: caseId,
@@ -238,9 +276,9 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         );
       }
 
-      // Sort cases by the newest first
       eligibleCases.sort(
-        (first, second) => second.referenceDate.compareTo(first.referenceDate),
+        (first, second) =>
+            second.referenceDate.compareTo(first.referenceDate),
       );
 
       if (!mounted) return;
@@ -248,10 +286,20 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       setState(() {
         _eligibleCases = eligibleCases;
         _isLoading = false;
+
+        // If the currently selected case is no longer eligible,
+        // remove the selection automatically.
+        if (_selectedCaseId != null &&
+            !_eligibleCases.any(
+              (item) => item.caseId == _selectedCaseId,
+            )) {
+          _selectedCaseId = null;
+        }
       });
     } on FirebaseException catch (error) {
       debugPrint(
-        '[objDebug] FirebaseException: ${error.code} ${error.message}',
+        '[objDebug] FirebaseException: '
+        '${error.code} ${error.message}',
       );
 
       if (!mounted) return;
@@ -272,39 +320,49 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       });
 
       _showMessage(
-        error.toString().replaceFirst('Exception: ', ''),
+        error
+            .toString()
+            .replaceFirst(
+              'Exception: ',
+              '',
+            ),
         isError: true,
       );
     }
   }
 
-  // Validates the input and submits a new objection to Firestore
   Future<void> _submitObjection() async {
     FocusScope.of(context).unfocus();
 
-    final String reason = _reasonController.text.trim();
+    final String reason =
+        _reasonController.text.trim();
 
     if (_selectedCaseId == null) {
       _showMessage(
         'يرجى اختيار الحالة التي تريد الاعتراض عليها.',
         isError: true,
       );
+
       return;
     }
 
     if (reason.isEmpty) {
-  setState(() {
-    _reasonError = 'يرجى كتابة سبب الاعتراض.';
-  });
-  return;
-}
+      setState(() {
+        _reasonError =
+            'يرجى كتابة سبب الاعتراض.';
+      });
+
+      return;
+    }
 
     if (reason.length < 10) {
-  setState(() {
-    _reasonError = 'يرجى توضيح سبب الاعتراض بشكل أوضح.';
-  });
-  return;
-}
+      setState(() {
+        _reasonError =
+            'يرجى توضيح سبب الاعتراض بشكل أوضح.';
+      });
+
+      return;
+    }
 
     setState(() {
       _isSubmitting = true;
@@ -313,17 +371,25 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     try {
       final existingObjection = await _firestore
           .collection('objection')
-          .where('caseId', isEqualTo: _selectedCaseId)
+          .where(
+            'caseId',
+            isEqualTo: _selectedCaseId,
+          )
           .limit(1)
           .get();
 
       if (existingObjection.docs.isNotEmpty) {
-        throw Exception('سبق تقديم اعتراض على هذه الحالة.');
+        throw Exception(
+          'سبق تقديم اعتراض على هذه الحالة.',
+        );
       }
 
       final caseQuery = await _firestore
           .collection('accidentCase')
-          .where('caseID', isEqualTo: _selectedCaseId)
+          .where(
+            'caseID',
+            isEqualTo: _selectedCaseId,
+          )
           .limit(1)
           .get();
 
@@ -342,28 +408,28 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         }
       }
 
-      if (caseDocument == null || !caseDocument.exists) {
-        throw Exception('لم يتم العثور على الحالة المحددة.');
+      if (caseDocument == null ||
+          !caseDocument.exists) {
+        throw Exception(
+          'لم يتم العثور على الحالة المحددة.',
+        );
       }
 
       final caseData = caseDocument.data();
 
       if (caseData?['status'] != 'تم المراجعة') {
-        throw Exception('لا يمكن تقديم اعتراض لأن حالة الكيس تغيرت.');
+        throw Exception(
+          'لا يمكن تقديم اعتراض لأن حالة الكيس تغيرت.',
+        );
       }
 
-      // A case is objectable as soon as it's reviewed, whether or not a
-      // report has been generated for it yet. The report is linked from
-      // the case document (reportId) — report documents themselves have
-      // no caseId field, so they must be fetched by id rather than
-      // queried. When there's no report yet, there's nothing to flag under
-      // claim review and no 10-day clock has started, so we just skip
-      // straight to creating the objection.
-      final String? reportId = (caseData?['reportId'] as String?)?.trim();
+      final String? reportId =
+          (caseData?['reportId'] as String?)?.trim();
 
       DocumentSnapshot<Map<String, dynamic>>? reportSnapshot;
 
-      if (reportId != null && reportId.isNotEmpty) {
+      if (reportId != null &&
+          reportId.isNotEmpty) {
         final snapshot = await _firestore
             .collection('reports')
             .doc(reportId)
@@ -372,16 +438,25 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         if (snapshot.exists) {
           final reportData = snapshot.data() ?? {};
 
-          // issued_at is stored as an ISO date string, not a Timestamp.
-          final String? issuedAtValue = reportData['issued_at'] as String?;
-          final DateTime? issuedAt = issuedAtValue != null
-              ? DateTime.tryParse(issuedAtValue)
-              : null;
+          final String? issuedAtValue =
+              reportData['issued_at'] as String?;
+
+          final DateTime? issuedAt =
+              issuedAtValue != null
+                  ? DateTime.tryParse(
+                      issuedAtValue,
+                    )
+                  : null;
 
           if (issuedAt != null) {
-            final DateTime deadline = issuedAt.add(const Duration(days: 10));
+            final DateTime deadline =
+                issuedAt.add(
+              const Duration(days: 10),
+            );
 
-            if (DateTime.now().isAfter(deadline)) {
+            if (DateTime.now().isAfter(
+              deadline,
+            )) {
               throw Exception(
                 'انتهت المدة المحددة لتقديم اعتراض على هذه الحالة.',
               );
@@ -392,26 +467,29 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         }
       }
 
-      final objectionReference = _firestore.collection('objection').doc();
+      final objectionReference =
+          _firestore.collection('objection').doc();
 
-      // Mark the report under claim review atomically with creating the
-      // objection, so one is never written without the other. `status` is
-      // explicitly excluded from the report's signed facts (see
-      // _canonical_facts in report_verification_service.py), so this plain
-      // field update doesn't invalidate the signature. Skipped entirely
-      // when no report exists yet — there's nothing to flag.
       final batch = _firestore.batch();
 
-      batch.set(objectionReference, {
-        'caseId': _selectedCaseId,
-        'reason': reason,
-        'objectionStatus': 'قيد المراجعة',
-        'adminFeedback': '',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      batch.set(
+        objectionReference,
+        {
+          'caseId': _selectedCaseId,
+          'reason': reason,
+          'objectionStatus': 'قيد المراجعة',
+          'adminFeedback': '',
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+      );
 
       if (reportSnapshot != null) {
-        batch.update(reportSnapshot.reference, {'status': 'claim_pending'});
+        batch.update(
+          reportSnapshot.reference,
+          {
+            'status': 'claim_pending',
+          },
+        );
       }
 
       await batch.commit();
@@ -420,12 +498,15 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
       _showSuccessDialog();
 
-      // Remove the submitted case from the eligible list
       setState(() {
-        _eligibleCases.removeWhere((item) => item.caseId == _selectedCaseId);
+        _eligibleCases.removeWhere(
+          (item) =>
+              item.caseId == _selectedCaseId,
+        );
 
         _selectedCaseId = null;
         _reasonController.clear();
+        _reasonError = null;
         _isSubmitting = false;
       });
     } on FirebaseException catch (error) {
@@ -435,7 +516,10 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         _isSubmitting = false;
       });
 
-      _showMessage(error.message ?? 'تعذر تقديم الاعتراض.', isError: true);
+      _showMessage(
+        error.message ?? 'تعذر تقديم الاعتراض.',
+        isError: true,
+      );
     } catch (error) {
       if (!mounted) return;
 
@@ -444,62 +528,74 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       });
 
       _showMessage(
-        error.toString().replaceFirst('Exception: ', ''),
+        error
+            .toString()
+            .replaceFirst(
+              'Exception: ',
+              '',
+            ),
         isError: true,
       );
     }
   }
 
-  void _showMessage(String message, {required bool isError}) {
-  final screenHeight = MediaQuery.of(context).size.height;
-  final topPadding = MediaQuery.of(context).padding.top;
+  void _showMessage(
+    String message, {
+    required bool isError,
+  }) {
+    final screenHeight =
+        MediaQuery.of(context).size.height;
 
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: SizedBox(
-          height: 44,
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Transform.translate(
-              offset: const Offset(0, -3),
-              child: Text(
-                message,
-                textAlign: TextAlign.right,
-                textDirection: TextDirection.rtl,
-                style: const TextStyle(
-                  height: 1.0,
+    final topPadding =
+        MediaQuery.of(context).padding.top;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: SizedBox(
+            height: 44,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Transform.translate(
+                offset: const Offset(0, -3),
+                child: Text(
+                  message,
+                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
+                  style: const TextStyle(
+                    height: 1.0,
+                  ),
                 ),
               ),
             ),
           ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 0,
+          ),
+          backgroundColor: isError
+              ? const Color(0xFFDC2626)
+              : const Color(0xFF16A34A),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(
+            top: topPadding +
+                kToolbarHeight +
+                35,
+            left: 16,
+            right: 16,
+            bottom:
+                screenHeight -
+                topPadding -
+                kToolbarHeight -
+                70,
+          ),
+          duration: const Duration(
+            seconds: 3,
+          ),
         ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 0,
-        ),
-        backgroundColor: isError
-            ? const Color(0xFFDC2626)
-            : const Color(0xFF16A34A),
-        behavior: SnackBarBehavior.floating,
-
-        // Position the message directly below the AppBar
-        margin: EdgeInsets.only(
-          top: topPadding + kToolbarHeight + 35,
-          left: 16,
-          right: 16,
-          bottom:
-              screenHeight -
-              topPadding -
-              kToolbarHeight -
-              70,
-        ),
-
-        duration: const Duration(seconds: 3),
-      ),
-    );
-}
+      );
+  }
 
   Future<void> _showSuccessDialog() async {
     await showDialog(
@@ -508,58 +604,81 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       builder: (dialogContext) {
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius:
+                BorderRadius.circular(22),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            padding:
+                const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 28,
+            ),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize:
+                  MainAxisSize.min,
               children: [
                 Container(
                   width: 72,
                   height: 72,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF4CAF50),
+                  decoration:
+                      const BoxDecoration(
+                    color:
+                        Color(0xFF4CAF50),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check, color: Colors.white, size: 42),
+                  child: const Icon(
+                    Icons.check,
+                    color: Colors.white,
+                    size: 42,
+                  ),
                 ),
-
                 const SizedBox(height: 20),
-
                 const Text(
                   'تم تقديم الاعتراض بنجاح',
-                  textAlign: TextAlign.center,
+                  textAlign:
+                      TextAlign.center,
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w700,
+                    fontWeight:
+                        FontWeight.w700,
                     color: darkTextColor,
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      // Close the success dialog.
-                      Navigator.of(dialogContext).pop();
+                      Navigator.of(
+                        dialogContext,
+                      ).pop();
 
-                      // Go to the home page
                       Navigator.of(
                         context,
                         rootNavigator: true,
                       ).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const AppBottomNav()),
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const AppBottomNav(),
+                        ),
                         (route) => false,
                       );
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      minimumSize: const Size(double.infinity, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
+                    style:
+                        ElevatedButton.styleFrom(
+                      backgroundColor:
+                          primaryColor,
+                      minimumSize:
+                          const Size(
+                        double.infinity,
+                        48,
+                      ),
+                      shape:
+                          RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(
+                          25,
+                        ),
                       ),
                     ),
                     child: const Text(
@@ -567,7 +686,8 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontWeight:
+                            FontWeight.w700,
                       ),
                     ),
                   ),
@@ -601,12 +721,11 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
             ),
           ),
         ),
+
+        // No RefreshIndicator.
+        // Updates now happen automatically through Firestore listeners.
         body: SafeArea(
-          child: RefreshIndicator(
-            onRefresh: _loadEligibleCases,
-            color: primaryColor,
-            child: _buildBody(),
-          ),
+          child: _buildBody(),
         ),
       ),
     );
@@ -615,17 +734,19 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(color: primaryColor),
+        child: CircularProgressIndicator(
+          color: primaryColor,
+        ),
       );
     }
 
     return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
         20,
         18,
         20,
-        MediaQuery.of(context).size.height * 0.14,
+        MediaQuery.of(context).size.height *
+            0.14,
       ),
       children: [
         const Text(
@@ -637,12 +758,14 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
             height: 1.6,
           ),
         ),
+
         const SizedBox(height: 28),
 
         _buildSectionHeader(
           icon: Icons.description_outlined,
           title: 'اختر الحالة',
-          subtitle: 'تظهر فقط الحالات التي يمكنك تقديم اعتراض عليها.',
+          subtitle:
+              'تظهر فقط الحالات التي يمكنك تقديم اعتراض عليها.',
         ),
 
         const SizedBox(height: 14),
@@ -650,17 +773,23 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         if (_eligibleCases.isEmpty)
           _buildEmptyState()
         else if (_eligibleCases.length <= 2)
-          ..._eligibleCases.map(_buildCaseCard)
+          ..._eligibleCases.map(
+            _buildCaseCard,
+          )
         else
           SizedBox(
-            height: 450, // مساحة تعرض تقريبًا بطاقتين
+            height: 450,
             child: Scrollbar(
               thumbVisibility: true,
               child: ListView.builder(
                 padding: EdgeInsets.zero,
-                itemCount: _eligibleCases.length,
-                itemBuilder: (context, index) {
-                  return _buildCaseCard(_eligibleCases[index]);
+                itemCount:
+                    _eligibleCases.length,
+                itemBuilder:
+                    (context, index) {
+                  return _buildCaseCard(
+                    _eligibleCases[index],
+                  );
                 },
               ),
             ),
@@ -675,28 +804,43 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         SizedBox(
           height: 54,
           child: ElevatedButton(
-            onPressed: _isSubmitting ? null : _submitObjection,
-            style: ElevatedButton.styleFrom(
+            onPressed: _isSubmitting
+                ? null
+                : _submitObjection,
+            style:
+                ElevatedButton.styleFrom(
               elevation: 0,
-              backgroundColor: primaryColor,
-              disabledBackgroundColor: const Color(0xFF93C5FD),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
+              backgroundColor:
+                  primaryColor,
+              disabledBackgroundColor:
+                  const Color(0xFF93C5FD),
+              foregroundColor:
+                  Colors.white,
+              shape:
+                  RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.circular(
+                  30,
+                ),
               ),
             ),
             child: _isSubmitting
                 ? const SizedBox(
                     width: 24,
                     height: 24,
-                    child: CircularProgressIndicator(
+                    child:
+                        CircularProgressIndicator(
                       strokeWidth: 2.5,
                       color: Colors.white,
                     ),
                   )
                 : const Text(
                     'تقديم الاعتراض',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight:
+                          FontWeight.w700,
+                    ),
                   ),
           ),
         ),
@@ -710,28 +854,39 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     required String subtitle,
   }) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
       children: [
         Container(
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF),
-            borderRadius: BorderRadius.circular(12),
+            color: const Color(
+              0xFFEFF6FF,
+            ),
+            borderRadius:
+                BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: primaryColor, size: 23),
+          child: Icon(
+            icon,
+            color: primaryColor,
+            size: 23,
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
               Text(
                 title,
                 style: const TextStyle(
-                  color: Color(0xFF1E293B),
+                  color:
+                      Color(0xFF1E293B),
                   fontSize: 19,
-                  fontWeight: FontWeight.w800,
+                  fontWeight:
+                      FontWeight.w800,
                 ),
               ),
               if (subtitle.isNotEmpty) ...[
@@ -739,7 +894,8 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                 Text(
                   subtitle,
                   style: const TextStyle(
-                    color: secondaryTextColor,
+                    color:
+                        secondaryTextColor,
                     fontSize: 13,
                     height: 1.5,
                   ),
@@ -752,36 +908,65 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     );
   }
 
-  // Builds a selectable card displaying the case information
-  Widget _buildCaseCard(EligibleObjectionCase item) {
-    final bool isSelected = _selectedCaseId == item.caseId;
+  Widget _buildCaseCard(
+    EligibleObjectionCase item,
+  ) {
+    final bool isSelected =
+        _selectedCaseId ==
+            item.caseId;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding:
+          const EdgeInsets.only(
+        bottom: 10,
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius:
+              BorderRadius.circular(16),
           onTap: () {
             setState(() {
-              _selectedCaseId = item.caseId;
+              _selectedCaseId =
+                  item.caseId;
             });
           },
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.all(17),
+            duration:
+                const Duration(
+              milliseconds: 180,
+            ),
+            padding:
+                const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 13,
+            ),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
+              color: isSelected
+                  ? const Color(
+                      0xFFF5F9FF,
+                    )
+                  : Colors.white,
+              borderRadius:
+                  BorderRadius.circular(
+                16,
+              ),
               border: Border.all(
-                color: isSelected ? primaryColor : const Color(0xFFE2E8F0),
-                width: isSelected ? 1.8 : 1,
+                color: isSelected
+                    ? primaryColor
+                    : const Color(
+                        0xFFE2E8F0,
+                      ),
+                width:
+                    isSelected ? 1.8 : 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.035),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
+                  color: Colors.black
+                      .withOpacity(0.03),
+                  blurRadius: 10,
+                  offset:
+                      const Offset(0, 3),
                 ),
               ],
             ),
@@ -789,45 +974,79 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
               children: [
                 Row(
                   children: [
-                    Radio<String>(
-                      value: item.caseId,
-                      groupValue: _selectedCaseId,
-                      activeColor: primaryColor,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedCaseId = value;
-                        });
-                      },
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 11,
-                        vertical: 7,
+                    Transform.scale(
+                      scale: 1.15,
+                      child:
+                          Radio<String>(
+                        value:
+                            item.caseId,
+                        groupValue:
+                            _selectedCaseId,
+                        activeColor:
+                            primaryColor,
+                        visualDensity:
+                            VisualDensity
+                                .compact,
+                        materialTapTargetSize:
+                            MaterialTapTargetSize
+                                .shrinkWrap,
+                        onChanged:
+                            (value) {
+                          setState(() {
+                            _selectedCaseId =
+                                value;
+                          });
+                        },
                       ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF3),
-                        borderRadius: BorderRadius.circular(20),
+                    ),
+
+                    const Spacer(),
+
+                    Container(
+                      padding:
+                          const EdgeInsets
+                              .symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            const Color(
+                          0xFFECFDF3,
+                        ),
+                        borderRadius:
+                            BorderRadius
+                                .circular(
+                          18,
+                        ),
                       ),
                       child: const Row(
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisSize:
+                            MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.check_circle_outline_rounded,
-                            color: Color(0xFF16A34A),
-                            size: 17,
+                            Icons
+                                .check_circle_outline_rounded,
+                            color:
+                                Color(
+                              0xFF16A34A,
+                            ),
+                            size: 16,
                           ),
                           SizedBox(width: 5),
                           Text(
-                            // Every case in this list was fetched with
-                            // status == 'تم المراجعة' (see _loadEligibleCases),
-                            // so that's its real, current status — not the
-                            // unrelated 'تم الفحص' stage.
                             'تم المراجعة',
-                            style: TextStyle(
-                              color: Color(0xFF15803D),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                            style:
+                                TextStyle(
+                              color:
+                                  Color(
+                                0xFF15803D,
+                              ),
+                              fontSize: 12,
+                              fontWeight:
+                                  FontWeight
+                                      .w600,
                             ),
                           ),
                         ],
@@ -835,45 +1054,68 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 11),
+
+                const SizedBox(height: 7),
 
                 _buildCardMainValue(
                   label: 'رقم الحالة',
                   value: item.caseId,
-                  icon: Icons.folder_copy_outlined,
+                  icon: Icons
+                      .folder_copy_outlined,
                 ),
 
                 const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 15),
-                  child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  padding:
+                      EdgeInsets.symmetric(
+                    vertical: 10,
+                  ),
+                  child: Divider(
+                    height: 1,
+                    color:
+                        Color(
+                      0xFFE2E8F0,
+                    ),
+                  ),
                 ),
 
                 Row(
                   children: [
                     Expanded(
-                      child: _buildCardDetail(
-                        icon: Icons.calendar_month_outlined,
-                        label: item.hasReport
+                      child:
+                          _buildCardDetail(
+                        icon: Icons
+                            .calendar_month_outlined,
+                        label:
+                            item.hasReport
                             ? 'تاريخ إصدار التقرير'
                             : 'تاريخ المراجعة',
                         value:
                             '${item.referenceDate.day}/${item.referenceDate.month}/${item.referenceDate.year}',
                       ),
                     ),
+
                     Container(
-                      height: 52,
+                      height: 42,
                       width: 1,
-                      color: const Color(0xFFE2E8F0),
+                      color:
+                          const Color(
+                        0xFFE2E8F0,
+                      ),
                     ),
+
                     Expanded(
-                      child: _buildCardDetail(
-                        icon: Icons.payments_outlined,
-                        label: item.hasReport
+                      child:
+                          _buildCardDetail(
+                        icon: Icons
+                            .payments_outlined,
+                        label:
+                            item.hasReport
                             ? 'إجمالي المبلغ'
                             : 'التكلفة التقديرية',
-                        value: item.totalCost != null
-                            ? '${item.totalCost} ريال'
-                            : 'غير متاحة بعد',
+                        value:
+                            item.totalCost != null
+                                ? '${item.totalCost} ريال'
+                                : 'غير متاحة بعد',
                       ),
                     ),
                   ],
@@ -897,35 +1139,59 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(10),
+            color: const Color(
+              0xFFF1F5F9,
+            ),
+            borderRadius:
+                BorderRadius.circular(
+              10,
+            ),
           ),
-          child: Icon(icon, size: 20, color: primaryColor),
+          child: Icon(
+            icon,
+            size: 20,
+            color: primaryColor,
+          ),
         ),
+
         const SizedBox(width: 11),
+
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
               Text(
                 label,
-                style: const TextStyle(
-                  color: Color(0xFF475569),
+                style:
+                    const TextStyle(
+                  color:
+                      Color(
+                    0xFF475569,
+                  ),
                   fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontWeight:
+                      FontWeight.w600,
                 ),
               ),
+
               const SizedBox(height: 4),
+
               Text(
                 value,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textDirection: TextDirection.ltr,
-                textAlign: TextAlign.right,
-                style: const TextStyle(
+                overflow:
+                    TextOverflow.ellipsis,
+                textDirection:
+                    TextDirection.ltr,
+                textAlign:
+                    TextAlign.right,
+                style:
+                    const TextStyle(
                   color: darkTextColor,
                   fontSize: 15,
-                  fontWeight: FontWeight.w700,
+                  fontWeight:
+                      FontWeight.w700,
                 ),
               ),
             ],
@@ -942,144 +1208,217 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   }) {
     return Column(
       children: [
-        Icon(icon, color: primaryColor, size: 21),
+        Icon(
+          icon,
+          color: primaryColor,
+          size: 21,
+        ),
+
         const SizedBox(height: 6),
+
         Text(
           label,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color: Color(0xFF475569),
+            color:
+                Color(0xFF475569),
             fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontWeight:
+                FontWeight.w600,
           ),
         ),
+
         const SizedBox(height: 5),
+
         Text(
           value,
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: darkTextColor,
             fontSize: 13,
-            fontWeight: FontWeight.w600,
+            fontWeight:
+                FontWeight.w600,
           ),
         ),
       ],
     );
   }
 
-  // Builds the objection reason input section
   Widget _buildReasonSection() {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _buildSectionHeader(
-        icon: Icons.chat_bubble_outline_rounded,
-        title: 'سبب الاعتراض',
-        subtitle: '',
-      ),
+    return Column(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(
+          icon: Icons
+              .chat_bubble_outline_rounded,
+          title: 'سبب الاعتراض',
+          subtitle: '',
+        ),
 
-      // Show the validation message under the section title
-      if (_reasonError != null) ...[
-        const SizedBox(height: 6),
-        Padding(
-          padding: const EdgeInsets.only(right: 54),
-          child: Text(
-            _reasonError!,
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              color: Color(0xFFDC2626),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+        if (_reasonError != null) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding:
+                const EdgeInsets.only(
+              right: 54,
+            ),
+            child: Text(
+              _reasonError!,
+              textAlign:
+                  TextAlign.right,
+              style:
+                  const TextStyle(
+                color:
+                    Color(
+                  0xFFDC2626,
+                ),
+                fontSize: 13,
+                fontWeight:
+                    FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 14),
+
+        TextField(
+          controller:
+              _reasonController,
+          maxLength: 1000,
+          minLines: 5,
+          maxLines: 7,
+          textAlign:
+              TextAlign.right,
+          textDirection:
+              TextDirection.rtl,
+
+          onChanged: (value) {
+            if (_reasonError != null &&
+                value.trim().isNotEmpty) {
+              setState(() {
+                _reasonError = null;
+              });
+            }
+          },
+
+          decoration:
+              InputDecoration(
+            hintText:
+                'اكتب سبب اعتراضك هنا...',
+            hintStyle:
+                const TextStyle(
+              color:
+                  Color(
+                0xFF94A3B8,
+              ),
+              fontSize: 14,
+            ),
+            filled: true,
+            fillColor:
+                Colors.white,
+            contentPadding:
+                const EdgeInsets.all(16),
+
+            enabledBorder:
+                OutlineInputBorder(
+              borderRadius:
+                  BorderRadius.circular(
+                14,
+              ),
+              borderSide:
+                  BorderSide(
+                color:
+                    _reasonError != null
+                        ? const Color(
+                            0xFFDC2626,
+                          )
+                        : const Color(
+                            0xFFCBD5E1,
+                          ),
+                width:
+                    _reasonError != null
+                        ? 1.5
+                        : 1,
+              ),
+            ),
+
+            focusedBorder:
+                OutlineInputBorder(
+              borderRadius:
+                  BorderRadius.circular(
+                14,
+              ),
+              borderSide:
+                  BorderSide(
+                color:
+                    _reasonError != null
+                        ? const Color(
+                            0xFFDC2626,
+                          )
+                        : primaryColor,
+                width: 1.5,
+              ),
             ),
           ),
         ),
       ],
+    );
+  }
 
-      const SizedBox(height: 14),
-
-      TextField(
-        controller: _reasonController,
-        maxLength: 1000,
-        minLines: 5,
-        maxLines: 7,
-        textAlign: TextAlign.right,
-        textDirection: TextDirection.rtl,
-
-        // Remove the error as soon as the user starts typing
-        onChanged: (value) {
-          if (_reasonError != null && value.trim().isNotEmpty) {
-            setState(() {
-              _reasonError = null;
-            });
-          }
-        },
-
-        decoration: InputDecoration(
-          hintText: 'اكتب سبب اعتراضك هنا...',
-          hintStyle: const TextStyle(
-            color: Color(0xFF94A3B8),
-            fontSize: 14,
-          ),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.all(16),
-
-          // Normal border
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(
-              color: _reasonError != null
-                  ? const Color(0xFFDC2626)
-                  : const Color(0xFFCBD5E1),
-              width: _reasonError != null ? 1.5 : 1,
-            ),
-          ),
-
-          // Border while the user is typing
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(
-              color: _reasonError != null
-                  ? const Color(0xFFDC2626)
-                  : primaryColor,
-              width: 1.5,
-            ),
-          ),
-        ),
-      ),
-    ],
-  );
-}
-
-  // Displays a message when no eligible cases are available
   Widget _buildEmptyState() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 35),
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: 35,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius:
+            BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(
+            0xFFE2E8F0,
+          ),
+        ),
       ),
       child: const Column(
         children: [
-          Icon(Icons.inbox_outlined, size: 52, color: Color(0xFF94A3B8)),
+          Icon(
+            Icons.inbox_outlined,
+            size: 52,
+            color:
+                Color(
+              0xFF94A3B8,
+            ),
+          ),
+
           SizedBox(height: 14),
+
           Text(
             'لا توجد حالات متاحة للاعتراض',
-            textAlign: TextAlign.center,
+            textAlign:
+                TextAlign.center,
             style: TextStyle(
               color: darkTextColor,
               fontSize: 16,
-              fontWeight: FontWeight.w700,
+              fontWeight:
+                  FontWeight.w700,
             ),
           ),
+
           SizedBox(height: 7),
+
           Text(
             'قد تكون مدة الاعتراض قد انتهت أو تم تقديم اعتراض مسبقًا.',
-            textAlign: TextAlign.center,
+            textAlign:
+                TextAlign.center,
             style: TextStyle(
-              color: secondaryTextColor,
+              color:
+                  secondaryTextColor,
               fontSize: 13,
               height: 1.5,
             ),
