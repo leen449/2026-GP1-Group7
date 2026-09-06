@@ -25,8 +25,7 @@ class SubmitObjectionScreen extends StatefulWidget {
   const SubmitObjectionScreen({super.key});
 
   @override
-  State<SubmitObjectionScreen> createState() =>
-      _SubmitObjectionScreenState();
+  State<SubmitObjectionScreen> createState() => _SubmitObjectionScreenState();
 }
 
 class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
@@ -45,11 +44,10 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   String? _reasonError;
 
   // Real-time listeners
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
-      _casesSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _casesSubscription;
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
-      _objectionsSubscription;
+  _objectionsSubscription;
 
   static const Color primaryColor = Color(0xFF1E3A6E);
   static const Color darkTextColor = Color(0xFF111827);
@@ -68,20 +66,20 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         .collection('accidentCase')
         .snapshots()
         .listen((_) {
-      if (mounted) {
-        _loadEligibleCases();
-      }
-    });
+          if (mounted) {
+            _loadEligibleCases();
+          }
+        });
 
     // Automatically refresh when objections change
     _objectionsSubscription = _firestore
         .collection('objection')
         .snapshots()
         .listen((_) {
-      if (mounted) {
-        _loadEligibleCases();
-      }
-    });
+          if (mounted) {
+            _loadEligibleCases();
+          }
+        });
   }
 
   @override
@@ -110,48 +108,32 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
       debugPrint('[objDebug] currentUser.uid = ${currentUser.uid}');
 
-      final Set<String> possibleOwnerIds = {
-        currentUser.uid,
-      };
+      final Set<String> possibleOwnerIds = {currentUser.uid};
 
       final String? phoneNumber = currentUser.phoneNumber;
 
       if (phoneNumber != null && phoneNumber.trim().isNotEmpty) {
         final userQuery = await _firestore
             .collection('users')
-            .where(
-              'phoneNumber',
-              isEqualTo: phoneNumber,
-            )
+            .where('phoneNumber', isEqualTo: phoneNumber)
             .limit(1)
             .get();
 
         if (userQuery.docs.isNotEmpty) {
-          possibleOwnerIds.add(
-            userQuery.docs.first.id,
-          );
+          possibleOwnerIds.add(userQuery.docs.first.id);
         }
       }
 
-      debugPrint(
-        '[objDebug] possibleOwnerIds = $possibleOwnerIds',
-      );
+      debugPrint('[objDebug] possibleOwnerIds = $possibleOwnerIds');
 
-      final Map<
-          String,
-          QueryDocumentSnapshot<Map<String, dynamic>>> uniqueCaseDocuments = {};
+      final Map<String, QueryDocumentSnapshot<Map<String, dynamic>>>
+      uniqueCaseDocuments = {};
 
       for (final ownerId in possibleOwnerIds) {
         final caseSnapshot = await _firestore
             .collection('accidentCase')
-            .where(
-              'ownerId',
-              isEqualTo: ownerId,
-            )
-            .where(
-              'status',
-              isEqualTo: 'تم المراجعة',
-            )
+            .where('ownerId', isEqualTo: ownerId)
+            .where('status', isEqualTo: 'تم المراجعة')
             .get();
 
         for (final document in caseSnapshot.docs) {
@@ -171,8 +153,8 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
         final String caseId =
             (caseData['caseID'] as String?)?.trim().isNotEmpty == true
-                ? caseData['caseID'] as String
-                : caseDocument.id;
+            ? caseData['caseID'] as String
+            : caseDocument.id;
 
         debugPrint(
           '[objDebug] case doc=${caseDocument.id} '
@@ -183,23 +165,17 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
         final existingObjection = await _firestore
             .collection('objection')
-            .where(
-              'caseId',
-              isEqualTo: caseId,
-            )
+            .where('caseId', isEqualTo: caseId)
             .limit(1)
             .get();
 
         if (existingObjection.docs.isNotEmpty) {
-          debugPrint(
-            '[objDebug] $caseId SKIP: objection already exists',
-          );
+          debugPrint('[objDebug] $caseId SKIP: objection already exists');
 
           continue;
         }
 
-        final String? reportId =
-            (caseData['reportId'] as String?)?.trim();
+        final String? reportId = (caseData['reportId'] as String?)?.trim();
 
         String? resolvedReportId;
         DateTime? issuedAt;
@@ -214,8 +190,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           if (reportSnapshot.exists) {
             final reportData = reportSnapshot.data() ?? {};
 
-            final String? issuedAtValue =
-                reportData['issued_at'] as String?;
+            final String? issuedAtValue = reportData['issued_at'] as String?;
 
             issuedAt = issuedAtValue != null
                 ? DateTime.tryParse(issuedAtValue)
@@ -236,11 +211,9 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
               }
             }
 
-            final dynamic totalCostValue =
-                reportData['total_cost_sar'];
+            final dynamic totalCostValue = reportData['total_cost_sar'];
 
-            totalCost =
-                totalCostValue is num ? totalCostValue : null;
+            totalCost = totalCostValue is num ? totalCostValue : null;
 
             resolvedReportId = reportSnapshot.id;
           } else {
@@ -251,12 +224,14 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           }
         }
 
-        final DateTime referenceDate = issuedAt ??
+        final DateTime referenceDate =
+            issuedAt ??
             (caseData['createdAt'] is Timestamp
                 ? (caseData['createdAt'] as Timestamp).toDate()
                 : DateTime.now());
 
-        final num? estimatedCost = totalCost ??
+        final num? estimatedCost =
+            totalCost ??
             (caseData['estimatedCostSar'] is num
                 ? caseData['estimatedCostSar'] as num
                 : null);
@@ -277,8 +252,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       }
 
       eligibleCases.sort(
-        (first, second) =>
-            second.referenceDate.compareTo(first.referenceDate),
+        (first, second) => second.referenceDate.compareTo(first.referenceDate),
       );
 
       if (!mounted) return;
@@ -290,9 +264,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         // If the currently selected case is no longer eligible,
         // remove the selection automatically.
         if (_selectedCaseId != null &&
-            !_eligibleCases.any(
-              (item) => item.caseId == _selectedCaseId,
-            )) {
+            !_eligibleCases.any((item) => item.caseId == _selectedCaseId)) {
           _selectedCaseId = null;
         }
       });
@@ -320,12 +292,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       });
 
       _showMessage(
-        error
-            .toString()
-            .replaceFirst(
-              'Exception: ',
-              '',
-            ),
+        error.toString().replaceFirst('Exception: ', ''),
         isError: true,
       );
     }
@@ -334,8 +301,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   Future<void> _submitObjection() async {
     FocusScope.of(context).unfocus();
 
-    final String reason =
-        _reasonController.text.trim();
+    final String reason = _reasonController.text.trim();
 
     if (_selectedCaseId == null) {
       _showMessage(
@@ -348,8 +314,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
     if (reason.isEmpty) {
       setState(() {
-        _reasonError =
-            'يرجى كتابة سبب الاعتراض.';
+        _reasonError = 'يرجى كتابة سبب الاعتراض.';
       });
 
       return;
@@ -357,8 +322,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
     if (reason.length < 10) {
       setState(() {
-        _reasonError =
-            'يرجى توضيح سبب الاعتراض بشكل أوضح.';
+        _reasonError = 'يرجى توضيح سبب الاعتراض بشكل أوضح.';
       });
 
       return;
@@ -371,25 +335,17 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     try {
       final existingObjection = await _firestore
           .collection('objection')
-          .where(
-            'caseId',
-            isEqualTo: _selectedCaseId,
-          )
+          .where('caseId', isEqualTo: _selectedCaseId)
           .limit(1)
           .get();
 
       if (existingObjection.docs.isNotEmpty) {
-        throw Exception(
-          'سبق تقديم اعتراض على هذه الحالة.',
-        );
+        throw Exception('سبق تقديم اعتراض على هذه الحالة.');
       }
 
       final caseQuery = await _firestore
           .collection('accidentCase')
-          .where(
-            'caseID',
-            isEqualTo: _selectedCaseId,
-          )
+          .where('caseID', isEqualTo: _selectedCaseId)
           .limit(1)
           .get();
 
@@ -408,28 +364,21 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         }
       }
 
-      if (caseDocument == null ||
-          !caseDocument.exists) {
-        throw Exception(
-          'لم يتم العثور على الحالة المحددة.',
-        );
+      if (caseDocument == null || !caseDocument.exists) {
+        throw Exception('لم يتم العثور على الحالة المحددة.');
       }
 
       final caseData = caseDocument.data();
 
       if (caseData?['status'] != 'تم المراجعة') {
-        throw Exception(
-          'لا يمكن تقديم اعتراض لأن حالة الكيس تغيرت.',
-        );
+        throw Exception('لا يمكن تقديم اعتراض لأن حالة الكيس تغيرت.');
       }
 
-      final String? reportId =
-          (caseData?['reportId'] as String?)?.trim();
+      final String? reportId = (caseData?['reportId'] as String?)?.trim();
 
       DocumentSnapshot<Map<String, dynamic>>? reportSnapshot;
 
-      if (reportId != null &&
-          reportId.isNotEmpty) {
+      if (reportId != null && reportId.isNotEmpty) {
         final snapshot = await _firestore
             .collection('reports')
             .doc(reportId)
@@ -438,25 +387,16 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         if (snapshot.exists) {
           final reportData = snapshot.data() ?? {};
 
-          final String? issuedAtValue =
-              reportData['issued_at'] as String?;
+          final String? issuedAtValue = reportData['issued_at'] as String?;
 
-          final DateTime? issuedAt =
-              issuedAtValue != null
-                  ? DateTime.tryParse(
-                      issuedAtValue,
-                    )
-                  : null;
+          final DateTime? issuedAt = issuedAtValue != null
+              ? DateTime.tryParse(issuedAtValue)
+              : null;
 
           if (issuedAt != null) {
-            final DateTime deadline =
-                issuedAt.add(
-              const Duration(days: 10),
-            );
+            final DateTime deadline = issuedAt.add(const Duration(days: 10));
 
-            if (DateTime.now().isAfter(
-              deadline,
-            )) {
+            if (DateTime.now().isAfter(deadline)) {
               throw Exception(
                 'انتهت المدة المحددة لتقديم اعتراض على هذه الحالة.',
               );
@@ -467,29 +407,20 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         }
       }
 
-      final objectionReference =
-          _firestore.collection('objection').doc();
+      final objectionReference = _firestore.collection('objection').doc();
 
       final batch = _firestore.batch();
 
-      batch.set(
-        objectionReference,
-        {
-          'caseId': _selectedCaseId,
-          'reason': reason,
-          'objectionStatus': 'قيد المراجعة',
-          'adminFeedback': '',
-          'createdAt': FieldValue.serverTimestamp(),
-        },
-      );
+      batch.set(objectionReference, {
+        'caseId': _selectedCaseId,
+        'reason': reason,
+        'objectionStatus': 'قيد المراجعة',
+        'adminFeedback': '',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 
       if (reportSnapshot != null) {
-        batch.update(
-          reportSnapshot.reference,
-          {
-            'status': 'claim_pending',
-          },
-        );
+        batch.update(reportSnapshot.reference, {'status': 'claim_pending'});
       }
 
       await batch.commit();
@@ -499,10 +430,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       _showSuccessDialog();
 
       setState(() {
-        _eligibleCases.removeWhere(
-          (item) =>
-              item.caseId == _selectedCaseId,
-        );
+        _eligibleCases.removeWhere((item) => item.caseId == _selectedCaseId);
 
         _selectedCaseId = null;
         _reasonController.clear();
@@ -516,10 +444,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         _isSubmitting = false;
       });
 
-      _showMessage(
-        error.message ?? 'تعذر تقديم الاعتراض.',
-        isError: true,
-      );
+      _showMessage(error.message ?? 'تعذر تقديم الاعتراض.', isError: true);
     } catch (error) {
       if (!mounted) return;
 
@@ -528,26 +453,16 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       });
 
       _showMessage(
-        error
-            .toString()
-            .replaceFirst(
-              'Exception: ',
-              '',
-            ),
+        error.toString().replaceFirst('Exception: ', ''),
         isError: true,
       );
     }
   }
 
-  void _showMessage(
-    String message, {
-    required bool isError,
-  }) {
-    final screenHeight =
-        MediaQuery.of(context).size.height;
+  void _showMessage(String message, {required bool isError}) {
+    final screenHeight = MediaQuery.of(context).size.height;
 
-    final topPadding =
-        MediaQuery.of(context).padding.top;
+    final topPadding = MediaQuery.of(context).padding.top;
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -563,36 +478,23 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                   message,
                   textAlign: TextAlign.right,
                   textDirection: TextDirection.rtl,
-                  style: const TextStyle(
-                    height: 1.0,
-                  ),
+                  style: const TextStyle(height: 1.0),
                 ),
               ),
             ),
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 0,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           backgroundColor: isError
               ? const Color(0xFFDC2626)
               : const Color(0xFF16A34A),
           behavior: SnackBarBehavior.floating,
           margin: EdgeInsets.only(
-            top: topPadding +
-                kToolbarHeight +
-                35,
+            top: topPadding + kToolbarHeight + 35,
             left: 16,
             right: 16,
-            bottom:
-                screenHeight -
-                topPadding -
-                kToolbarHeight -
-                70,
+            bottom: screenHeight - topPadding - kToolbarHeight - 70,
           ),
-          duration: const Duration(
-            seconds: 3,
-          ),
+          duration: const Duration(seconds: 3),
         ),
       );
   }
@@ -604,43 +506,29 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       builder: (dialogContext) {
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(22),
           ),
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 28,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
             child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   width: 72,
                   height: 72,
-                  decoration:
-                      const BoxDecoration(
-                    color:
-                        Color(0xFF4CAF50),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF4CAF50),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.check,
-                    color: Colors.white,
-                    size: 42,
-                  ),
+                  child: const Icon(Icons.check, color: Colors.white, size: 42),
                 ),
                 const SizedBox(height: 20),
                 const Text(
                   'تم تقديم الاعتراض بنجاح',
-                  textAlign:
-                      TextAlign.center,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight:
-                        FontWeight.w700,
+                    fontWeight: FontWeight.w700,
                     color: darkTextColor,
                   ),
                 ),
@@ -649,36 +537,21 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.of(
-                        dialogContext,
-                      ).pop();
+                      Navigator.of(dialogContext).pop();
 
                       Navigator.of(
                         context,
                         rootNavigator: true,
                       ).pushAndRemoveUntil(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const AppBottomNav(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const AppBottomNav()),
                         (route) => false,
                       );
                     },
-                    style:
-                        ElevatedButton.styleFrom(
-                      backgroundColor:
-                          primaryColor,
-                      minimumSize:
-                          const Size(
-                        double.infinity,
-                        48,
-                      ),
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(
-                          25,
-                        ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
                       ),
                     ),
                     child: const Text(
@@ -686,8 +559,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
-                        fontWeight:
-                            FontWeight.w700,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -724,9 +596,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
         // No RefreshIndicator.
         // Updates now happen automatically through Firestore listeners.
-        body: SafeArea(
-          child: _buildBody(),
-        ),
+        body: SafeArea(child: _buildBody()),
       ),
     );
   }
@@ -734,9 +604,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: primaryColor,
-        ),
+        child: CircularProgressIndicator(color: primaryColor),
       );
     }
 
@@ -745,8 +613,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         20,
         18,
         20,
-        MediaQuery.of(context).size.height *
-            0.14,
+        MediaQuery.of(context).size.height * 0.14,
       ),
       children: [
         const Text(
@@ -764,36 +631,15 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         _buildSectionHeader(
           icon: Icons.description_outlined,
           title: 'اختر الحالة',
-          subtitle:
-              'تظهر فقط الحالات التي يمكنك تقديم اعتراض عليها.',
+          subtitle: 'تظهر فقط الحالات التي يمكنك تقديم اعتراض عليها.',
         ),
 
         const SizedBox(height: 14),
 
         if (_eligibleCases.isEmpty)
           _buildEmptyState()
-        else if (_eligibleCases.length <= 2)
-          ..._eligibleCases.map(
-            _buildCaseCard,
-          )
         else
-          SizedBox(
-            height: 450,
-            child: Scrollbar(
-              thumbVisibility: true,
-              child: ListView.builder(
-                padding: EdgeInsets.zero,
-                itemCount:
-                    _eligibleCases.length,
-                itemBuilder:
-                    (context, index) {
-                  return _buildCaseCard(
-                    _eligibleCases[index],
-                  );
-                },
-              ),
-            ),
-          ),
+          _buildCasePickerField(),
 
         const SizedBox(height: 28),
 
@@ -804,43 +650,28 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         SizedBox(
           height: 54,
           child: ElevatedButton(
-            onPressed: _isSubmitting
-                ? null
-                : _submitObjection,
-            style:
-                ElevatedButton.styleFrom(
+            onPressed: _isSubmitting ? null : _submitObjection,
+            style: ElevatedButton.styleFrom(
               elevation: 0,
-              backgroundColor:
-                  primaryColor,
-              disabledBackgroundColor:
-                  const Color(0xFF93C5FD),
-              foregroundColor:
-                  Colors.white,
-              shape:
-                  RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(
-                  30,
-                ),
+              backgroundColor: primaryColor,
+              disabledBackgroundColor: const Color(0xFF93C5FD),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
               ),
             ),
             child: _isSubmitting
                 ? const SizedBox(
                     width: 24,
                     height: 24,
-                    child:
-                        CircularProgressIndicator(
+                    child: CircularProgressIndicator(
                       strokeWidth: 2.5,
                       color: Colors.white,
                     ),
                   )
                 : const Text(
                     'تقديم الاعتراض',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight:
-                          FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                   ),
           ),
         ),
@@ -854,39 +685,28 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     required String subtitle,
   }) {
     return Row(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-            color: const Color(
-              0xFFEFF6FF,
-            ),
-            borderRadius:
-                BorderRadius.circular(12),
+            color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(
-            icon,
-            color: primaryColor,
-            size: 23,
-          ),
+          child: Icon(icon, color: primaryColor, size: 23),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 title,
                 style: const TextStyle(
-                  color:
-                      Color(0xFF1E293B),
+                  color: Color(0xFF1E293B),
                   fontSize: 19,
-                  fontWeight:
-                      FontWeight.w800,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               if (subtitle.isNotEmpty) ...[
@@ -894,8 +714,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                 Text(
                   subtitle,
                   style: const TextStyle(
-                    color:
-                        secondaryTextColor,
+                    color: secondaryTextColor,
                     fontSize: 13,
                     height: 1.5,
                   ),
@@ -908,65 +727,35 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     );
   }
 
-  Widget _buildCaseCard(
-    EligibleObjectionCase item,
-  ) {
-    final bool isSelected =
-        _selectedCaseId ==
-            item.caseId;
+  Widget _buildCaseCard(EligibleObjectionCase item) {
+    final bool isSelected = _selectedCaseId == item.caseId;
 
     return Padding(
-      padding:
-          const EdgeInsets.only(
-        bottom: 10,
-      ),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius:
-              BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16),
           onTap: () {
             setState(() {
-              _selectedCaseId =
-                  item.caseId;
+              _selectedCaseId = item.caseId;
             });
           },
           child: AnimatedContainer(
-            duration:
-                const Duration(
-              milliseconds: 180,
-            ),
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 13,
-            ),
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? const Color(
-                      0xFFF5F9FF,
-                    )
-                  : Colors.white,
-              borderRadius:
-                  BorderRadius.circular(
-                16,
-              ),
+              color: isSelected ? const Color(0xFFF5F9FF) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isSelected
-                    ? primaryColor
-                    : const Color(
-                        0xFFE2E8F0,
-                      ),
-                width:
-                    isSelected ? 1.8 : 1,
+                color: isSelected ? primaryColor : const Color(0xFFE2E8F0),
+                width: isSelected ? 1.8 : 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black
-                      .withOpacity(0.03),
+                  color: Colors.black.withOpacity(0.03),
                   blurRadius: 10,
-                  offset:
-                      const Offset(0, 3),
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -976,25 +765,15 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                   children: [
                     Transform.scale(
                       scale: 1.15,
-                      child:
-                          Radio<String>(
-                        value:
-                            item.caseId,
-                        groupValue:
-                            _selectedCaseId,
-                        activeColor:
-                            primaryColor,
-                        visualDensity:
-                            VisualDensity
-                                .compact,
-                        materialTapTargetSize:
-                            MaterialTapTargetSize
-                                .shrinkWrap,
-                        onChanged:
-                            (value) {
+                      child: Radio<String>(
+                        value: item.caseId,
+                        groupValue: _selectedCaseId,
+                        activeColor: primaryColor,
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        onChanged: (value) {
                           setState(() {
-                            _selectedCaseId =
-                                value;
+                            _selectedCaseId = value;
                           });
                         },
                       ),
@@ -1003,50 +782,29 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                     const Spacer(),
 
                     Container(
-                      padding:
-                          const EdgeInsets
-                              .symmetric(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 6,
                       ),
-                      decoration:
-                          BoxDecoration(
-                        color:
-                            const Color(
-                          0xFFECFDF3,
-                        ),
-                        borderRadius:
-                            BorderRadius
-                                .circular(
-                          18,
-                        ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF3),
+                        borderRadius: BorderRadius.circular(18),
                       ),
                       child: const Row(
-                        mainAxisSize:
-                            MainAxisSize.min,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons
-                                .check_circle_outline_rounded,
-                            color:
-                                Color(
-                              0xFF16A34A,
-                            ),
+                            Icons.check_circle_outline_rounded,
+                            color: Color(0xFF16A34A),
                             size: 16,
                           ),
                           SizedBox(width: 5),
                           Text(
                             'تم المراجعة',
-                            style:
-                                TextStyle(
-                              color:
-                                  Color(
-                                0xFF15803D,
-                              ),
+                            style: TextStyle(
+                              color: Color(0xFF15803D),
                               fontSize: 12,
-                              fontWeight:
-                                  FontWeight
-                                      .w600,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -1060,33 +818,20 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                 _buildCardMainValue(
                   label: 'رقم الحالة',
                   value: item.caseId,
-                  icon: Icons
-                      .folder_copy_outlined,
+                  icon: Icons.folder_copy_outlined,
                 ),
 
                 const Padding(
-                  padding:
-                      EdgeInsets.symmetric(
-                    vertical: 10,
-                  ),
-                  child: Divider(
-                    height: 1,
-                    color:
-                        Color(
-                      0xFFE2E8F0,
-                    ),
-                  ),
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Divider(height: 1, color: Color(0xFFE2E8F0)),
                 ),
 
                 Row(
                   children: [
                     Expanded(
-                      child:
-                          _buildCardDetail(
-                        icon: Icons
-                            .calendar_month_outlined,
-                        label:
-                            item.hasReport
+                      child: _buildCardDetail(
+                        icon: Icons.calendar_month_outlined,
+                        label: item.hasReport
                             ? 'تاريخ إصدار التقرير'
                             : 'تاريخ المراجعة',
                         value:
@@ -1097,25 +842,18 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                     Container(
                       height: 42,
                       width: 1,
-                      color:
-                          const Color(
-                        0xFFE2E8F0,
-                      ),
+                      color: const Color(0xFFE2E8F0),
                     ),
 
                     Expanded(
-                      child:
-                          _buildCardDetail(
-                        icon: Icons
-                            .payments_outlined,
-                        label:
-                            item.hasReport
+                      child: _buildCardDetail(
+                        icon: Icons.payments_outlined,
+                        label: item.hasReport
                             ? 'إجمالي المبلغ'
                             : 'التكلفة التقديرية',
-                        value:
-                            item.totalCost != null
-                                ? '${item.totalCost} ريال'
-                                : 'غير متاحة بعد',
+                        value: item.totalCost != null
+                            ? '${item.totalCost} ريال'
+                            : 'غير متاحة بعد',
                       ),
                     ),
                   ],
@@ -1139,39 +877,24 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: const Color(
-              0xFFF1F5F9,
-            ),
-            borderRadius:
-                BorderRadius.circular(
-              10,
-            ),
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: primaryColor,
-          ),
+          child: Icon(icon, size: 20, color: primaryColor),
         ),
 
         const SizedBox(width: 11),
 
         Expanded(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
-                style:
-                    const TextStyle(
-                  color:
-                      Color(
-                    0xFF475569,
-                  ),
+                style: const TextStyle(
+                  color: Color(0xFF475569),
                   fontSize: 15,
-                  fontWeight:
-                      FontWeight.w600,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
 
@@ -1180,18 +903,13 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
               Text(
                 value,
                 maxLines: 1,
-                overflow:
-                    TextOverflow.ellipsis,
-                textDirection:
-                    TextDirection.ltr,
-                textAlign:
-                    TextAlign.right,
-                style:
-                    const TextStyle(
+                overflow: TextOverflow.ellipsis,
+                textDirection: TextDirection.ltr,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
                   color: darkTextColor,
                   fontSize: 15,
-                  fontWeight:
-                      FontWeight.w700,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -1208,11 +926,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   }) {
     return Column(
       children: [
-        Icon(
-          icon,
-          color: primaryColor,
-          size: 21,
-        ),
+        Icon(icon, color: primaryColor, size: 21),
 
         const SizedBox(height: 6),
 
@@ -1220,11 +934,9 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           label,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color:
-                Color(0xFF475569),
+            color: Color(0xFF475569),
             fontSize: 12,
-            fontWeight:
-                FontWeight.w600,
+            fontWeight: FontWeight.w600,
           ),
         ),
 
@@ -1236,22 +948,396 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
           style: const TextStyle(
             color: darkTextColor,
             fontSize: 13,
-            fontWeight:
-                FontWeight.w600,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
     );
   }
 
+  Widget _buildCasePickerField() {
+    EligibleObjectionCase? selectedCase;
+
+    if (_selectedCaseId != null) {
+      for (final item in _eligibleCases) {
+        if (item.caseId == _selectedCaseId) {
+          selectedCase = item;
+          break;
+        }
+      }
+    }
+
+    return InkWell(
+      onTap: _showCasePicker,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: _selectedCaseId != null
+                ? primaryColor
+                : const Color(0xFFCBD5E1),
+            width: _selectedCaseId != null ? 1.5 : 1,
+          ),
+        ),
+        child: selectedCase == null
+            ? const Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'اختر الحالة',
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Icon(Icons.keyboard_arrow_down_rounded, color: primaryColor),
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Text(
+                            selectedCase.caseId,
+                            textAlign: TextAlign.right,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: darkTextColor,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          '${selectedCase.referenceDate.day}/'
+                          '${selectedCase.referenceDate.month}/'
+                          '${selectedCase.referenceDate.year}'
+                          '${selectedCase.totalCost != null ? '  •  ${selectedCase.totalCost} ريال' : ''}',
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: primaryColor,
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Future<void> _showCasePicker() async {
+    String? tempSelectedCaseId = _selectedCaseId;
+
+    final confirmedCaseId = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetContext) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: StatefulBuilder(
+            builder: (context, setModalState) {
+              return Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.78,
+                ),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Bottom sheet handle
+                        Container(
+                          width: 44,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFCBD5E1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'اختر الحالة',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  color: darkTextColor,
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+
+                            IconButton(
+                              onPressed: () {
+                                Navigator.pop(bottomSheetContext);
+                              },
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: darkTextColor,
+                                size: 27,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        Flexible(
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            padding: EdgeInsets.zero,
+                            itemCount: _eligibleCases.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final item = _eligibleCases[index];
+
+                              final bool isSelected =
+                                  tempSelectedCaseId == item.caseId;
+
+                              return _buildCasePickerItem(
+                                item: item,
+                                isSelected: isSelected,
+                                onTap: () {
+                                  setModalState(() {
+                                    tempSelectedCaseId = item.caseId;
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: tempSelectedCaseId == null
+                                ? null
+                                : () {
+                                    Navigator.pop(
+                                      bottomSheetContext,
+                                      tempSelectedCaseId,
+                                    );
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              backgroundColor: primaryColor,
+                              disabledBackgroundColor: const Color(0xFFCBD5E1),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                            ),
+                            child: const Text(
+                              'تأكيد الاختيار',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    if (confirmedCaseId == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedCaseId = confirmedCaseId;
+    });
+  }
+
+  Widget _buildCasePickerItem({
+    required EligibleObjectionCase item,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFF5F9FF) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? primaryColor : const Color(0xFFE2E8F0),
+              width: isSelected ? 1.6 : 1,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Radio button stays on the right for the Arabic RTL layout.
+              Radio<String>(
+                value: item.caseId,
+                groupValue: isSelected ? item.caseId : null,
+                activeColor: primaryColor,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: (_) => onTap(),
+              ),
+
+              const SizedBox(width: 10),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: Text(
+                              item.caseId,
+                              textAlign: TextAlign.right,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: darkTextColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 8),
+
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF3),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Text(
+                            'تم المراجعة',
+                            style: TextStyle(
+                              color: Color(0xFF15803D),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_month_outlined,
+                          size: 17,
+                          color: secondaryTextColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${item.referenceDate.day}/'
+                          '${item.referenceDate.month}/'
+                          '${item.referenceDate.year}',
+                          style: const TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    if (item.totalCost != null) ...[
+                      const SizedBox(height: 7),
+
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.payments_outlined,
+                            size: 17,
+                            color: secondaryTextColor,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${item.totalCost} ريال',
+                            style: const TextStyle(
+                              color: darkTextColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildReasonSection() {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(
-          icon: Icons
-              .chat_bubble_outline_rounded,
+          icon: Icons.chat_bubble_outline_rounded,
           title: 'سبب الاعتراض',
           subtitle: '',
         ),
@@ -1259,23 +1345,14 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         if (_reasonError != null) ...[
           const SizedBox(height: 6),
           Padding(
-            padding:
-                const EdgeInsets.only(
-              right: 54,
-            ),
+            padding: const EdgeInsets.only(right: 54),
             child: Text(
               _reasonError!,
-              textAlign:
-                  TextAlign.right,
-              style:
-                  const TextStyle(
-                color:
-                    Color(
-                  0xFFDC2626,
-                ),
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Color(0xFFDC2626),
                 fontSize: 13,
-                fontWeight:
-                    FontWeight.w500,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -1284,80 +1361,44 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         const SizedBox(height: 14),
 
         TextField(
-          controller:
-              _reasonController,
+          controller: _reasonController,
           maxLength: 1000,
           minLines: 5,
           maxLines: 7,
-          textAlign:
-              TextAlign.right,
-          textDirection:
-              TextDirection.rtl,
+          textAlign: TextAlign.right,
+          textDirection: TextDirection.rtl,
 
           onChanged: (value) {
-            if (_reasonError != null &&
-                value.trim().isNotEmpty) {
+            if (_reasonError != null && value.trim().isNotEmpty) {
               setState(() {
                 _reasonError = null;
               });
             }
           },
 
-          decoration:
-              InputDecoration(
-            hintText:
-                'اكتب سبب اعتراضك هنا...',
-            hintStyle:
-                const TextStyle(
-              color:
-                  Color(
-                0xFF94A3B8,
-              ),
-              fontSize: 14,
-            ),
+          decoration: InputDecoration(
+            hintText: 'اكتب سبب اعتراضك هنا...',
+            hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
             filled: true,
-            fillColor:
-                Colors.white,
-            contentPadding:
-                const EdgeInsets.all(16),
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.all(16),
 
-            enabledBorder:
-                OutlineInputBorder(
-              borderRadius:
-                  BorderRadius.circular(
-                14,
-              ),
-              borderSide:
-                  BorderSide(
-                color:
-                    _reasonError != null
-                        ? const Color(
-                            0xFFDC2626,
-                          )
-                        : const Color(
-                            0xFFCBD5E1,
-                          ),
-                width:
-                    _reasonError != null
-                        ? 1.5
-                        : 1,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: _reasonError != null
+                    ? const Color(0xFFDC2626)
+                    : const Color(0xFFCBD5E1),
+                width: _reasonError != null ? 1.5 : 1,
               ),
             ),
 
-            focusedBorder:
-                OutlineInputBorder(
-              borderRadius:
-                  BorderRadius.circular(
-                14,
-              ),
-              borderSide:
-                  BorderSide(
-                color:
-                    _reasonError != null
-                        ? const Color(
-                            0xFFDC2626,
-                          )
-                        : primaryColor,
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: _reasonError != null
+                    ? const Color(0xFFDC2626)
+                    : primaryColor,
                 width: 1.5,
               ),
             ),
@@ -1370,43 +1411,25 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
   Widget _buildEmptyState() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 35,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 35),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(
-            0xFFE2E8F0,
-          ),
-        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: const Column(
         children: [
-          Icon(
-            Icons.inbox_outlined,
-            size: 52,
-            color:
-                Color(
-              0xFF94A3B8,
-            ),
-          ),
+          Icon(Icons.inbox_outlined, size: 52, color: Color(0xFF94A3B8)),
 
           SizedBox(height: 14),
 
           Text(
             'لا توجد حالات متاحة للاعتراض',
-            textAlign:
-                TextAlign.center,
+            textAlign: TextAlign.center,
             style: TextStyle(
               color: darkTextColor,
               fontSize: 16,
-              fontWeight:
-                  FontWeight.w700,
+              fontWeight: FontWeight.w700,
             ),
           ),
 
@@ -1414,11 +1437,9 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
           Text(
             'قد تكون مدة الاعتراض قد انتهت أو تم تقديم اعتراض مسبقًا.',
-            textAlign:
-                TextAlign.center,
+            textAlign: TextAlign.center,
             style: TextStyle(
-              color:
-                  secondaryTextColor,
+              color: secondaryTextColor,
               fontSize: 13,
               height: 1.5,
             ),
