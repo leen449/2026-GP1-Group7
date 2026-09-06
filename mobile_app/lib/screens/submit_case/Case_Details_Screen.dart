@@ -678,15 +678,8 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // ── Damage images ────────────────────────────────────────
-                _imagesSection(context),
-
-                if (caseData['estimatedCostSar'] is num) ...[
-                  const SizedBox(height: 16),
-                  _costSection(caseData),
-                ],
-
-                if (status == 'تم المراجعة' || status == 'تم الفحص') ...[
+                // ── Report ───────────────────────────────────────────────
+                if (status == 'تم المراجعة') ...[
                   const SizedBox(height: 16),
                   _reportButton(
                     status: status,
