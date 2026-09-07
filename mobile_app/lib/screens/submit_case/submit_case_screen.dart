@@ -706,7 +706,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
   // ── DEV-ONLY: single flag gating all test hooks below. Set to
   //    false (or delete the gated code) before release. ──
-  static const bool _showTestHooks = true;
+  static const bool _showTestHooks = false;
 
   // ── DEV-ONLY: loads a bundled test asset and runs it through the
   //    exact same verification path a real capture would use. Lets
