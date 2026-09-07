@@ -111,7 +111,6 @@ def _resolve_special(cat, najm_zone, box, image_hw):
         return "front_glass", "front_glass", flags
     if cat == "lamp":
         # left/right from the damage box centre; front/rear from Najm
-        _, _, W = *image_hw[:1], None
         H, W = image_hw
         cx = (box[0] + box[2]) / 2.0
         side = "left" if cx < W / 2.0 else "right"
