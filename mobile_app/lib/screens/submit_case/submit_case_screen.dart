@@ -90,7 +90,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
       !_isSubmitting;
   // ─────────────────────────────────────────────────────────────────
   //backend URL (used for OCR trigger)
-  static const backendUrl = 'http://172.20.10.2:8000';
+  static const backendUrl = 'http://192.168.0.13:8000';
   // ─────────────────────────────────────────────────────────────────
   @override
   void initState() {
@@ -706,7 +706,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
   // ── DEV-ONLY: single flag gating all test hooks below. Set to
   //    false (or delete the gated code) before release. ──
-  static const bool _showTestHooks = false;
+  static const bool _showTestHooks = true;
 
   // ── DEV-ONLY: loads a bundled test asset and runs it through the
   //    exact same verification path a real capture would use. Lets
@@ -735,6 +735,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
       setState(() {
         capturedPhotos = [...capturedPhotos, ...verified].take(10).toList();
+        _currentStep = 2;
       });
 
       if (verified.any((p) => !p.isVerified)) {
@@ -763,6 +764,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
 
       setState(() {
         capturedPhotos = [...capturedPhotos, ...verified].take(10).toList();
+        _currentStep = 2;
       });
 
       _showSnackBar(
@@ -857,6 +859,40 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
   void _showVerificationFailureMessage() {
     _showSnackBar(
       'لضمان صحة بيانات البلاغ، تعذر التحقق من بعض الصور. يرجى إعادة التقاط الصور المحددة قبل إرسال البلاغ.',
+    );
+  }
+
+  Widget _buildTestImageControls() {
+    if (!_showTestHooks) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          OutlinedButton(
+            onPressed: () =>
+                _loadTestImageFromAssets('assets/test_images/clean_photo.jpg'),
+            child: const Text('اختبار: صورة سليمة'),
+          ),
+          OutlinedButton(
+            onPressed: () =>
+                _loadTestImageFromAssets('assets/test_images/edited_photo.jpg'),
+            child: const Text('اختبار: صورة معدّلة'),
+          ),
+          OutlinedButton(
+            onPressed: () =>
+                _loadTestImageFromAssets('assets/test_images/oldd.jpg'),
+            child: const Text('اختبار: تاريخ قديم'),
+          ),
+          OutlinedButton(
+            onPressed: _loadCorruptedTestImage,
+            child: const Text('اختبار: ملف تالف'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1970,58 +2006,7 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                       ),
                                     ),
 
-                                  // ── DEV-ONLY: test verification against
-                                  //    known-good/bad sample images without
-                                  //    a real device's camera. Feeds a
-                                  //    bundled asset through the exact same
-                                  //    _verifyNewPhotos() path as a real
-                                  //    capture. Strip by setting
-                                  //    _showTestHooks to false. ──
-                                  if (_showTestHooks)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 12),
-                                      child: Wrap(
-                                        alignment: WrapAlignment.center,
-                                        spacing: 8,
-                                        runSpacing: 8,
-                                        children: [
-                                          OutlinedButton(
-                                            onPressed: () =>
-                                                _loadTestImageFromAssets(
-                                                  'assets/test_images/clean_photo.jpg',
-                                                ),
-                                            child: const Text(
-                                              'اختبار: صورة سليمة',
-                                            ),
-                                          ),
-                                          OutlinedButton(
-                                            onPressed: () =>
-                                                _loadTestImageFromAssets(
-                                                  'assets/test_images/edited_photo.jpg',
-                                                ),
-                                            child: const Text(
-                                              'اختبار: صورة معدّلة',
-                                            ),
-                                          ),
-                                          OutlinedButton(
-                                            onPressed: () =>
-                                                _loadTestImageFromAssets(
-                                                  'assets/test_images/oldd.jpg',
-                                                ),
-                                            child: const Text(
-                                              'اختبار: تاريخ قديم',
-                                            ),
-                                          ),
-                                          OutlinedButton(
-                                            onPressed: () =>
-                                                _loadCorruptedTestImage(),
-                                            child: const Text(
-                                              'اختبار: ملف تالف',
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                  _buildTestImageControls(),
 
                                   // ── Confirmation checkbox ─────────
                                   const SizedBox(height: 24),
@@ -2072,6 +2057,9 @@ class _SubmitCaseScreenState extends State<SubmitCaseScreen> {
                                   ),
                                   const SizedBox(height: 20),
                                 ],
+
+                                if (_currentStep == 1)
+                                  _buildTestImageControls(),
                               ],
                             ),
                           ),
