@@ -133,7 +133,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
         final caseSnapshot = await _firestore
             .collection('accidentCase')
             .where('ownerId', isEqualTo: ownerId)
-            .where('status', isEqualTo: 'تم المراجعة')
+            .where('status', isEqualTo: 'تمت المراجعة')
             .get();
 
         for (final document in caseSnapshot.docs) {
@@ -142,7 +142,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       }
 
       debugPrint(
-        '[objDebug] cases matching possibleOwnerIds+status=تم المراجعة: '
+        '[objDebug] cases matching possibleOwnerIds+status=تمت المراجعة: '
         '${uniqueCaseDocuments.length}',
       );
 
@@ -370,7 +370,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
       final caseData = caseDocument.data();
 
-      if (caseData?['status'] != 'تم المراجعة') {
+      if (caseData?['status'] != 'تمت المراجعة') {
         throw Exception('لا يمكن تقديم اعتراض لأن حالة الكيس تغيرت.');
       }
 
@@ -800,7 +800,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                           ),
                           SizedBox(width: 5),
                           Text(
-                            'تم المراجعة',
+                            'تمت المراجعة',
                             style: TextStyle(
                               color: Color(0xFF15803D),
                               fontSize: 12,
@@ -1266,7 +1266,7 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Text(
-                            'تم المراجعة',
+                            'تمت المراجعة',
                             style: TextStyle(
                               color: Color(0xFF15803D),
                               fontSize: 11.5,

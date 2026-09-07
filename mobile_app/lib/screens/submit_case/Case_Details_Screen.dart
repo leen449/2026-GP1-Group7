@@ -458,7 +458,7 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
     required String? reportPdfUrl,
     required String? reportNumber,
   }) {
-    if (status != 'تم المراجعة') {
+    if (status.trim() != 'تمت المراجعة') {
       return const SizedBox.shrink();
     }
 
@@ -566,7 +566,7 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
           debugPrint(
             '[caseDebug] caseId=${widget.caseId} rawStatus="$status" '
             'length=${status.length} runes=${status.runes.toList()} '
-            'matchesLiteral=${status == 'تم المراجعة'} '
+            'matchesLiteral=${status == 'تمت المراجعة'} '
             'reportId=${caseData['reportId']}',
           );
 
@@ -679,7 +679,7 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
                 const SizedBox(height: 16),
 
                 // ── Report ───────────────────────────────────────────────
-                if (status == 'تم المراجعة') ...[
+                if (status.trim() == 'تمت المراجعة') ...[
                   const SizedBox(height: 16),
                   _reportButton(
                     status: status,

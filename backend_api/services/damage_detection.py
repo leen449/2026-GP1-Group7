@@ -119,6 +119,7 @@ async def process_damage_detection(case_id: str) -> dict:
                             "hasDamage": False,
                             "severity": None,
                             "severityConfidence": None,
+                            "ordinalProbabilities": None,
                         })
                         results.append({
                             "originalImage": image_url,
@@ -150,12 +151,14 @@ async def process_damage_detection(case_id: str) -> dict:
                         severity_result = classify_severity(temp_path)
                         severity_label = severity_result["severity"]
                         severity_conf = severity_result["confidence"]
+                        ordinal_probabilities = severity_result["ordinalProbabilities"]
                         image_severities.append(severity_label)
                         print(f"   Severity: {severity_label} ({severity_conf})")
                     except Exception as severity_error:
                         print(f"⚠️ Severity classification failed: {severity_error}")
                         severity_label = None
                         severity_conf = None
+                        ordinal_probabilities = None
 
                     # [12] Generate and upload annotated image
                     annotated_frame = r.plot()
@@ -176,6 +179,7 @@ async def process_damage_detection(case_id: str) -> dict:
                         # can never see a half-finished document.
                         "severity": severity_label,
                         "severityConfidence": severity_conf,
+                        "ordinalProbabilities": ordinal_probabilities,
                     })
 
                     # [14] Save each detection as a separate document in the detections subcollection
@@ -197,6 +201,7 @@ async def process_damage_detection(case_id: str) -> dict:
                         "hasDamage": True,
                         "severity": severity_label,
                         "severityConfidence": severity_conf,
+                        "ordinalProbabilities": ordinal_probabilities,
                         "detections": detections
                     })
 

@@ -25,7 +25,7 @@ from services.report_store import get_store
 
 router = APIRouter()
 
-_ALLOWED_STATUS = "تم المراجعة"
+_ALLOWED_STATUS = "تمت المراجعة"  # only generate a report for a reviewed case
 
 
 def _required_text(
@@ -88,6 +88,7 @@ def _read_damage_items(
     that case should be resolved administratively before its report is issued.
     """
     damages: list[DamageItem] = []
+    legacy_damages: list[DamageItem] = []
 
     # ── First: read the structure currently used by existing cases ──────────
     damage_analysis = case_data.get("damageAnalysis")
@@ -122,9 +123,15 @@ def _read_damage_items(
                 if damage_type is None or not str(damage_type).strip():
                     continue
 
-                damages.append(
+                legacy_damages.append(
                     DamageItem(
                         type=str(damage_type).strip(),
+                        part=(
+                            str(detection.get("part")).strip()
+                            if detection.get("part") is not None
+                            and str(detection.get("part")).strip()
+                            else None
+                        ),
                         severity=severity,
                         cost_sar=0.0,
                     )
@@ -173,10 +180,21 @@ def _read_damage_items(
                 damages.append(
                     DamageItem(
                         type=str(damage_type).strip(),
+                        part=(
+                            str(cost_item_data.get("part")).strip()
+                            if cost_item_data.get("part") is not None
+                            and str(cost_item_data.get("part")).strip()
+                            else None
+                        ),
                         severity=severity,
                         cost_sar=float(line_cost),
                     )
                 )
+
+    # Prefer the priced current records. Keep the legacy shape only as a
+    # compatibility fallback when no costItems exist at all.
+    if not damages and legacy_damages and not any_cost_items_seen:
+        damages = legacy_damages
 
     if not damages:
         if any_cost_items_seen:

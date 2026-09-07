@@ -824,9 +824,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
         bgColor = const Color(0xFFEAF1FF);
         textColor = const Color(0xFF2563EB);
         icon = Icons.hourglass_empty_rounded;
-      } else if (s == 'تم المراجعة' || s == 'valid') {
+      } else if (s == 'تمت المراجعة' || s == 'valid') {
         // The case is shown as reviewed only after admin approval.
-        displayStatus = 'تم المراجعة';
+        displayStatus = 'تمت المراجعة';
         bgColor = const Color(0xFFDCFCE7);
         textColor = Colors.green;
         icon = Icons.check;
@@ -935,7 +935,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         bgColor = const Color(0xFFEAF1FF);
         iconColor = const Color(0xFF2E63D9);
         icon = Icons.search_rounded;
-      } else if (s == 'تم المراجعة' || s == 'valid') {
+      } else if (s == 'تمت المراجعة' || s == 'valid') {
         // The reviewed appearance is shown only after admin approval.
         bgColor = const Color(0xFFDCFCE7);
         iconColor = Colors.green;

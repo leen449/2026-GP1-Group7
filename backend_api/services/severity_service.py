@@ -2,8 +2,8 @@
 Severity classification service.
 
 Model:      ResNet50 (torchvision), fine-tuned end-to-end.
-Experiment: exp05D_label_smoothing (Label Smoothing CE, eps=0.1)
-Val macro F1: 0.8850   |   Test macro F1: 0.9172
+Experiment: Experiment 10 — CSP650 full-image ordinal classifier.
+Deployment: two ordinal logits with fixed sigmoid thresholds at 0.5.
 
 IMPORTANT — scope of this model:
     It was trained with torchvision ImageFolder on FULL vehicle photos,
@@ -25,12 +25,13 @@ from PIL import Image
 # ─────────────────────────────────────────────────────────────────────
 SEVERITY_CLASSES = ["minor", "moderate", "severe"]
 NUM_CLASSES = len(SEVERITY_CLASSES)
+NUM_ORDINAL_OUTPUTS = 2
 
 INPUT_SIZE = 224
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
-WEIGHTS_PATH = "weight/severity_resnet50.pth"
+WEIGHTS_PATH = "weight/severity_resnet50_ordinal_csp650_v1.pth"
 
 # Rank used to aggregate several image-level severities into one case-level
 # severity. Higher number = worse. Aggregation rule is MAX (see [5]).
@@ -49,18 +50,25 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # ─────────────────────────────────────────────────────────────────────
 def _build_severity_model():
     model = models.resnet50(weights=None)
-    model.fc = nn.Linear(model.fc.in_features, NUM_CLASSES)
+    model.fc = nn.Linear(model.fc.in_features, NUM_ORDINAL_OUTPUTS)
 
     checkpoint = torch.load(WEIGHTS_PATH, map_location=DEVICE)
 
-    # Accept either the full training checkpoint (dict with 'model_state')
-    # or a slimmed deployment file (raw state_dict).
-    if isinstance(checkpoint, dict) and "model_state" in checkpoint:
-        state_dict = checkpoint["model_state"]
-    else:
-        state_dict = checkpoint
-
-    model.load_state_dict(state_dict)
+    # The deployed Experiment 10 file is a raw state_dict. Strict loading is
+    # intentional: a legacy 3-logit checkpoint must fail clearly.
+    if not isinstance(checkpoint, dict):
+        raise RuntimeError(f"Unsupported severity checkpoint format: {type(checkpoint)!r}")
+    state_dict = checkpoint.get("model_state", checkpoint.get("model_state_dict", checkpoint))
+    if not isinstance(state_dict, dict) or "fc.weight" not in state_dict:
+        raise RuntimeError("Severity checkpoint does not contain a ResNet50 state_dict with fc.weight")
+    if tuple(state_dict["fc.weight"].shape) != (NUM_ORDINAL_OUTPUTS, model.fc.in_features):
+        raise RuntimeError(
+            f"Expected an ordinal ResNet50 head with shape "
+            f"({NUM_ORDINAL_OUTPUTS}, {model.fc.in_features}); "
+            f"found {tuple(state_dict['fc.weight'].shape)}. "
+            "The old 3-class softmax checkpoint cannot be deployed here."
+        )
+    model.load_state_dict(state_dict, strict=True)
     model.to(DEVICE)
     model.eval()  # disables dropout / batchnorm updates — required for inference
     print(f"✅ Severity model loaded on {DEVICE}")
@@ -93,8 +101,11 @@ def classify_severity(image_path: str) -> dict:
     Returns:
         {
             "severity": "minor" | "moderate" | "severe",
-            "confidence": float,          # probability of the predicted class
-            "probabilities": {class: float}
+            "confidence": float,          # ordinal decision confidence
+            "ordinalProbabilities": {
+                "greaterThanMinor": float,
+                "greaterThanModerate": float,
+            },
         }
     Raises on unreadable images — the caller decides how to handle it.
     """
@@ -104,18 +115,28 @@ def classify_severity(image_path: str) -> dict:
 
     tensor = INFERENCE_TF(image).unsqueeze(0).to(DEVICE)  # add batch dimension
 
-    with torch.no_grad():
+    with torch.inference_mode():
         logits = severity_model(tensor)
-        probabilities = torch.softmax(logits, dim=1)[0]
+        probabilities = torch.sigmoid(logits)[0]
 
-    predicted_index = int(torch.argmax(probabilities))
+    p_gt_minor = float(probabilities[0])
+    p_gt_moderate = float(probabilities[1])
+    if p_gt_minor < 0.5:
+        severity = "minor"
+        decision_confidence = 1.0 - p_gt_minor
+    elif p_gt_moderate < 0.5:
+        severity = "moderate"
+        decision_confidence = min(p_gt_minor, 1.0 - p_gt_moderate)
+    else:
+        severity = "severe"
+        decision_confidence = p_gt_moderate
 
     return {
-        "severity": SEVERITY_CLASSES[predicted_index],
-        "confidence": round(float(probabilities[predicted_index]), 2),
-        "probabilities": {
-            cls: round(float(probabilities[i]), 4)
-            for i, cls in enumerate(SEVERITY_CLASSES)
+        "severity": severity,
+        "confidence": round(decision_confidence, 2),
+        "ordinalProbabilities": {
+            "greaterThanMinor": round(p_gt_minor, 4),
+            "greaterThanModerate": round(p_gt_moderate, 4),
         },
     }
 

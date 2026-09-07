@@ -26,6 +26,7 @@ class VehicleInfo(BaseModel):
 
 class DamageItem(BaseModel):
     type: str                 # e.g. "dent", "scratch"
+    part: Optional[str] = None  # canonical damaged part, when identified
     severity: str             # minor | moderate | severe
     cost_sar: float           # estimated repair cost for this item
 

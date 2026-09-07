@@ -188,6 +188,21 @@ _STATUS_LABEL = {
     "claim_pending": ("قيد مراجعة الاعتراض", "#9a6700"),
 }
 
+_PART_LABEL_AR = {
+    "door": "الباب",
+    "front_bumper": "الصدام الأمامي",
+    "back_bumper": "الصدام الخلفي",
+    "fender": "الرفرف",
+    "hood": "غطاء المحرك",
+    "trunk": "الصندوق الخلفي",
+    "roof": "السقف",
+    "sill": "العتبة الجانبية",
+    "front_glass": "الزجاج الأمامي",
+    "back_glass": "الزجاج الخلفي",
+    "lamp": "المصباح",
+    "wheel": "الإطار",
+}
+
 _PAGE = Template(r"""<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>تقرير CrashLens · {{ r.report_number }}</title>
@@ -244,8 +259,9 @@ _PAGE = Template(r"""<!doctype html><html lang="ar" dir="rtl"><head><meta charse
      <div class="row"><span class="k">رقم الهيكل</span><span class="v">{{ r.vehicle.vin }}</span></div>
    </div>
    <div class="sec"><div class="h">تقييم الأضرار</div>
-     <div class="twrap"><table><thead><tr><th>نوع الضرر</th><th>شدة الضرر</th><th>التكلفة (ريال)</th></tr></thead>
+     <div class="twrap"><table><thead><tr><th>نوع الضرر</th><th>الجزء المتضرر</th><th>شدة الضرر</th><th>التكلفة (ريال)</th></tr></thead>
      <tbody>{% for d in r.damages %}<tr><td>{{ d.type }}</td>
+       <td>{{ part_labels.get(d.part, d.part or 'غير محدد') }}</td>
        <td class="sev">{{ d.severity }}</td>
        <td>{{ "%.0f"|format(d.cost_sar) }}</td></tr>{% endfor %}</tbody></table></div>
    </div>
@@ -261,5 +277,10 @@ _PAGE = Template(r"""<!doctype html><html lang="ar" dir="rtl"><head><meta charse
 def render_verify_html(record: ReportRecord, valid: bool) -> str:
     slabel, scolor = _STATUS_LABEL.get(record.status, (record.status, "#5b6b7f"))
     return _PAGE.render(
-        r=record, valid=valid, slabel=slabel, scolor=scolor, logo=_logo_data_uri()
+      r=record,
+      valid=valid,
+      slabel=slabel,
+      scolor=scolor,
+      logo=_logo_data_uri(),
+      part_labels=_PART_LABEL_AR,
     )

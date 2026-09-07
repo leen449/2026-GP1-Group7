@@ -33,6 +33,21 @@ _FIRST_PAGE_DAMAGE_ROW_H = (
     568.0 - (390.0 + 29.0)
 ) / 4
 
+_PART_LABEL_AR = {
+    "door": "الباب",
+    "front_bumper": "الصدام الأمامي",
+    "back_bumper": "الصدام الخلفي",
+    "fender": "الرفرف",
+    "hood": "غطاء المحرك",
+    "trunk": "الصندوق الخلفي",
+    "roof": "السقف",
+    "sill": "العتبة الجانبية",
+    "front_glass": "الزجاج الأمامي",
+    "back_glass": "الزجاج الخلفي",
+    "lamp": "المصباح",
+    "wheel": "الإطار",
+}
+
 
 def _e(value: object) -> str:
     return html.escape("" if value is None else str(value))
@@ -46,6 +61,33 @@ def _money(value: object) -> str:
         return f"{float(value):,.2f}"
     except (TypeError, ValueError):
         return _e(value)
+
+
+def _part_label(part: object) -> str:
+    key = str(part or "").strip().lower()
+    # Keep the canonical English part key from the detector/estimator so it
+    # matches the English damage type and severity values in the report.
+    return key.replace("_", " ") or "not identified"
+
+
+def _damage_column_edges(
+    left: float,
+    severity_boundary: float,
+) -> tuple[float, float, float, float]:
+    """Return the original table geometry with one added Part column.
+
+    The outer table and the Cost boundary intentionally remain unchanged from
+    the approved four-column report.  Only the old Type/Severity area is split
+    to insert Damaged Part, so adding this field cannot widen or reflow the
+    report table.
+    """
+    no_x = left + 31.0
+    step = (severity_boundary - no_x) / 3.0
+    type_x = no_x + step
+    part_x = no_x + 2.0 * step
+    if not no_x < type_x < part_x < severity_boundary:
+        raise ValueError("Damage table is too narrow for the requested columns")
+    return no_x, type_x, part_x, severity_boundary
 
 
 def _draw_box(
@@ -833,13 +875,15 @@ def _draw_first_page(
     damage_left = left
     damage_right = inner_x
 
-    no_x = damage_left + 31.0
-    type_x = damage_left + 144.0
-    severity_x = label_col_x
+    no_x, type_x, part_x, severity_x = _damage_column_edges(
+        damage_left,
+        label_col_x,
+    )
 
     for x in (
         no_x,
         type_x,
+        part_x,
         severity_x,
     ):
         _draw_line(
@@ -894,6 +938,23 @@ def _draw_first_page(
         page,
         fitz.Rect(
             type_x,
+            vehicle_y2,
+            part_x,
+            vehicle_y2 + header_h,
+        ),
+        _bilingual(
+            "الجزء المتضرر",
+            "Damaged Part",
+            strong=True,
+        ),
+        font_size=6.2,
+        bold=True,
+    )
+
+    _html_box(
+        page,
+        fitz.Rect(
+            part_x,
             vehicle_y2,
             severity_x,
             vehicle_y2 + header_h,
@@ -955,6 +1016,7 @@ def _draw_first_page(
         )
 
         type_value = damage.type
+        part_value = _part_label(damage.part)
         severity_value = damage.severity
         cost_value = _money(
             damage.cost_sar
@@ -980,6 +1042,22 @@ def _draw_first_page(
             page,
             fitz.Rect(
                 type_x,
+                y1,
+                part_x,
+                y2,
+            ),
+            (
+                '<div style="padding-top: 10pt;">'
+                f"{_value(part_value)}"
+                "</div>"
+            ),
+            font_size=5.5,
+        )
+
+        _html_box(
+            page,
+            fitz.Rect(
+                part_x,
                 y1,
                 severity_x,
                 y2,
@@ -1096,9 +1174,10 @@ def _draw_continuation_page(
     damage_left = left
     damage_right = inner_x
 
-    no_x = damage_left + 31.0
-    type_x = damage_left + 144.0
-    severity_x = label_col_x
+    no_x, type_x, part_x, severity_x = _damage_column_edges(
+        damage_left,
+        label_col_x,
+    )
 
     table_bottom = (
         table_top
@@ -1149,6 +1228,7 @@ def _draw_continuation_page(
     for x in (
         no_x,
         type_x,
+        part_x,
         severity_x,
     ):
         _draw_line(
@@ -1203,6 +1283,23 @@ def _draw_continuation_page(
         page,
         fitz.Rect(
             type_x,
+            table_top,
+            part_x,
+            table_top + header_h,
+        ),
+        _bilingual(
+            "الجزء المتضرر",
+            "Damaged Part",
+            strong=True,
+        ),
+        font_size=6.2,
+        bold=True,
+    )
+
+    _html_box(
+        page,
+        fitz.Rect(
+            part_x,
             table_top,
             severity_x,
             table_top + header_h,
@@ -1281,6 +1378,22 @@ def _draw_continuation_page(
             page,
             fitz.Rect(
                 type_x,
+                y1,
+                part_x,
+                y2,
+            ),
+            (
+                '<div style="padding-top: 10pt;">'
+                f"{_value(_part_label(damage.part))}"
+                "</div>"
+            ),
+            font_size=5.5,
+        )
+
+        _html_box(
+            page,
+            fitz.Rect(
+                part_x,
                 y1,
                 severity_x,
                 y2,
