@@ -30,9 +30,10 @@ def test_issue_then_verify_ok():
     assert r["report_number"].startswith("CL-")
     page = client.get(f"/verify/{r['report_id']}")
     assert page.status_code == 200
-    assert "Cryptographically verified" in page.text
+    assert "تم التحقق من هذا التقرير إلكترونيًا" in page.text
     assert "NAJM-2026-778812" in page.text
-    assert "4000 SAR" in page.text          # 1800 + 2200
+    assert "4000" in page.text          # 1800 + 2200
+    assert "ريال" in page.text
 
 
 def test_unknown_report_404():
@@ -46,4 +47,4 @@ def test_tampered_record_fails_verification():
     rec.damages[0].cost_sar = 1              # tamper
     get_store().save(rec)
     page = client.get(f"/verify/{r['report_id']}")
-    assert "Verification failed" in page.text
+    assert "تعذّر التحقق من هذا التقرير" in page.text

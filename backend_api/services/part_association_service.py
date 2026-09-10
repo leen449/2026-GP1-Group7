@@ -1,45 +1,38 @@
 """
-part_association_service.py — associate detected damage with car parts (STAGING).
+Associate damage-detection boxes with segmented vehicle parts for cost estimation.
 
-Turns the two vision models into cost line-items:
-    damage detection (YOLO boxes, damage TYPE)  +  part segmentation (masks, PART)
-    -> for each damage, the part(s) it sits on  -> labor_hours_lookup
+The damage model owns the damage TYPE. The segmentation model owns the costed PART for
+panels and glass. Najm is not a general costing key; its only association input is an
+optional front/rear hint for wheel dents because the current segmentation taxonomy
+collapses wheel position while the expert dent hours differ.
 
-RULES (as agreed):
-  1. MULTI-PART, COUNTED IN FULL. A damage box is assigned to EVERY DISTINCT part
-     whose mask overlaps it by IoA >= IOA_THRESHOLD, and each part's hours are charged
-     IN FULL (no area splitting) — the labor table is whole-part values and the
-     estimator bills per part. A scratch across a door and a fender = door hours +
-     fender hours. "Distinct" is by CANONICAL PART LABEL: if the part-seg model emits
-     more than one overlapping mask instance with the SAME label over the SAME damage
-     box (duplicate/noisy detections of one physical part — a known behavior on
-     close-up photos), only the best-IoA instance is billed once, never once per
-     instance — otherwise one damage on one fender can get billed as if there were
-     two fenders.
-  2. CENTROID FALLBACK. If no part clears the IoA threshold, assign to the part mask
-     that contains the damage box centroid. If none, mark unassigned -> admin review.
-  3. DAMAGE-MODEL PRIORITY for glass / lamp / tire. These come from the DAMAGE class,
-     never from the part model:
-         glass shatter -> glass   (front_glass/back_glass via Najm zone)
-         lamp broken   -> lamp    (front/back + left/right light)
-         tire flat     -> wheel
-     The part model's own glass/window/wheel prediction only RAISES or LOWERS
-     confidence (agreement vs conflict). It does not decide. This is what stops the
-     exp03 failure (glass mislabeled as door) from re-entering through the part model.
-  4. PANELS (dent/scratch/crack) come from the part-seg IoA association in rule 1.
+Rules:
+  1. Panel damage is assigned to every distinct segmented panel whose mask overlaps the
+     damage box by IoA >= IOA_THRESHOLD. Duplicate masks of the same canonical part are
+     billed once, using the best-IoA instance.
+  2. If no panel clears the threshold, a mask containing the damage centroid may be used.
+  3. Glass is priced only when exactly one distinct glass cost bucket clears the IoA
+     threshold: windshield, window/door glass, or trunk. Missing/conflicting evidence is
+     left unpriced for review; generic door masks are not evidence of broken door glass.
+  4. Lamp and tire-flat detections use their location-independent expert values once per
+     damage-model detection. Their part masks do not change the price.
 
-IoA = |damage_box ∩ part_mask| / |damage_box|  (intersection over the DAMAGE area).
+IoA = |damage_box ∩ part_mask| / |damage_box|.
 
-⚠️ STAGING ONLY — produces line-items for end-to-end testing, not for costing real
-   user claims. See part_segmentation_service.py.
+⚠️ STAGING: real-domain segmentation accuracy remains under evaluation. Ambiguous visual
+assignments fail visibly instead of selecting a cost row from Najm.
 """
 from dataclasses import dataclass, field
 from typing import List, Optional
+
 import numpy as np
 
 IOA_THRESHOLD = 0.20
 
-PANELS = {"door", "front_bumper", "back_bumper", "fender", "hood", "trunk", "roof", "sill"}
+PANELS = {
+    "door", "front_bumper", "back_bumper", "fender", "hood", "trunk", "roof",
+    "sill", "wheel",
+}
 
 # raw damage label -> normalized damage type (the value labor_hours_lookup expects)
 _NORMALIZE = {
@@ -48,17 +41,15 @@ _NORMALIZE = {
     "lamp broken": "lamp", "lamp_broken": "lamp",
     "tire flat": "tire", "tire_flat": "tire",
 }
-# normalized damage type -> category (routing bucket)
 _CATEGORY = {
     "dent": "panel", "scratch": "panel", "crack": "panel",
     "glass": "glass", "lamp": "lamp", "tire": "tire",
 }
 
-# generic seg class -> a representative labor_hours_lookup key ("door" still uses one
-# side as a stand-in — all sides cost the same, so any representative is fine for HOURS;
-# fender/sill/roof resolve to their own canonical (sideless) LOOKUP rows directly)
+# Model-level canonical part -> logical labor lookup key. Common-value logical keys are
+# resolved against the exact expert rows in labor_hours_lookup.py.
 _PANEL_TO_LOOKUP_KEY = {
-    "door": "front_left_door",
+    "door": "door",
     "fender": "fender",
     "sill": "sill",
     "roof": "roof",
@@ -66,152 +57,247 @@ _PANEL_TO_LOOKUP_KEY = {
     "back_bumper": "back_bumper",
     "hood": "hood",
     "trunk": "trunk",
+    "wheel": "wheel",
+}
+
+_GLASS_BUCKETS = {
+    "windshield": ("windshield", "windshield"),
+    "window": ("door_glass", "door_glass"),
+    "trunk": ("trunk", "trunk"),
 }
 
 
 @dataclass
 class CostLine:
     damage_index: int
-    damage_type: str            # normalized: dent/scratch/crack/glass/lamp/tire
-    part: Optional[str]         # canonical part (None if unassigned)
-    lookup_key: Optional[str]   # key to pass to labor_hours_lookup.get_hours
-    source: str                 # damage_class | seg_ioa | centroid_fallback | unassigned
+    damage_type: str
+    part: Optional[str]
+    lookup_key: Optional[str]
+    source: str
     ioa: float = 0.0
     part_conf: float = 0.0
     flags: List[str] = field(default_factory=list)
+    wheel_position: Optional[str] = None
 
 
 def _norm(s: str) -> str:
-    return (s or "").strip().lower()
+    return (s or "").strip().lower().replace("-", "_").replace(" ", "_")
 
 
 def ioa_box_mask(box, mask) -> float:
     """Intersection of part mask with the damage box, over the box area."""
     x1, y1, x2, y2 = [int(v) for v in box]
     x1, y1 = max(0, x1), max(0, y1)
-    x2 = min(mask.shape[1], x2); y2 = min(mask.shape[0], y2)
+    x2 = min(mask.shape[1], x2)
+    y2 = min(mask.shape[0], y2)
     area = (x2 - x1) * (y2 - y1)
     if area <= 0:
         return 0.0
     return float(mask[y1:y2, x1:x2].sum()) / float(area)
 
 
-def _resolve_special(cat, najm_zone, box, image_hw):
-    """Resolve glass/lamp/tire to a labor-lookup key from the damage class + Najm zone."""
-    z = _norm(najm_zone)
-    front = "front" in z or "مقدم" in z
-    rear = "rear" in z or "back" in z or "مؤخر" in z or "خلف" in z
-    flags = []
-    if cat == "tire":
-        return "wheel", "wheel", flags
-    if cat == "glass":
-        if front: return "front_glass", "front_glass", flags
-        if rear:  return "back_glass", "back_glass", flags
-        flags.append("glass_side_assumed_front")
-        return "front_glass", "front_glass", flags
-    if cat == "lamp":
-        # left/right from the damage box centre; front/rear from Najm
-        H, W = image_hw
-        cx = (box[0] + box[2]) / 2.0
-        side = "left" if cx < W / 2.0 else "right"
-        if not (front or rear):
-            flags.append("lamp_frontback_assumed_front")
-        fb = "back" if rear else "front"
-        key = f"{fb}_{side}_light"
-        return "lamp", key, flags
-    return None, None, ["unknown_category"]
+def _wheel_position_from_label(label: str) -> Optional[str]:
+    label = _norm(label)
+    if label.startswith("front_") or label == "front_wheel":
+        return "front"
+    if label.startswith("back_") or label.startswith("rear_") or label in (
+        "back_wheel", "rear_wheel",
+    ):
+        return "rear"
+    return None
+
+
+def _panel_identity(label: str):
+    """Return (canonical part, lookup key, visual wheel position), or None."""
+    label = _norm(label)
+    if label in PANELS:
+        return label, _PANEL_TO_LOOKUP_KEY[label], _wheel_position_from_label(label)
+
+    if label in {
+        "front_wheel", "rear_wheel", "back_wheel",
+        "front_left_wheel", "front_right_wheel",
+        "back_left_wheel", "back_right_wheel",
+        "rear_left_wheel", "rear_right_wheel",
+    }:
+        return "wheel", "wheel", _wheel_position_from_label(label)
+    return None
+
+
+def _wheel_fields(damage_type: str, visual_position: Optional[str],
+                  wheel_position_hint: Optional[str]):
+    if damage_type != "dent":
+        return None, []
+
+    position = visual_position or (
+        wheel_position_hint if wheel_position_hint in ("front", "rear") else None
+    )
+    if position is None:
+        return None, ["wheel_position_ambiguous_fallback"]
+    return position, []
+
+
+def _glass_line(damage_index, damage_type, damage, parts, ioa_threshold):
+    """Build one glass line from one unambiguous segmentation cost bucket."""
+    hits = {}
+    for segmented in parts:
+        bucket = _GLASS_BUCKETS.get(_norm(segmented.get("label")))
+        if bucket is None:
+            continue
+        ioa = ioa_box_mask(damage["bbox"], segmented["mask"])
+        if ioa < ioa_threshold:
+            continue
+        part, lookup_key = bucket
+        current = hits.get(part)
+        if (
+            current is None
+            or ioa > current[1]
+            or (
+                ioa == current[1]
+                and segmented.get("confidence", 0.0) > current[0].get("confidence", 0.0)
+            )
+        ):
+            hits[part] = (segmented, ioa, lookup_key)
+
+    if not hits:
+        return CostLine(
+            damage_index, damage_type, None, None, "unassigned",
+            flags=["glass_no_part_support"],
+        )
+    if len(hits) > 1:
+        return CostLine(
+            damage_index, damage_type, None, None, "unassigned",
+            flags=["glass_ambiguous_part"],
+        )
+
+    part, (segmented, ioa, lookup_key) = next(iter(hits.items()))
+    return CostLine(
+        damage_index, damage_type, part, lookup_key, "seg_ioa",
+        ioa=ioa, part_conf=float(segmented.get("confidence", 0.0)),
+    )
 
 
 def associate(damages, parts, image_hw, najm_zone: Optional[str] = None,
-              ioa_threshold: float = IOA_THRESHOLD) -> List[CostLine]:
+              ioa_threshold: float = IOA_THRESHOLD,
+              wheel_position_hint: Optional[str] = None) -> List[CostLine]:
     """
-    damages: [{label, bbox:(x1,y1,x2,y2), confidence}]  from damage_detection
-    parts:   [{label, mask:boolHxW, bbox, confidence}]  from part_segmentation_service
-    image_hw: (H, W)
-    Returns a flat list of CostLine (a damage may yield several — one per overlapping part).
-    """
-    lines: List[CostLine] = []
-    for di, d in enumerate(damages):
-        raw = _norm(d.get("label"))
-        dtype = _NORMALIZE.get(raw, raw)            # dent/scratch/crack/glass/lamp/tire
-        cat = _CATEGORY.get(dtype, "panel")
+    Associate stored damage boxes with segmentation masks.
 
-        if cat in ("glass", "lamp", "tire"):
-            part, key, flags = _resolve_special(cat, najm_zone, d["bbox"], image_hw)
-            # confidence support: does any overlapping seg part agree with the category?
-            support = any(
-                ioa_box_mask(d["bbox"], p["mask"]) >= ioa_threshold
-                and _seg_supports(cat, _norm(p["label"]))
-                for p in parts
-            )
-            if not support:
-                flags = flags + ["seg_no_support"]
-            lines.append(CostLine(di, dtype, part, key, "damage_class",
-                                  part_conf=1.0, flags=flags))
+    `najm_zone` remains as a deprecated compatibility argument and is deliberately
+    ignored. Callers may provide only `wheel_position_hint` for the wheel-dent exception.
+    """
+    del image_hw, najm_zone
+    lines: List[CostLine] = []
+
+    for damage_index, damage in enumerate(damages):
+        raw = _norm(damage.get("label"))
+        damage_type = _NORMALIZE.get(raw, raw)
+        category = _CATEGORY.get(damage_type, "panel")
+
+        if category == "glass":
+            lines.append(_glass_line(
+                damage_index, damage_type, damage, parts, ioa_threshold,
+            ))
             continue
 
-        # PANEL damage -> IoA-multi, counted in full, ONCE PER DISTINCT canonical
-        # label. Duplicate/overlapping mask instances of the same part (segmentation
-        # noise) collapse to their single best-IoA instance instead of double-billing.
-        hits_by_label = {}
-        for p in parts:
-            lbl = _norm(p["label"])
-            if lbl in PANELS:
-                io = ioa_box_mask(d["bbox"], p["mask"])
-                if io >= ioa_threshold:
-                    best = hits_by_label.get(lbl)
-                    if best is None or io > best[1]:
-                        hits_by_label[lbl] = (p, io)
-        if hits_by_label:
-            for lbl, (p, io) in hits_by_label.items():
-                key = _PANEL_TO_LOOKUP_KEY.get(lbl, lbl)
-                lines.append(CostLine(di, dtype, lbl, key, "seg_ioa",
-                                      ioa=io, part_conf=float(p["confidence"]), flags=[]))
+        if category == "lamp":
+            lines.append(CostLine(
+                damage_index, damage_type, "lamp", "lamp", "damage_class",
+                part_conf=1.0,
+            ))
+            continue
+
+        if category == "tire":
+            lines.append(CostLine(
+                damage_index, damage_type, "wheel", "wheel", "damage_class",
+                part_conf=1.0,
+            ))
+            continue
+
+        # Panel-like damage: retain one best mask per distinct canonical part.
+        hits_by_part = {}
+        for segmented in parts:
+            identity = _panel_identity(segmented.get("label"))
+            if identity is None:
+                continue
+            part, lookup_key, visual_wheel_position = identity
+            ioa = ioa_box_mask(damage["bbox"], segmented["mask"])
+            if ioa < ioa_threshold:
+                continue
+            current = hits_by_part.get(part)
+            if current is None or ioa > current[1]:
+                hits_by_part[part] = (
+                    segmented, ioa, lookup_key, visual_wheel_position,
+                )
+
+        if hits_by_part:
+            for part, (segmented, ioa, lookup_key, visual_position) in hits_by_part.items():
+                wheel_position, flags = (None, [])
+                if part == "wheel":
+                    wheel_position, flags = _wheel_fields(
+                        damage_type, visual_position, wheel_position_hint,
+                    )
+                lines.append(CostLine(
+                    damage_index, damage_type, part, lookup_key, "seg_ioa",
+                    ioa=ioa,
+                    part_conf=float(segmented.get("confidence", 0.0)),
+                    flags=flags,
+                    wheel_position=wheel_position,
+                ))
+            continue
+
+        # Centroid fallback is permitted for panel-like damage only.
+        cx = int((damage["bbox"][0] + damage["bbox"][2]) / 2)
+        cy = int((damage["bbox"][1] + damage["bbox"][3]) / 2)
+        containing = []
+        for segmented in parts:
+            identity = _panel_identity(segmented.get("label"))
+            mask = segmented.get("mask")
+            if identity is None or mask is None:
+                continue
+            if 0 <= cy < mask.shape[0] and 0 <= cx < mask.shape[1] and mask[cy, cx]:
+                containing.append((segmented, identity))
+
+        if containing:
+            segmented, (part, lookup_key, visual_position) = max(
+                containing, key=lambda item: item[0].get("confidence", 0.0),
+            )
+            wheel_position, flags = (None, ["centroid_fallback"])
+            if part == "wheel":
+                wheel_position, wheel_flags = _wheel_fields(
+                    damage_type, visual_position, wheel_position_hint,
+                )
+                flags.extend(wheel_flags)
+            lines.append(CostLine(
+                damage_index, damage_type, part, lookup_key, "centroid_fallback",
+                part_conf=float(segmented.get("confidence", 0.0)),
+                flags=flags,
+                wheel_position=wheel_position,
+            ))
         else:
-            # centroid fallback
-            cx = int((d["bbox"][0] + d["bbox"][2]) / 2)
-            cy = int((d["bbox"][1] + d["bbox"][3]) / 2)
-            containing = [p for p in parts
-                          if _norm(p["label"]) in PANELS
-                          and 0 <= cy < p["mask"].shape[0] and 0 <= cx < p["mask"].shape[1]
-                          and p["mask"][cy, cx]]
-            if containing:
-                p = max(containing, key=lambda q: q["confidence"])
-                lbl = _norm(p["label"])
-                key = _PANEL_TO_LOOKUP_KEY.get(lbl, lbl)
-                lines.append(CostLine(di, dtype, lbl, key, "centroid_fallback",
-                                      part_conf=float(p["confidence"]), flags=["centroid_fallback"]))
-            else:
-                lines.append(CostLine(di, dtype, None, None, "unassigned",
-                                      flags=["unassigned_admin_review"]))
+            lines.append(CostLine(
+                damage_index, damage_type, None, None, "unassigned",
+                flags=["unassigned_admin_review"],
+            ))
+
     return lines
 
 
-def _seg_supports(cat, seg_label):
-    if cat == "glass": return seg_label in ("windshield", "window")
-    if cat == "lamp":  return seg_label in ("headlight", "taillight")
-    if cat == "tire":  return seg_label == "wheel"
-    return False
-
-
-# ---------------------------------------------------------------- self-test
 if __name__ == "__main__":
-    H, W = 100, 200
+    height, width = 100, 200
+
     def mask_rect(x1, y1, x2, y2):
-        m = np.zeros((H, W), bool); m[y1:y2, x1:x2] = True; return m
+        mask = np.zeros((height, width), bool)
+        mask[y1:y2, x1:x2] = True
+        return mask
 
-    # a door mask (left half) and a fender mask (overlapping strip)
-    door   = {"label": "door",   "mask": mask_rect(0, 0, 100, 100), "bbox": (0,0,100,100),   "confidence": 0.9}
-    fender = {"label": "fender", "mask": mask_rect(80, 0, 130, 100), "bbox": (80,0,130,100),  "confidence": 0.7}
-    windshield = {"label": "windshield", "mask": mask_rect(120,0,200,100), "bbox":(120,0,200,100), "confidence": 0.95}
-    parts = [door, fender, windshield]
-
-    dmgs = [
-        {"label": "scratch", "bbox": (70, 20, 110, 60), "confidence": 0.8},   # spans door + fender
-        {"label": "glass shatter", "bbox": (130, 10, 190, 90), "confidence": 0.9},  # glass
-        {"label": "dent", "bbox": (5, 5, 15, 15), "confidence": 0.6},         # door only
-        {"label": "dent", "bbox": (150, 95, 160, 99), "confidence": 0.5},     # overlaps nothing panel -> fallback/unassigned
+    sample_parts = [
+        {"label": "door", "mask": mask_rect(0, 0, 100, 100), "confidence": 0.9},
+        {"label": "fender", "mask": mask_rect(80, 0, 130, 100), "confidence": 0.7},
+        {"label": "windshield", "mask": mask_rect(120, 0, 200, 100), "confidence": 0.95},
     ]
-    for ln in associate(dmgs, parts, (H, W), najm_zone="front"):
-        print(f"dmg{ln.damage_index} {ln.damage_type:6s} -> part={ln.part} key={ln.lookup_key} "
-              f"src={ln.source} ioa={ln.ioa:.2f} flags={ln.flags}")
+    sample_damages = [
+        {"label": "scratch", "bbox": (70, 20, 110, 60), "confidence": 0.8},
+        {"label": "glass shatter", "bbox": (130, 10, 190, 90), "confidence": 0.9},
+    ]
+    for line in associate(sample_damages, sample_parts, (height, width)):
+        print(line)

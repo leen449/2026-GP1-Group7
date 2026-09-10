@@ -88,11 +88,62 @@ _ARABIC_MAKE_RAW = {
 ARABIC_MAKE_MAP = {_ar_normalize(k): v for k, v in _ARABIC_MAKE_RAW.items()}
 
 # Arabic (or Latin) model -> canonical model. SEED — extend from real misses.
+# Grouped by make purely for readability; this dict is make-agnostic (model names
+# are assumed unique enough across the Saudi fleet not to need the make as context).
 _MODEL_ALIASES_RAW = {
-    "كامري": "CAMRY", "كورولا": "COROLLA", "لاندكروزر": "LAND CRUISER",
-    "لاند كروزر": "LAND CRUISER", "سوناتا": "SONATA", "النترا": "ELANTRA",
-    "اكسنت": "ACCENT", "سنتافي": "SANTA FE", "توسان": "TUCSON", "سيراتو": "CERATO",
-    "سبورتاج": "SPORTAGE", "باترول": "PATROL", "سنترا": "SENTRA", "اكورد": "ACCORD",
+    # Toyota
+    "كامري": "CAMRY", "كورولا": "COROLLA", "كورولا كروس": "COROLLA CROSS",
+    "لاندكروزر": "LAND CRUISER", "لاند كروزر": "LAND CRUISER",
+    "يارس": "YARIS", "افالون": "AVALON", "برادو": "PRADO",
+    "فورتشنر": "FORTUNER", "هايلكس": "HILUX", "هايلوكس": "HILUX",
+    "راف فور": "RAV4", "راف4": "RAV4", "هايس": "HIACE",
+
+    # Hyundai
+    "سوناتا": "SONATA", "النترا": "ELANTRA", "اكسنت": "ACCENT",
+    "سنتافي": "SANTA FE", "سنتا في": "SANTA FE", "توسان": "TUCSON",
+    "كريتا": "CRETA", "بالاسيد": "PALISADE", "ازيرا": "AZERA", "ستاريا": "STARIA",
+
+    # Kia
+    "سيراتو": "CERATO", "سبورتاج": "SPORTAGE", "اوبتيما": "OPTIMA",
+    "سيلتوس": "SELTOS", "سورينتو": "SORENTO", "كرنفال": "CARNIVAL",
+    "بيكانتو": "PICANTO", "ريو": "RIO", "سول": "SOUL", "تيلورايد": "TELLURIDE",
+
+    # Nissan
+    "باترول": "PATROL", "سنترا": "SENTRA", "التيما": "ALTIMA", "صني": "SUNNY",
+    "اكستيرا": "XTERRA", "اكس تريل": "X-TRAIL", "مكسيما": "MAXIMA",
+    "اورفان": "URVAN", "نافارا": "NAVARA", "كيكس": "KICKS", "باثفايندر": "PATHFINDER",
+
+    # Honda
+    "اكورد": "ACCORD", "سيفيك": "CIVIC", "بايلوت": "PILOT",
+
+    # Chevrolet
+    "ماليبو": "MALIBU", "كابتيفا": "CAPTIVA", "تاهو": "TAHOE",
+    "سوبربان": "SUBURBAN", "سلفرادو": "SILVERADO", "كروز": "CRUZE",
+    "كمارو": "CAMARO", "امبالا": "IMPALA", "ترافيرس": "TRAVERSE",
+    "تريل بليزر": "TRAILBLAZER",
+
+    # GMC
+    "يوكن": "YUKON", "سييرا": "SIERRA", "تيرين": "TERRAIN", "اكاديا": "ACADIA",
+
+    # Ford
+    "اكسبلورر": "EXPLORER", "اكسبديشن": "EXPEDITION", "ايدج": "EDGE",
+    "اسكيب": "ESCAPE", "توروس": "TAURUS", "موستنج": "MUSTANG", "رينجر": "RANGER",
+
+    # Dodge
+    "تشارجر": "CHARGER", "تشالنجر": "CHALLENGER", "دورانجو": "DURANGO",
+
+    # Mitsubishi
+    "باجيرو": "PAJERO", "لانسر": "LANCER", "اوتلاندر": "OUTLANDER",
+
+    # Suzuki
+    "سويفت": "SWIFT", "فيتارا": "VITARA", "جيمني": "JIMNY", "ديزاير": "DZIRE",
+
+    # Land Rover / Jeep
+    "ديسكفري": "DISCOVERY", "رانجلر": "WRANGLER",
+    "جراند شيروكي": "GRAND CHEROKEE", "شيروكي": "CHEROKEE", "كومباس": "COMPASS",
+
+    # Volkswagen
+    "جولف": "GOLF", "باسات": "PASSAT", "تيغوان": "TIGUAN", "جيتا": "JETTA",
 }
 MODEL_ALIASES = {_ar_normalize(k): v for k, v in _MODEL_ALIASES_RAW.items()}
 

@@ -22,23 +22,20 @@ async def _analyze_and_cost(case_id: str):
     failure is left exactly as process_damage_detection already reports it
     ("فشل الفحص" + detectionError) — nothing chained, status untouched.
 
-    On success, `status` is re-set to "تم الفحص" once cost estimation finishes,
-    REGARDLESS of the cost step's own outcome: neither the mobile app nor the
-    report currently key off cost's own status values ("تم حساب التكلفة" /
-    "فشل حساب التكلفة"), so "تم الفحص" stays the single terminal signal existing
-    (and eventually report/case-details) screens rely on. Cost's own success or
-    failure is still fully recorded on the case (costError/costStartedAt/
-    estimatedCostSar/needsAdminReview) for backend and future UI use — only the
-    outward `status` string is pinned back.
+    After a finalized complete/partial cost result, `status` is re-set to
+    "تم الفحص" so existing screens keep a single terminal signal. A cost error
+    keeps the cost step's own failure status ("فشل حساب التكلفة") instead of
+    being overwritten as if inspection succeeded.
     """
     try:
         detection_result = await process_damage_detection(case_id)
         if detection_result.get("status") != "success":
             return
-        await process_cost_estimation(case_id)
-        firestore.client().collection("accidentCase").document(case_id).update({
-            "status": "تم الفحص",
-        })
+        cost_result = await process_cost_estimation(case_id)
+        if cost_result.get("status") == "success":
+            firestore.client().collection("accidentCase").document(case_id).update({
+                "status": "تم الفحص",
+            })
     except Exception as e:
         print(f"⚠️ analyze->cost chain failed for {case_id}: {e}")
 

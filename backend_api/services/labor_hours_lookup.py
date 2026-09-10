@@ -5,21 +5,28 @@ severity) that anchor the repair-cost estimate:
 
     C_base = H(part, type) × R × F_paint × F_vehicle × F_severity
 
-KEYS come straight from the two vision models:
-    • part        = carparts-seg class name (front_bumper, back_left_door, wheel, …)
+REQUEST KEYS come from the vision association layer:
+    • part        = a canonical model part such as door, windshield, lamp, or wheel
     • damage_type = the YOLO damage class, normalized to:
                     dent | scratch | crack | lamp | glass | tire
 
-VALUES are the estimator's (Tagdeer) form, transcribed and verified against the
-original by the team. They are real expert numbers — do not edit them here; retune
-via Firestore if the estimator ever revises them.
+VALUES are the estimator's (Tagdeer) form, transcribed as exact part rows in LOOKUP.
+Logical model keys collapse multiple rows only while the configured values agree. The
+values are real expert numbers — do not edit them here; retune through an approved
+Firestore `config/laborHours` update if the estimator revises them.
 
 SPECIAL HANDLING
     trunk + tailgate  -> both use the estimator's "Trunk" row.
-    wheel             -> position-dependent. Only the DENT value differs front/rear
-                         (front 4.5 / rear 4.0); scratch/crack/tire are identical.
-                         Najm's front/rear zone selects the value; if position is
-                         unknown, use the averaged ("ambiguous") row (dent 4.25).
+    windshield       -> front/rear glass rows have the same hours; resolve only while
+                         their configured values agree.
+    door / door_glass -> side-specific door rows have identical hours; resolve only
+                         while the applicable configured values agree.
+    lamp              -> all applicable lamp-break cells are 0.5; resolve from the
+                         configured rows rather than choosing a location.
+    wheel             -> all four expert rows are stored in LOOKUP/Firestore. Tire,
+                         scratch, and crack resolve while all rows agree. Wheel dent
+                         uses a front/rear hint (4.5/4.0); an unknown position keeps
+                         the approved 4.25 average fallback.
     left/right mirror -> not costed (no estimator row) -> returns None.
 
 GENERIC fender/sill/roof: the part-seg model (exp04+) emits these as SIDELESS classes
@@ -34,7 +41,9 @@ any part still unmapped.
 Storage mirrors the other factor services: real values in code as seed + fallback,
 overridable at config/laborHours in Firestore (no redeploy).
 """
+from copy import deepcopy
 from typing import Optional
+import math
 import firebase_admin
 from firebase_admin import credentials, firestore
 
@@ -70,6 +79,13 @@ LOOKUP = {
     "fender":            {"najm_zone": None,            "hours": {"dent": 2, "scratch": 1.2, "crack": 2.2, "lamp": 0.5}},
     "sill":              {"najm_zone": None,            "hours": {"dent": 1.5, "scratch": 1}},
     "roof":              {"najm_zone": "الأعلى",        "hours": {"dent": 4, "scratch": 2}},
+
+    # Exact expert wheel rows. Left/right values are equal, while front/rear dent
+    # differs. Keeping all four rows makes the Firestore document match the source form.
+    "back_right_wheel":  {"najm_zone": "المؤخرة",       "hours": {"dent": 4,   "scratch": 0.5, "crack": 1.5, "tire": 0.5}},
+    "back_left_wheel":   {"najm_zone": "المؤخرة",       "hours": {"dent": 4,   "scratch": 0.5, "crack": 1.5, "tire": 0.5}},
+    "front_right_wheel": {"najm_zone": "المقدمة",       "hours": {"dent": 4.5, "scratch": 0.5, "crack": 1.5, "tire": 0.5}},
+    "front_left_wheel":  {"najm_zone": "المقدمة",       "hours": {"dent": 4.5, "scratch": 0.5, "crack": 1.5, "tire": 0.5}},
 }
 
 # Model classes that alias onto an existing row.
@@ -78,11 +94,24 @@ ALIASES = {"tailgate": "trunk"}
 # Model classes detected but intentionally NOT costed.
 NON_COSTED = {"left_mirror", "right_mirror"}
 
-# wheel: position-dependent. Only DENT differs front/rear.
-WHEEL_HOURS = {
-    "front":     {"dent": 4.5,  "scratch": 0.5, "crack": 1.5, "tire": 0.5},
-    "rear":      {"dent": 4.0,  "scratch": 0.5, "crack": 1.5, "tire": 0.5},
-    "ambiguous": {"dent": 4.25, "scratch": 0.5, "crack": 1.5, "tire": 0.5},  # front/rear avg
+# Logical model outputs that safely collapse expert rows only while their values agree.
+_DOOR_ROWS = (
+    "front_left_door", "front_right_door", "back_left_door", "back_right_door",
+)
+_WHEEL_ROWS = (
+    "front_left_wheel", "front_right_wheel", "back_left_wheel", "back_right_wheel",
+)
+_LAMP_ROWS = (
+    "front_left_light", "front_right_light", "back_left_light", "back_right_light",
+)
+_COMMON_VALUE_ROWS = {
+    "door": _DOOR_ROWS,
+    "door_glass": _DOOR_ROWS,
+    "windshield": ("front_glass", "back_glass"),
+    "lamp": _LAMP_ROWS,
+    "front_wheel": ("front_left_wheel", "front_right_wheel"),
+    "rear_wheel": ("back_left_wheel", "back_right_wheel"),
+    "wheel": _WHEEL_ROWS,
 }
 
 # Expert hours for parts the current model can't emit. Preserved, not on request path.
@@ -105,8 +134,32 @@ def _db():
     return firestore.client()
 
 
+def _positive_hours(value) -> bool:
+    # bool is a subclass of int — reject it so True/False cannot sneak in as 1/0.
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    return math.isfinite(value) and value > 0
+
+
+def _valid_row(row, expected) -> bool:
+    if not isinstance(row, dict) or set(row.keys()) != {"najm_zone", "hours"}:
+        return False
+    zone = row.get("najm_zone")
+    if zone is not None and not isinstance(zone, str):
+        return False
+    hours = row.get("hours")
+    if not isinstance(hours, dict):
+        return False
+    if set(hours.keys()) != set(expected["hours"].keys()):
+        return False
+    return all(_positive_hours(hours[key]) for key in expected["hours"])
+
+
 def _valid(tbl) -> bool:
-    return isinstance(tbl, dict) and "front_bumper" in tbl and isinstance(tbl["front_bumper"], dict)
+    """Accept only a complete sparse LOOKUP-shaped table. Partial/stale docs fall back."""
+    if not isinstance(tbl, dict) or set(tbl.keys()) != set(LOOKUP.keys()):
+        return False
+    return all(_valid_row(tbl[part], expected) for part, expected in LOOKUP.items())
 
 
 def load_lookup(force_refresh: bool = False) -> dict:
@@ -116,9 +169,18 @@ def load_lookup(force_refresh: bool = False) -> dict:
     try:
         snap = _db().collection(CONFIG_COLLECTION).document(LABOR_DOC).get()
         tbl = snap.to_dict() if snap.exists else None
-        _cache = tbl if _valid(tbl) else dict(LOOKUP)
-    except Exception:
-        _cache = dict(LOOKUP)
+        if _valid(tbl):
+            _cache = deepcopy(tbl)
+        else:
+            reason = "missing" if not tbl else "incomplete, stale, or malformed"
+            print(
+                f"⚠️ config/{LABOR_DOC} is {reason}; "
+                "using the built-in LOOKUP table"
+            )
+            _cache = deepcopy(LOOKUP)
+    except Exception as exc:
+        print(f"⚠️ config/{LABOR_DOC} could not be read ({exc}); using the built-in LOOKUP table")
+        _cache = deepcopy(LOOKUP)
     return _cache
 
 
@@ -126,22 +188,32 @@ def _norm(s) -> str:
     return (s or "").strip().lower().replace(" ", "_")
 
 
+def _common_hours(table: dict, rows, damage_type: str) -> Optional[float]:
+    """Return a shared configured value, or None when candidate rows disagree/miss it."""
+    values = []
+    for row_key in rows:
+        value = table.get(row_key, {}).get("hours", {}).get(damage_type)
+        if value is None:
+            return None
+        values.append(float(value))
+    return values[0] if values and all(v == values[0] for v in values[1:]) else None
+
+
 def najm_zone_for(model_class: str) -> Optional[str]:
-    """The Najm zone a detected part rolls up to (for verification). None for wheel/mirror."""
-    c = _norm(model_class)
-    c = ALIASES.get(c, c)
-    if c in NON_COSTED or c == "wheel":
+    """The expert-table zone for verification, when one unambiguous zone exists."""
+    c = ALIASES.get(_norm(model_class), _norm(model_class))
+    if c in NON_COSTED or c in _COMMON_VALUE_ROWS:
         return None
     return load_lookup().get(c, {}).get("najm_zone")
 
 
 def get_hours(model_class: str, damage_type: str, *, wheel_position: Optional[str] = None) -> Optional[float]:
     """
-    Base (moderate) labor hours for a detected (part, damage_type).
-      wheel_position: 'front' | 'rear' | None. Used only when model_class == 'wheel';
-                      None -> the averaged 'ambiguous' row.
-    Returns hours, or None when the part isn't costed (mirror) or the part has no
-    entry for that damage type (caller decides how to handle a no-match).
+    Return configured expert hours for a model-level part and damage type.
+
+    Equivalent source rows are collapsed only when their values agree. For generic
+    wheel dent, a clear front/rear hint selects that pair; otherwise the approved
+    4.25-hour average is retained as an explicit fallback by the association layer.
     """
     c = _norm(model_class)
     d = _norm(damage_type)
@@ -149,19 +221,29 @@ def get_hours(model_class: str, damage_type: str, *, wheel_position: Optional[st
     if c in NON_COSTED:
         return None
 
-    if c == "wheel":
-        pos = _norm(wheel_position) if wheel_position else "ambiguous"
-        if pos not in WHEEL_HOURS:
-            pos = "ambiguous"
-        v = WHEEL_HOURS[pos].get(d)
-        return float(v) if v is not None else None
-
+    table = load_lookup()
     c = ALIASES.get(c, c)
-    entry = load_lookup().get(c)
+
+    if c == "wheel":
+        pos = _norm(wheel_position) if wheel_position else None
+        if pos in ("front", "rear"):
+            return _common_hours(table, _COMMON_VALUE_ROWS[f"{pos}_wheel"], d)
+        if d == "dent":
+            front = _common_hours(table, _COMMON_VALUE_ROWS["front_wheel"], d)
+            rear = _common_hours(table, _COMMON_VALUE_ROWS["rear_wheel"], d)
+            if front is None or rear is None:
+                return None
+            return (front + rear) / 2.0
+
+    rows = _COMMON_VALUE_ROWS.get(c)
+    if rows:
+        return _common_hours(table, rows, d)
+
+    entry = table.get(c)
     if not entry:
         return None
-    v = entry.get("hours", {}).get(d)
-    return float(v) if v is not None else None
+    value = entry.get("hours", {}).get(d)
+    return float(value) if value is not None else None
 
 
 def get_unmapped_hours(part: str, damage_type: str) -> Optional[float]:

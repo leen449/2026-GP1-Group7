@@ -45,6 +45,78 @@ def _required_text(
     return str(value).strip()
 
 
+def _severity_label(raw: Any) -> str:
+    if raw is None or not str(raw).strip():
+        return "غير محدد"
+    return str(raw).strip()
+
+
+def _priced_sum_matches(total: Any, priced_sum: float) -> bool:
+    try:
+        return round(float(total), 2) == round(priced_sum, 2)
+    except (TypeError, ValueError):
+        return False
+
+
+def _assert_current_cost_snapshot(case_reference, case_data: dict[str, Any]) -> None:
+    """
+    Revisioned cost records must be a coherent finalized snapshot. Legacy
+    cases with no costRevision keep the previous report path.
+    """
+    if case_data.get("costRevision") is None:
+        return
+
+    state = str(case_data.get("costState") or "").strip()
+    if (
+        state != "complete"
+        or case_data.get("costEstimateStale")
+        or not case_data.get("costEstimateComplete")
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Cost estimation is not a complete, current snapshot. "
+                "Resolve running, stale, failed, or incomplete estimates "
+                "before generating the report."
+            ),
+        )
+
+    revision = case_data.get("costRevision")
+    priced_sum = 0.0
+    any_items = False
+    for image_snapshot in case_reference.collection("images").stream():
+        for item_snapshot in image_snapshot.reference.collection("costItems").stream():
+            any_items = True
+            item = item_snapshot.to_dict() or {}
+            if item.get("costRevision") != revision:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Cost line items do not match the case costRevision.",
+                )
+            line_cost = item.get("lineCostSar")
+            if line_cost is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        "Current-revision cost items include unpriced lines. "
+                        "Resolve them before generating the report."
+                    ),
+                )
+            priced_sum += float(line_cost)
+
+    if not any_items:
+        raise HTTPException(
+            status_code=422,
+            detail="No cost line items were found for the current costRevision.",
+        )
+
+    if not _priced_sum_matches(case_data.get("estimatedCostSar"), priced_sum):
+        raise HTTPException(
+            status_code=422,
+            detail="Priced costItems do not sum to estimatedCostSar.",
+        )
+
+
 def _vehicle_year(vehicle_data: dict[str, Any]) -> int:
     raw_year = vehicle_data.get("year")
 
@@ -90,6 +162,8 @@ def _read_damage_items(
     damages: list[DamageItem] = []
     legacy_damages: list[DamageItem] = []
 
+    _assert_current_cost_snapshot(case_reference, case_data)
+
     # ── First: read the structure currently used by existing cases ──────────
     damage_analysis = case_data.get("damageAnalysis")
 
@@ -103,16 +177,7 @@ def _read_damage_items(
             if not isinstance(detections, list):
                 continue
 
-            item_severity = analysis_item.get("severity")
-
-            if item_severity is None or not str(item_severity).strip():
-                item_severity = case_data.get("overallSeverity")
-
-            severity = (
-                str(item_severity).strip()
-                if item_severity is not None and str(item_severity).strip()
-                else "غير محدد"
-            )
+            severity = _severity_label(analysis_item.get("severity"))
 
             for detection in detections:
                 if not isinstance(detection, dict):
@@ -147,16 +212,7 @@ def _read_damage_items(
             if image_data.get("hasDamage") is False:
                 continue
 
-            image_severity = image_data.get("severity")
-
-            if image_severity is None or not str(image_severity).strip():
-                image_severity = case_data.get("overallSeverity")
-
-            severity = (
-                str(image_severity).strip()
-                if image_severity is not None and str(image_severity).strip()
-                else "غير محدد"
-            )
+            severity = _severity_label(image_data.get("severity"))
 
             cost_item_snapshots = (
                 image_snapshot.reference
@@ -284,11 +340,17 @@ def _build_report_input(
         case_data,
     )
 
+    # Single case-level severity (MAX over images, written by
+    # damage_detection.py as accidentCase.overallSeverity) — shown once on
+    # the report instead of repeating severity on every damage row.
+    overall_severity = _severity_label(case_data.get("overallSeverity"))
+
     return ReportInput(
         accident_number=accident_number,
         user=user,
         vehicle=vehicle,
         damages=damages,
+        overall_severity=overall_severity,
     )
 
 

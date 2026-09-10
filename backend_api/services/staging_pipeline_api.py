@@ -9,7 +9,7 @@ Then open  http://127.0.0.1:8000/docs  and try POST /estimate with an image.
 Pipeline:  image
   -> damage detection (YOLO boxes + damage type)
   -> part segmentation (YOLO-seg masks + part)          [part_segmentation_service]
-  -> association (IoA-multi, damage-priority glass/lamp/tire, centroid fallback)
+  -> association (segmentation-owned panels/glass; location-free lamp/tire)
   -> labor hours (labor_hours_lookup) x rate 165
   -> x F_paint x F_vehicle x F_severity
   -> confidence score (separate, never changes the cost)
@@ -25,7 +25,10 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import RedirectResponse
 from PIL import Image
 
-from part_association_service import associate, CostLine
+try:
+    from part_association_service import associate, CostLine
+except ImportError:
+    from services.part_association_service import associate, CostLine
 
 RATE_SAR = 165.0
 DAMAGE_WEIGHTS = os.environ.get("DAMAGE_WEIGHTS", "weight/best.pt")
@@ -36,26 +39,41 @@ def _one(*_a, **_k):        # neutral factor
     return 1.0
 try:
     from labor_hours_lookup import get_hours, get_unmapped_hours
-except Exception:
-    def get_hours(*a, **k): return None
-    def get_unmapped_hours(*a, **k): return None
+except ImportError:
+    try:
+        from services.labor_hours_lookup import get_hours, get_unmapped_hours
+    except ImportError:
+        def get_hours(*a, **k): return None
+        def get_unmapped_hours(*a, **k): return None
 try:
     from severity_factor_services import get_severity_factor
-except Exception:
-    get_severity_factor = _one
+except ImportError:
+    try:
+        from services.severity_factor_services import get_severity_factor
+    except ImportError:
+        get_severity_factor = _one
 try:
     from vehicle_factor_services import get_vehicle_factor
-except Exception:
-    get_vehicle_factor = _one
+except ImportError:
+    try:
+        from services.vehicle_factor_services import get_vehicle_factor
+    except ImportError:
+        get_vehicle_factor = _one
 try:
     from paint_factor_services import get_paint_factor
-except Exception:
-    def get_paint_factor(*a, **k): return 1.0
+except ImportError:
+    try:
+        from services.paint_factor_services import get_paint_factor
+    except ImportError:
+        def get_paint_factor(*a, **k): return 1.0
 try:
     from confidence_service import assess_confidence
-except Exception:
-    def assess_confidence(**k): return {"confidence_score": None, "level": "unknown",
-                                        "requires_admin_review": None, "reasons_ar": []}
+except ImportError:
+    try:
+        from services.confidence_service import assess_confidence
+    except ImportError:
+        def assess_confidence(**k): return {"confidence_score": None, "level": "unknown",
+                                            "requires_admin_review": None, "reasons_ar": []}
 
 # ---- lazy model loaders -----------------------------------------------------------
 _damage_model = None
@@ -85,40 +103,57 @@ def _run_parts(img_np):
 
 
 def _wheel_pos(najm_zone):
+    """Narrow Najm exception for front/rear wheel-dent hours."""
     z = (najm_zone or "").lower()
-    if "front" in z or "مقدم" in z: return "front"
-    if "rear" in z or "back" in z or "خلف" in z or "مؤخر" in z: return "rear"
-    return None
+    front = "front" in z or "مقدم" in z or "أمام" in z or "امام" in z
+    rear = "rear" in z or "back" in z or "خلف" in z or "مؤخر" in z
+    if front == rear:
+        return None
+    return "front" if front else "rear"
 
 
 def _hours_for(line: CostLine):
     """Look up hours, falling back to UNMAPPED_PARTS for fender/sill/roof."""
     if line.lookup_key is None:
         return None
-    wp = None  # wheel position resolved upstream via najm; kept simple here
-    h = get_hours(line.lookup_key, line.damage_type)
+    h = get_hours(
+        line.lookup_key,
+        line.damage_type,
+        wheel_position=getattr(line, "wheel_position", None),
+    )
     if h is None and "promote_lookup" in line.flags:
         h = get_unmapped_hours(line.lookup_key, line.damage_type)
     return h
 
 
-def build_estimate(damages, parts, image_hw, *, najm_zone=None, severity="moderate",
+def build_estimate(damages, parts, image_hw, *, najm_zone=None, severity=None,
                    vehicle_value_sar=None, paint_color=None, vehicle_year=None,
                    current_year=None, prior_accident_same_location=None,
                    airbag_deployed=None):
     """Pure assembly step — the testable core of the endpoint."""
-    lines = associate(damages, parts, image_hw, najm_zone=najm_zone)
+    lines = associate(
+        damages, parts, image_hw, wheel_position_hint=_wheel_pos(najm_zone),
+    )
 
     items, labor_subtotal, review = [], 0.0, False
+    severity_key = str(severity).strip().lower() if severity is not None else ""
+    severity_valid = severity_key in {"minor", "moderate", "severe"}
+    if not severity_valid:
+        review = True
+
     for ln in lines:
         h = _hours_for(ln)
+        flags = list(ln.flags)
+        if not severity_valid:
+            flags.append("missing_or_invalid_severity")
         row = {"damage_type": ln.damage_type, "part": ln.part, "lookup_key": ln.lookup_key,
                "source": ln.source, "ioa": round(ln.ioa, 3), "part_conf": round(ln.part_conf, 3),
-               "hours": h, "line_cost_sar": None, "flags": list(ln.flags)}
+               "hours": h, "line_cost_sar": None, "flags": flags,
+               "wheel_position": getattr(ln, "wheel_position", None)}
         if h is None:
             row["flags"].append("no_hours" if ln.lookup_key else "unassigned")
             review = True
-        else:
+        elif severity_valid:
             cost = h * RATE_SAR
             row["line_cost_sar"] = round(cost, 2)
             labor_subtotal += cost
@@ -128,8 +163,8 @@ def build_estimate(damages, parts, image_hw, *, najm_zone=None, severity="modera
 
     f_paint = float(get_paint_factor(paint_color) if paint_color else 1.0)
     f_veh   = float(get_vehicle_factor(vehicle_value_sar))
-    f_sev   = float(get_severity_factor(severity))
-    base = labor_subtotal * f_paint * f_veh * f_sev
+    f_sev   = float(get_severity_factor(severity_key)) if severity_valid else None
+    base = labor_subtotal * f_paint * f_veh * f_sev if severity_valid else 0.0
 
     conf = assess_confidence(vehicle_year=vehicle_year, current_year=current_year,
                              estimated_cost=base, vehicle_value_sar=vehicle_value_sar,
@@ -157,8 +192,8 @@ def _root():
 @app.post("/estimate")
 async def estimate(
     image: UploadFile = File(..., description="Damage photo"),
-    najm_zone: Optional[str] = Form(None, description="e.g. 'front' / 'rear' — from Najm report"),
-    severity: str = Form("moderate", description="minor | moderate | severe"),
+    najm_zone: Optional[str] = Form(None, description="Najm text; used only for front/rear wheel-dent hours"),
+    severity: Optional[str] = Form(None, description="minor | moderate | severe"),
     vehicle_value_sar: Optional[float] = Form(None),
     paint_color: Optional[str] = Form(None),
     vehicle_year: Optional[int] = Form(None),

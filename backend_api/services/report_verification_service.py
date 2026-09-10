@@ -100,6 +100,7 @@ def build_report_record(data: ReportInput, report_id: str, report_number: str) -
         user=data.user,
         vehicle=data.vehicle,
         damages=data.damages,
+        overall_severity=data.overall_severity,
         total_cost_sar=total,
         pdf_sha256=data.pdf_sha256,
         status="valid",
@@ -199,6 +200,8 @@ _PART_LABEL_AR = {
     "sill": "العتبة الجانبية",
     "front_glass": "الزجاج الأمامي",
     "back_glass": "الزجاج الخلفي",
+    "windshield": "الزجاج الأمامي أو الخلفي",
+    "door_glass": "زجاج الباب",
     "lamp": "المصباح",
     "wheel": "الإطار",
 }

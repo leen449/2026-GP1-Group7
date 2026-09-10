@@ -1,16 +1,10 @@
 """
-confidence_signals.py — derives the two currently-unwired confidence_service inputs
-(airbag_deployed, prior_accident_same_location) from data already on the case.
+Text helpers for the narrowly allowed Najm signals in cost estimation.
 
-CrashLens · imported ONLY by cost_estimation_services.py. Pure text/parsing helpers —
-no Firestore access here (the prior-accident QUERY itself stays in
-cost_estimation_services.py, since it needs the live db client and case shape). Does
-not touch confidence_service.py's scoring, the damage/severity/OCR pipeline, or the
-labor table.
-
-Both signals are best-effort heuristics over free-text Najm OCR output. Returning
-None/False on anything unrecognized is always the safe outcome — never guess a
-positive.
+`detect_airbag` supplies the safety-confidence input. `parse_zone` is retained only to
+extract a non-contradictory front/rear hint for segmented wheel dents; it is not used to
+choose glass/lamp/tire rows or to match previous accidents. Both helpers are best-effort
+and never guess a positive from unrecognized text.
 """
 import re
 import unicodedata
@@ -46,11 +40,10 @@ def detect_airbag(damage_location: Optional[str]) -> bool:
     return any(kw.lower() in norm for kw in _AIRBAG_KEYWORDS)
 
 
-# ---------------------------------------------------------------- FIX B: zone parsing
-# Vocabulary grounded in zones already used elsewhere in this codebase: the
-# najm_zone values in labor_hours_lookup.LOOKUP ("المقدمة", "المؤخرة", "الجانب
-# الأيمن/الأيسر") plus the front/rear literals already in cost_estimation_services._najm_zone,
-# extended with adjective ("الأمامي"/"الخلفي") and corner ("الركن ...") phrasing.
+# Front/rear parsing is intentionally broader than the two canonical Arabic zone labels
+# because Najm OCR can return adjective and corner phrasing. Left/right/top remain in the
+# parser output for compatibility, but cost estimation consumes only a front/rear prefix
+# for the wheel-dent exception.
 _FRONT_KW = ["المقدمة", "مقدمة", "مقدم", "الأمامي", "الامامي", "أمامي", "امامي", "أمام", "امام"]
 _REAR_KW = ["المؤخرة", "مؤخرة", "مؤخر", "الخلفي", "خلفي", "خلف"]
 _LEFT_KW = ["الأيسر", "الايسر", "أيسر", "ايسر", "يسار"]

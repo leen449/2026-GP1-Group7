@@ -136,6 +136,8 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
     'sill': 'العتبة الجانبية',
     'front_glass': 'الزجاج الأمامي',
     'back_glass': 'الزجاج الخلفي',
+    'windshield': 'الزجاج الأمامي أو الخلفي',
+    'door_glass': 'زجاج الباب',
     'lamp': 'المصباح',
     'wheel': 'الإطار',
   };

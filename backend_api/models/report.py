@@ -42,6 +42,10 @@ class ReportInput(BaseModel):
     user: UserInfo
     vehicle: VehicleInfo
     damages: List[DamageItem]
+    # Single case-level severity (MAX over images — see damage_detection.py's
+    # overallSeverity). Shown once on the report instead of repeating severity
+    # on every damage row. Optional so existing callers/tests keep working.
+    overall_severity: Optional[str] = None
     pdf_sha256: Optional[str] = None   # set once the final PDF exists
 
 
@@ -54,6 +58,7 @@ class ReportRecord(BaseModel):
     user: UserInfo
     vehicle: VehicleInfo
     damages: List[DamageItem]
+    overall_severity: Optional[str] = None
     total_cost_sar: float
     pdf_sha256: Optional[str] = None
     status: str = "valid"     # valid | superseded | claim_pending  (LIVE, not signed)

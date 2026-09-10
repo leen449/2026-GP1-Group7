@@ -9,7 +9,7 @@ HOW IT WORKS
     Start at 100 and subtract for each condition that applies:
 
         vehicle older than 10 years .................. −10
-        previous accident in the SAME location ....... −10
+        previous accident on the SAME visual part/type  −10
         safety-related (airbag deployed) ............. −20
         estimate ≥ 50% of vehicle value .............. −20
 
@@ -20,8 +20,10 @@ HOW IT WORKS
 
 WHERE EACH SIGNAL COMES FROM (passed IN — this service does not fetch them):
     age                          <- vehicle year (registered vehicle)
-    prior_accident_same_location <- OUR OWN case database (a prior case on this
-                                    vehicle at the same location), NOT the Najm report
+    prior_accident_same_location <- OUR OWN Firestore case history: an older eligible
+                                    case on this vehicle with the same segmentation-
+                                    derived canonical part and damage type. It does
+                                    not come from a Najm-zone comparison.
     airbag_deployed              <- the Najm report when the accident involved one.
                                     Safety is AIRBAG ONLY — the report does not name
                                     engine/chassis, so we do not pretend to catch them.

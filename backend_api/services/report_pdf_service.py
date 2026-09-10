@@ -20,9 +20,13 @@ _LINE = (0.12, 0.12, 0.12)
 _BAND_FILL = (0.94, 0.94, 0.94)
 _BRAND = "#173d6b"
 
-# Maximum number of damage rows on the first page while keeping
-# the same approved row height and enough room for Total + QR/footer.
-_FIRST_PAGE_MAX_DAMAGE_ROWS = 5
+# Maximum number of individual damage rows on the first page while keeping
+# the same approved row height and enough room for Total + QR/footer. One
+# row slot of this same budget is always reserved for the Overall Severity
+# summary row on whichever page ends up hosting the last damage + Total
+# section, which is why this is one less than the 5 rows the page height
+# was originally sized for.
+_FIRST_PAGE_MAX_DAMAGE_ROWS = 4
 
 # Continuation pages keep the existing capacity.
 _CONTINUATION_PAGE_DAMAGE_ROWS = 8
@@ -44,6 +48,8 @@ _PART_LABEL_AR = {
     "sill": "العتبة الجانبية",
     "front_glass": "الزجاج الأمامي",
     "back_glass": "الزجاج الخلفي",
+    "windshield": "الزجاج الأمامي أو الخلفي",
+    "door_glass": "زجاج الباب",
     "lamp": "المصباح",
     "wheel": "الإطار",
 }
@@ -63,6 +69,11 @@ def _money(value: object) -> str:
         return _e(value)
 
 
+def _severity_text(value: object) -> str:
+    text = str(value or "").strip()
+    return text if text else "—"
+
+
 def _part_label(part: object) -> str:
     key = str(part or "").strip().lower()
     # Keep the canonical English part key from the detector/estimator so it
@@ -72,22 +83,21 @@ def _part_label(part: object) -> str:
 
 def _damage_column_edges(
     left: float,
-    severity_boundary: float,
-) -> tuple[float, float, float, float]:
-    """Return the original table geometry with one added Part column.
+    cost_boundary: float,
+) -> tuple[float, float, float]:
+    """Return the damage-table column edges: #, Damage, Location, then Cost.
 
     The outer table and the Cost boundary intentionally remain unchanged from
-    the approved four-column report.  Only the old Type/Severity area is split
-    to insert Damaged Part, so adding this field cannot widen or reflow the
-    report table.
+    the approved report. Only the region between # and Cost is split — it
+    used to hold three columns (Type/Part/Severity); with the per-row
+    Severity column removed it now splits evenly into Damage and Location.
     """
     no_x = left + 31.0
-    step = (severity_boundary - no_x) / 3.0
+    step = (cost_boundary - no_x) / 2.0
     type_x = no_x + step
-    part_x = no_x + 2.0 * step
-    if not no_x < type_x < part_x < severity_boundary:
+    if not no_x < type_x < cost_boundary:
         raise ValueError("Damage table is too narrow for the requested columns")
-    return no_x, type_x, part_x, severity_boundary
+    return no_x, type_x, cost_boundary
 
 
 def _draw_box(
@@ -461,6 +471,49 @@ def _draw_total_section(
     )
 
 
+def _draw_overall_severity_row(
+    page: fitz.Page,
+    record: ReportRecord,
+    *,
+    y1: float,
+    y2: float,
+    damage_left: float,
+    value_x: float,
+    damage_right: float,
+) -> None:
+    """One merged summary row inside Damage Info: the single case-level
+    severity, shown once instead of repeating severity on every damage row.
+
+    Reuses the damage table's own row band and its Cost-column boundary
+    (`value_x`) so the row reads as part of the same table — label merged
+    across #/Damage/Location, value aligned under the Cost column.
+    """
+    _draw_line(
+        page,
+        (damage_left, y1),
+        (damage_right, y1),
+    )
+
+    _html_box(
+        page,
+        fitz.Rect(damage_left, y1, value_x, y2),
+        _bilingual("مستوى الضرر", "Overall Severity", strong=True),
+        font_size=7.2,
+        bold=True,
+    )
+
+    _html_box(
+        page,
+        fitz.Rect(value_x, y1, damage_right, y2),
+        (
+            '<div style="padding-top: 10pt;">'
+            f"{_value(_severity_text(record.overall_severity))}"
+            "</div>"
+        ),
+        font_size=7.15,
+    )
+
+
 def _draw_first_page(
     doc: fitz.Document,
     record: ReportRecord,
@@ -604,10 +657,21 @@ def _draw_first_page(
     if visible_damage_rows < 1:
         visible_damage_rows = 1
 
-    damage_y2 = (
+    # Bottom of the individual damage rows (before any Overall Severity row).
+    rows_bottom = (
         vehicle_y2
         + header_h
         + (_FIRST_PAGE_DAMAGE_ROW_H * visible_damage_rows)
+    )
+
+    # Overall Severity appears exactly once, immediately before Total — so it
+    # only belongs on this page when this page is the one that ends the
+    # damage list (no continuation page follows).
+    show_overall_severity_here = not has_continuation
+
+    damage_y2 = (
+        rows_bottom
+        + (_FIRST_PAGE_DAMAGE_ROW_H if show_overall_severity_here else 0.0)
     )
 
     # Keep exactly the same total-section height as the approved design:
@@ -875,22 +939,30 @@ def _draw_first_page(
     damage_left = left
     damage_right = inner_x
 
-    no_x, type_x, part_x, severity_x = _damage_column_edges(
+    no_x, type_x, cost_x = _damage_column_edges(
         damage_left,
         label_col_x,
     )
 
+    # #/Damage/Location dividers only span the individual damage rows; the
+    # Overall Severity row (if present) merges those three into one label
+    # cell. The Cost-column boundary is shared with that row's value cell,
+    # so it runs the full height including the Overall Severity row.
     for x in (
         no_x,
         type_x,
-        part_x,
-        severity_x,
     ):
         _draw_line(
             page,
             (x, vehicle_y2),
-            (x, damage_y2),
+            (x, rows_bottom),
         )
+
+    _draw_line(
+        page,
+        (cost_x, vehicle_y2),
+        (cost_x, damage_y2),
+    )
 
     _draw_line(
         page,
@@ -927,7 +999,7 @@ def _draw_first_page(
         ),
         _bilingual(
             "نوع الضرر",
-            "Damage Type",
+            "Damage",
             strong=True,
         ),
         font_size=7.0,
@@ -939,12 +1011,12 @@ def _draw_first_page(
         fitz.Rect(
             type_x,
             vehicle_y2,
-            part_x,
+            cost_x,
             vehicle_y2 + header_h,
         ),
         _bilingual(
-            "الجزء المتضرر",
-            "Damaged Part",
+            "موقع الضرر",
+            "Location",
             strong=True,
         ),
         font_size=6.2,
@@ -954,24 +1026,7 @@ def _draw_first_page(
     _html_box(
         page,
         fitz.Rect(
-            part_x,
-            vehicle_y2,
-            severity_x,
-            vehicle_y2 + header_h,
-        ),
-        _bilingual(
-            "شدة الضرر",
-            "Severity",
-            strong=True,
-        ),
-        font_size=7.0,
-        bold=True,
-    )
-
-    _html_box(
-        page,
-        fitz.Rect(
-            severity_x,
+            cost_x,
             vehicle_y2,
             damage_right,
             vehicle_y2 + header_h,
@@ -1017,7 +1072,6 @@ def _draw_first_page(
 
         type_value = damage.type
         part_value = _part_label(damage.part)
-        severity_value = damage.severity
         cost_value = _money(
             damage.cost_sar
         )
@@ -1043,7 +1097,7 @@ def _draw_first_page(
             fitz.Rect(
                 type_x,
                 y1,
-                part_x,
+                cost_x,
                 y2,
             ),
             (
@@ -1057,23 +1111,7 @@ def _draw_first_page(
         _html_box(
             page,
             fitz.Rect(
-                part_x,
-                y1,
-                severity_x,
-                y2,
-            ),
-            (
-                '<div style="padding-top: 10pt;">'
-                f"{_value(severity_value)}"
-                "</div>"
-            ),
-            font_size=7.15,
-        )
-
-        _html_box(
-            page,
-            fitz.Rect(
-                severity_x,
+                cost_x,
                 y1,
                 damage_right,
                 y2,
@@ -1084,6 +1122,19 @@ def _draw_first_page(
                 "</div>"
             ),
             font_size=7.15,
+        )
+
+    # Overall Severity appears once, immediately after the individual damage
+    # rows and before Total — never repeated per row (see module docstring).
+    if show_overall_severity_here:
+        _draw_overall_severity_row(
+            page,
+            record,
+            y1=rows_bottom,
+            y2=damage_y2,
+            damage_left=damage_left,
+            value_x=cost_x,
+            damage_right=damage_right,
         )
 
     # If all damages fit on the first page, place the Total + QR/footer
@@ -1174,15 +1225,25 @@ def _draw_continuation_page(
     damage_left = left
     damage_right = inner_x
 
-    no_x, type_x, part_x, severity_x = _damage_column_edges(
+    no_x, type_x, cost_x = _damage_column_edges(
         damage_left,
         label_col_x,
     )
 
-    table_bottom = (
+    # Bottom of the individual damage rows (before any Overall Severity row).
+    rows_bottom = (
         table_top
         + header_h
         + row_h * len(damages)
+    )
+
+    # Overall Severity appears exactly once, immediately before Total — so it
+    # only belongs on the last continuation page (the one that ends the
+    # damage list and hosts the Total section).
+    table_bottom = (
+        rows_bottom + row_h
+        if is_last_page
+        else rows_bottom
     )
 
     _draw_box(
@@ -1225,17 +1286,25 @@ def _draw_continuation_page(
         padding=2.5,
     )
 
+    # #/Damage/Location dividers only span the individual damage rows; the
+    # Overall Severity row (if present) merges those three into one label
+    # cell. The Cost-column boundary is shared with that row's value cell,
+    # so it runs the full height including the Overall Severity row.
     for x in (
         no_x,
         type_x,
-        part_x,
-        severity_x,
     ):
         _draw_line(
             page,
             (x, table_top),
-            (x, table_bottom),
+            (x, rows_bottom),
         )
+
+    _draw_line(
+        page,
+        (cost_x, table_top),
+        (cost_x, table_bottom),
+    )
 
     _draw_line(
         page,
@@ -1272,7 +1341,7 @@ def _draw_continuation_page(
         ),
         _bilingual(
             "نوع الضرر",
-            "Damage Type",
+            "Damage",
             strong=True,
         ),
         font_size=7.0,
@@ -1284,12 +1353,12 @@ def _draw_continuation_page(
         fitz.Rect(
             type_x,
             table_top,
-            part_x,
+            cost_x,
             table_top + header_h,
         ),
         _bilingual(
-            "الجزء المتضرر",
-            "Damaged Part",
+            "موقع الضرر",
+            "Location",
             strong=True,
         ),
         font_size=6.2,
@@ -1299,24 +1368,7 @@ def _draw_continuation_page(
     _html_box(
         page,
         fitz.Rect(
-            part_x,
-            table_top,
-            severity_x,
-            table_top + header_h,
-        ),
-        _bilingual(
-            "شدة الضرر",
-            "Severity",
-            strong=True,
-        ),
-        font_size=7.0,
-        bold=True,
-    )
-
-    _html_box(
-        page,
-        fitz.Rect(
-            severity_x,
+            cost_x,
             table_top,
             damage_right,
             table_top + header_h,
@@ -1379,7 +1431,7 @@ def _draw_continuation_page(
             fitz.Rect(
                 type_x,
                 y1,
-                part_x,
+                cost_x,
                 y2,
             ),
             (
@@ -1393,23 +1445,7 @@ def _draw_continuation_page(
         _html_box(
             page,
             fitz.Rect(
-                part_x,
-                y1,
-                severity_x,
-                y2,
-            ),
-            (
-                '<div style="padding-top: 10pt;">'
-                f"{_value(damage.severity)}"
-                "</div>"
-            ),
-            font_size=7.15,
-        )
-
-        _html_box(
-            page,
-            fitz.Rect(
-                severity_x,
+                cost_x,
                 y1,
                 damage_right,
                 y2,
@@ -1422,7 +1458,19 @@ def _draw_continuation_page(
             font_size=7.15,
         )
 
+    # Overall Severity appears once, immediately after the individual damage
+    # rows and before Total — never repeated per row (see module docstring).
     if is_last_page:
+        _draw_overall_severity_row(
+            page,
+            record,
+            y1=rows_bottom,
+            y2=table_bottom,
+            damage_left=damage_left,
+            value_x=cost_x,
+            damage_right=damage_right,
+        )
+
         total_top = table_bottom + 14.0
         total_bottom = total_top + 106.0
 
