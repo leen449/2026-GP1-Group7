@@ -46,6 +46,14 @@ REVIEWED_STATUSES = {"تمت المراجعة", "تم المراجعة"}
 COMPLETED_COST_STATUSES = {"تم حساب التكلفة", "تم الفحص"}
 BLOCKING_COST_STATES = {"running", "failed"}
 
+# A case referred to the human specialist (Sheikh Al-Ma'aredh) is a final admin
+# decision, same as an approved review — it must not be silently overwritten by
+# a later re-run of cost estimation. Kept separate from REVIEWED_STATUSES itself
+# because a referred case was never admin-approved, so _is_eligible_prior() must
+# keep treating it as ineligible prior-accident history.
+REFERRED_STATUS = "محالة لشيخ المعارض"
+LOCKED_STATUSES = REVIEWED_STATUSES | {REFERRED_STATUS}
+
 
 class CostEstimationAbort(Exception):
     """Visible cost-run failure that must not invent an estimate."""
@@ -389,7 +397,7 @@ def _claim_cost_run(db, case_ref, cost_run_id: str) -> dict:
             raise CostEstimationAbort("Case not found")
         case = snap.to_dict() or {}
         status = str(case.get("status") or "").strip()
-        if status in REVIEWED_STATUSES or case.get("reportId"):
+        if status in LOCKED_STATUSES or case.get("reportId"):
             raise CostEstimationAbort(
                 "Cost estimation is locked after review or report issuance"
             )
@@ -459,7 +467,7 @@ def _finalize_cost_snapshot(
             raise CostRunSuperseded(
                 "Another cost run claimed this case before finalization"
             )
-        if str(current.get("status") or "").strip() in REVIEWED_STATUSES or current.get("reportId"):
+        if str(current.get("status") or "").strip() in LOCKED_STATUSES or current.get("reportId"):
             raise CostEstimationAbort(
                 "Cost estimation is locked after review or report issuance"
             )
@@ -599,7 +607,7 @@ async def process_cost_estimation(case_id: str) -> dict:
         case = case_doc.to_dict() or {}
 
         status = str(case.get("status") or "").strip()
-        if status in REVIEWED_STATUSES or case.get("reportId"):
+        if status in LOCKED_STATUSES or case.get("reportId"):
             return {
                 "status": "error",
                 "message": "Cost estimation is locked after review or report issuance",

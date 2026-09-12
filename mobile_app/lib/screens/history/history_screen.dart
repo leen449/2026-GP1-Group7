@@ -850,7 +850,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
         bgColor = const Color(0xFFEAF1FF);
         textColor = const Color(0xFF2563EB);
         icon = Icons.hourglass_empty_rounded;
-      } else if (s == 'مرفوض' || s == 'مرفوضة' || s == 'rejected') {
+      } else if (s == 'مرفوض' ||
+          s == 'مرفوضة' ||
+          s == 'rejected' ||
+          s == 'تم رفض الاعتراض') {
         displayStatus = 'مرفوض';
         bgColor = const Color(0xFFFFEEF0);
         textColor = Colors.red;
@@ -911,7 +914,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
         bgColor = const Color(0xFFEAF1FF);
         iconColor = const Color(0xFF2E63D9);
         icon = Icons.assignment_outlined;
-      } else if (s == 'مرفوض' || s == 'مرفوضة' || s == 'rejected') {
+      } else if (s == 'مرفوض' ||
+          s == 'مرفوضة' ||
+          s == 'rejected' ||
+          s == 'تم رفض الاعتراض') {
         bgColor = const Color(0xFFFFEEF0);
         iconColor = Colors.red;
         icon = Icons.gpp_bad_outlined;

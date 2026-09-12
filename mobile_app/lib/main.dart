@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 import 'package:flutter/services.dart';
 import 'screens/NavBar/nav_bar.dart';
 import 'screens/vehicle/add_vehicle_screen.dart';
+import 'screens/admin/admin_debug_entry_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -37,6 +38,10 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const AppBottomNav(),
         '/auth': (context) => const AuthScreen(),
         '/addVehicle': (context) => const AddVehicleScreen(),
+        // TEMPORARY: testing-only entry point for the admin Case Review /
+        // Claim Details screens, until real admin auth/gating and the
+        // Cases/Claims list pages (built separately) exist.
+        '/admin': (context) => const AdminDebugEntryScreen(),
       },
     );
   }

@@ -587,6 +587,18 @@ class _AuthScreenState extends State<AuthScreen> {
           sw,
           sh,
         ),
+        // TEMPORARY: testing-only shortcut into the admin Case Review /
+        // Claim Details screens, until real admin auth/role-gating exists.
+        // Remove once that gating (built separately) lands.
+        Center(
+          child: TextButton(
+            onPressed: () => Navigator.pushNamed(context, '/admin'),
+            child: const Text(
+              'دخول كمشرف (تجريبي)',
+              style: TextStyle(color: Color(0xFF8B97AA), fontSize: 13),
+            ),
+          ),
+        ),
         SizedBox(height: sh * 0.02),
         Center(
           child: GestureDetector(
