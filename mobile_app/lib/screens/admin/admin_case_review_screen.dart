@@ -21,7 +21,13 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
   static const Color _pageBg = Color(0xFFF7FAFF);
   static const Color _textDark = Color(0xFF071A3D);
   static const Color _primaryBlue = Color(0xFF1E3A6E);
-  static const Color _referColor = Color(0xFFDC2626);
+  // Matches رفض الاعتراض's exact style in admin_claim_details_screen.dart:
+  // light grey fill + dark text, not a filled/vivid color — this is not a
+  // rejection, but visually it should read as the app's "secondary action"
+  // button, same family as إلغاء/رفض, rather than a primary filled color.
+  static const Color _referColor = Color(0xFFEDEDED);
+  static const Color _referTextColor = Colors.black87;
+  static const Color _referIconColor = Color(0xFF64748B);
 
   static const String _referredStatus = 'محالة لشيخ المعارض';
 
@@ -224,7 +230,7 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
   Future<void> _handleReferToSpecialist() async {
     final confirmed = await _confirmDialog(
       icon: Icons.person_search_rounded,
-      iconColor: _referColor,
+      iconColor: _referIconColor,
       title: 'إحالة إلى شيخ المعارض؟',
       body:
           'سيتم إحالة هذه الحالة إلى شيخ المعارض لتقييم القيمة السوقية للمركبة بدلاً من تقدير تكلفة الإصلاح.',
@@ -241,6 +247,9 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
     required String label,
     required Color backgroundColor,
     required VoidCallback onPressed,
+    Color foregroundColor = Colors.white,
+    Color disabledBackgroundColor = const Color(0xFF93C5FD),
+    Color spinnerColor = Colors.white,
   }) {
     return SizedBox(
       width: double.infinity,
@@ -250,20 +259,20 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
         style: ElevatedButton.styleFrom(
           elevation: 0,
           backgroundColor: backgroundColor,
-          disabledBackgroundColor: const Color(0xFF93C5FD),
-          foregroundColor: Colors.white,
+          disabledBackgroundColor: disabledBackgroundColor,
+          foregroundColor: foregroundColor,
           padding: const EdgeInsets.symmetric(horizontal: 6),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),
         ),
         child: _isSubmitting
-            ? const SizedBox(
+            ? SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: Colors.white,
+                  color: spinnerColor,
                 ),
               )
             : FittedBox(
@@ -335,6 +344,9 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
                   child: _actionButton(
                     label: 'إحالة لشيخ المعارض',
                     backgroundColor: _referColor,
+                    foregroundColor: _referTextColor,
+                    disabledBackgroundColor: _referColor,
+                    spinnerColor: _referTextColor,
                     onPressed: _handleReferToSpecialist,
                   ),
                 ),
