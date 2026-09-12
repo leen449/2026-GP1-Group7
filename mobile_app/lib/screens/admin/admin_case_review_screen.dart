@@ -21,7 +21,7 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
   static const Color _pageBg = Color(0xFFF7FAFF);
   static const Color _textDark = Color(0xFF071A3D);
   static const Color _primaryBlue = Color(0xFF1E3A6E);
-  static const Color _referColor = Color(0xFFEA580C);
+  static const Color _referColor = Color(0xFFDC2626);
 
   static const String _referredStatus = 'محالة لشيخ المعارض';
 
@@ -37,22 +37,20 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
       ..showSnackBar(
         SnackBar(
           content: SizedBox(
-            height: 44,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Transform.translate(
-                offset: const Offset(0, -3),
-                child: Text(
-                  message,
-                  textAlign: TextAlign.right,
-                  textDirection: TextDirection.rtl,
-                  style: const TextStyle(height: 1.0),
-                ),
-              ),
+            width: double.infinity,
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(height: 1.3),
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-          backgroundColor: isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          backgroundColor: isError
+              ? const Color(0xFFDC2626)
+              : const Color(0xFF16A34A),
           behavior: SnackBarBehavior.floating,
           margin: EdgeInsets.only(
             top: topPadding + kToolbarHeight + 35,
@@ -79,9 +77,13 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
       builder: (ctx) {
         final screenWidth = MediaQuery.of(ctx).size.width;
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85),
+            constraints: BoxConstraints(
+              maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85,
+            ),
             child: SingleChildScrollView(
               child: Padding(
                 padding: EdgeInsets.all(screenWidth * 0.06),
@@ -111,34 +113,60 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
                       body,
                       textDirection: TextDirection.rtl,
                       textAlign: TextAlign.right,
-                      style: const TextStyle(color: Color(0xFF475569), fontSize: 14, height: 1.5),
+                      style: const TextStyle(
+                        color: Color(0xFF475569),
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
                     ),
                     const SizedBox(height: 20),
                     Row(
                       children: [
                         Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFEDEDED),
-                              foregroundColor: Colors.black87,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                              elevation: 0,
+                          child: SizedBox(
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFEDEDED),
+                                foregroundColor: Colors.black87,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text('إلغاء'),
+                              ),
                             ),
-                            child: const Text('إلغاء'),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _primaryBlue,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                              elevation: 4,
+                          child: SizedBox(
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _primaryBlue,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                elevation: 4,
+                              ),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(confirmLabel),
+                              ),
                             ),
-                            child: Text(confirmLabel),
                           ),
                         ),
                       ],
@@ -154,7 +182,10 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
     return result == true;
   }
 
-  Future<void> _writeStatus(String status, {required String successMessage}) async {
+  Future<void> _writeStatus(
+    String status, {
+    required String successMessage,
+  }) async {
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
     try {
@@ -184,7 +215,10 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
       confirmLabel: 'تاكيد الحالة',
     );
     if (!confirmed) return;
-    await _writeStatus('تمت المراجعة', successMessage: 'تم اعتماد الحالة بنجاح');
+    await _writeStatus(
+      'تمت المراجعة',
+      successMessage: 'تم اعتماد الحالة بنجاح',
+    );
   }
 
   Future<void> _handleReferToSpecialist() async {
@@ -197,7 +231,10 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
       confirmLabel: 'تأكيد الإحالة',
     );
     if (!confirmed) return;
-    await _writeStatus(_referredStatus, successMessage: 'تم إحالة الحالة لشيخ المعارض');
+    await _writeStatus(
+      _referredStatus,
+      successMessage: 'تم إحالة الحالة لشيخ المعارض',
+    );
   }
 
   Widget _actionButton({
@@ -215,18 +252,30 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
           backgroundColor: backgroundColor,
           disabledBackgroundColor: const Color(0xFF93C5FD),
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
         ),
         child: _isSubmitting
             ? const SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
               )
-            : Text(
-                label,
-                textDirection: TextDirection.rtl,
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            : FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  textDirection: TextDirection.rtl,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
       ),
     );
@@ -242,13 +291,13 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
         backgroundColor: _pageBg,
         elevation: 0,
         automaticallyImplyLeading: false,
-        leading: const SizedBox(),
+        leading: IconButton(
+          icon: const Icon(Icons.edit_outlined, color: _textDark),
+          tooltip: 'تعديل التقييم',
+          onPressed: () =>
+              AdminNavigation.openAddDamage(context, widget.caseId),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined, color: _textDark),
-            tooltip: 'تعديل التقييم',
-            onPressed: () => AdminNavigation.openAddDamage(context, widget.caseId),
-          ),
           IconButton(
             icon: const Icon(Icons.arrow_forward_ios_rounded, color: _textDark),
             onPressed: () => Navigator.pop(context),
@@ -256,7 +305,11 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
         ],
         title: const Text(
           'مراجعة الحالة',
-          style: TextStyle(color: _textDark, fontWeight: FontWeight.w800, fontSize: 18),
+          style: TextStyle(
+            color: _textDark,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+          ),
         ),
         centerTitle: true,
       ),
@@ -267,16 +320,25 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
           children: [
             CaseAssessmentView(caseId: widget.caseId),
             const SizedBox(height: 20),
-            _actionButton(
-              label: 'تاكيد الحالة',
-              backgroundColor: _primaryBlue,
-              onPressed: _handleApprove,
-            ),
-            const SizedBox(height: 12),
-            _actionButton(
-              label: 'إحالة لشيخ المعارض',
-              backgroundColor: _referColor,
-              onPressed: _handleReferToSpecialist,
+            Row(
+              textDirection: TextDirection.rtl,
+              children: [
+                Expanded(
+                  child: _actionButton(
+                    label: 'تاكيد الحالة',
+                    backgroundColor: _primaryBlue,
+                    onPressed: _handleApprove,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _actionButton(
+                    label: 'إحالة لشيخ المعارض',
+                    backgroundColor: _referColor,
+                    onPressed: _handleReferToSpecialist,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

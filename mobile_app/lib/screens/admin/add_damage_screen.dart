@@ -18,7 +18,7 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
   static const Color borderColor = Color(0xFFD7E0EC);
 
   // Backend base URL used to submit the admin-added damage.
-  static const String backendUrl = 'http://172.20.10.2:8000';
+  static const String backendUrl = 'http://192.168.0.11:8000';
 
   // Controls the current step:
   // 0 = image selection, 1 = damage details, 2 = review.
@@ -108,11 +108,7 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
 
   final List<DropdownOption> _severities = const [
     DropdownOption(value: 'minor', label: 'خفيف', englishLabel: 'Minor'),
-    DropdownOption(
-      value: 'moderate',
-      label: 'متوسط',
-      englishLabel: 'Moderate',
-    ),
+    DropdownOption(value: 'moderate', label: 'متوسط', englishLabel: 'Moderate'),
     DropdownOption(value: 'severe', label: 'شديد', englishLabel: 'Severe'),
   ];
 

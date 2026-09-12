@@ -69,6 +69,36 @@ class CaseAssessmentView extends StatelessWidget {
     'wheel': 'الإطار',
   };
 
+  // Internal English flags the backend attaches to unresolved/uncertain
+  // pricing decisions (see cost_estimation_services.py / part_association_
+  // service.py) — translated for the admin instead of shown raw.
+  static const Map<String, String> _costFactorLabelAr = {
+    'missing_image_severity': 'لم يتم تحديد شدة الضرر لهذه الصورة',
+    'invalid_image_severity': 'قيمة شدة ضرر غير صالحة لهذه الصورة',
+    'no_hours': 'لا توجد ساعات عمل معتمدة لهذا التصنيف',
+    'unassigned': 'لم يتم ربط هذا الضرر بموقع مؤكد',
+    'unassigned_admin_review':
+        'لم يتحدد الجزء المتضرر تلقائيًا — يتطلب تحديدًا يدويًا',
+    'vehicle_value_unavailable': 'قيمة المركبة السوقية غير متوفرة',
+    'low_cost_confidence': 'ثقة منخفضة في التقدير الإجمالي للتكلفة',
+    'incomplete_cost_estimate': 'تقدير التكلفة غير مكتمل',
+    'image_cost_failed': 'تعذر حساب تكلفة إحدى الصور',
+    'wheel_position_ambiguous_fallback':
+        'لم يتحدد موقع الإطار (أمامي/خلفي) — استُخدم متوسط تقديري',
+    'glass_no_part_support': 'لم يُؤكَّد موقع كسر الزجاج',
+    'glass_ambiguous_part': 'تعدد المواقع المحتملة لكسر الزجاج',
+    'centroid_fallback': 'تم تحديد الجزء المتضرر بطريقة تقريبية',
+  };
+
+  static String _costFactorLabel(String raw) {
+    final mapped = _costFactorLabelAr[raw];
+    if (mapped != null) return mapped;
+    if (raw.startsWith('prior case')) {
+      return 'يوجد ضرر مشابه في حالة سابقة لنفس المالك والمركبة';
+    }
+    return raw;
+  }
+
   // ── Generic building blocks (same shape as Case_Details_Screen.dart) ────
 
   Widget _infoBox(String title, String value, {bool ltr = false}) {
@@ -87,7 +117,10 @@ class CaseAssessmentView extends StatelessWidget {
           Text(
             title,
             textDirection: TextDirection.rtl,
-            style: const TextStyle(color: _textMuted, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              color: _textMuted,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -96,7 +129,10 @@ class CaseAssessmentView extends StatelessWidget {
               child: Text(
                 value.trim().isEmpty ? '—' : value,
                 textAlign: TextAlign.right,
-                style: const TextStyle(color: _textDark, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  color: _textDark,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
@@ -127,7 +163,11 @@ class CaseAssessmentView extends StatelessWidget {
           Text(
             title,
             textDirection: TextDirection.rtl,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _textDark),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: _textDark,
+            ),
           ),
           const SizedBox(height: 14),
           ...children,
@@ -151,7 +191,11 @@ class CaseAssessmentView extends StatelessWidget {
       child: Text(
         _severityLabelAr[severity]!,
         textDirection: TextDirection.rtl,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: color),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -159,7 +203,8 @@ class CaseAssessmentView extends StatelessWidget {
   }
 
   Widget _overallSeverityBox(String? overallSeverity) {
-    if (overallSeverity == null || !_severityLabelAr.containsKey(overallSeverity)) {
+    if (overallSeverity == null ||
+        !_severityLabelAr.containsKey(overallSeverity)) {
       return const SizedBox.shrink();
     }
     final color = _severityColor[overallSeverity]!;
@@ -188,7 +233,11 @@ class CaseAssessmentView extends StatelessWidget {
               _severityLabelAr[overallSeverity]!,
               textDirection: TextDirection.rtl,
               textAlign: TextAlign.left,
-              style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 15),
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+              ),
             ),
           ),
         ],
@@ -204,7 +253,11 @@ class CaseAssessmentView extends StatelessWidget {
         child: Text(
           text,
           textDirection: TextDirection.rtl,
-          style: const TextStyle(color: _textMuted, fontWeight: FontWeight.w700, fontSize: 13),
+          style: const TextStyle(
+            color: _textMuted,
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
         ),
       ),
     );
@@ -218,7 +271,7 @@ class CaseAssessmentView extends StatelessWidget {
       title: 'ملخص الطلب',
       children: [
         _infoBox('رقم الطلب', caseId, ltr: true),
-        _infoBox('حالة الطلب (داخلية)', status),
+        _infoBox('حالة الطلب ', status),
       ],
     );
   }
@@ -244,7 +297,10 @@ class CaseAssessmentView extends StatelessWidget {
 
   Widget _vehicleInfoCard(String vehicleId) {
     return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('vehicles').doc(vehicleId).get(),
+      future: FirebaseFirestore.instance
+          .collection('vehicles')
+          .doc(vehicleId)
+          .get(),
       builder: (context, snap) {
         final data = snap.hasData && snap.data!.exists
             ? snap.data!.data() as Map<String, dynamic>
@@ -256,7 +312,10 @@ class CaseAssessmentView extends StatelessWidget {
             _infoBox('طراز المركبة', data['model'] ?? '-'),
             _infoBox('السنة', data['year']?.toString() ?? '-'),
             _infoBox('اللون', data['color'] ?? '-'),
-            _infoBox('رقم اللوحة', data['arabicPlateNumber'] ?? data['plateNumber'] ?? '-'),
+            _infoBox(
+              'رقم اللوحة',
+              data['arabicPlateNumber'] ?? data['plateNumber'] ?? '-',
+            ),
             _infoBox('رقم الهيكل', data['chassisNumber'] ?? '-', ltr: true),
           ],
         );
@@ -268,7 +327,11 @@ class CaseAssessmentView extends StatelessWidget {
     return _sectionCard(
       title: 'تقرير نجم',
       children: [
-        _infoBox('رقم الحادث', najmReport['accidentNumber']?.toString() ?? '-', ltr: true),
+        _infoBox(
+          'رقم الحادث',
+          najmReport['accidentNumber']?.toString() ?? '-',
+          ltr: true,
+        ),
         _infoBox('تاريخ الحادث', najmReport['accidentDate'] ?? '-'),
         _infoBox('موقع الضرر', najmReport['damageLocation'] ?? '-'),
       ],
@@ -277,7 +340,10 @@ class CaseAssessmentView extends StatelessWidget {
 
   // ── Section 5: per-image damage analysis ─────────────────────────────────
 
-  Widget _imagesAnalysisCard(BuildContext context, Map<String, dynamic> caseData) {
+  Widget _imagesAnalysisCard(
+    BuildContext context,
+    Map<String, dynamic> caseData,
+  ) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('accidentCase')
@@ -297,7 +363,10 @@ class CaseAssessmentView extends StatelessWidget {
                   child: Text(
                     'لا توجد صور مرفوعة',
                     textDirection: TextDirection.rtl,
-                    style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -322,8 +391,9 @@ class CaseAssessmentView extends StatelessWidget {
     final String? severity = item['severity'] as String?;
     final dynamic severityConfidence = item['severityConfidence'];
     final dynamic laborCost = item['estimatedLaborCostSar'];
-    final String url =
-        hasDamage ? (item['annotatedImage'] ?? item['downloadUrl'] ?? '') : (item['downloadUrl'] ?? '');
+    final String url = hasDamage
+        ? (item['annotatedImage'] ?? item['downloadUrl'] ?? '')
+        : (item['downloadUrl'] ?? '');
 
     return Container(
       width: double.infinity,
@@ -345,9 +415,11 @@ class CaseAssessmentView extends StatelessWidget {
                 onTap: url.isEmpty
                     ? null
                     : () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => PhotoPreviewScreen(imageUrl: url)),
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PhotoPreviewScreen(imageUrl: url),
                         ),
+                      ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: url.isEmpty
@@ -355,7 +427,10 @@ class CaseAssessmentView extends StatelessWidget {
                           width: 78,
                           height: 78,
                           color: const Color(0xFFEAF2FF),
-                          child: const Icon(Icons.image_not_supported_outlined, color: Color(0xFF0B4A7D)),
+                          child: const Icon(
+                            Icons.image_not_supported_outlined,
+                            color: Color(0xFF0B4A7D),
+                          ),
                         )
                       : Image.network(
                           url,
@@ -366,7 +441,10 @@ class CaseAssessmentView extends StatelessWidget {
                             width: 78,
                             height: 78,
                             color: const Color(0xFFEAF2FF),
-                            child: const Icon(Icons.broken_image_outlined, color: Color(0xFF0B4A7D)),
+                            child: const Icon(
+                              Icons.broken_image_outlined,
+                              color: Color(0xFF0B4A7D),
+                            ),
                           ),
                         ),
                 ),
@@ -396,7 +474,11 @@ class CaseAssessmentView extends StatelessWidget {
                       Text(
                         'ثقة تصنيف الشدة: ${(severityConfidence * 100).round()}%',
                         textDirection: TextDirection.rtl,
-                        style: const TextStyle(color: _textMuted, fontSize: 11, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          color: _textMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                     if (laborCost is num) ...[
@@ -404,7 +486,11 @@ class CaseAssessmentView extends StatelessWidget {
                       Text(
                         'تكلفة الصورة: $laborCost ريال',
                         textDirection: TextDirection.rtl,
-                        style: const TextStyle(color: _textDark, fontSize: 11, fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                          color: _textDark,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ],
@@ -422,12 +508,6 @@ class CaseAssessmentView extends StatelessWidget {
             _mutedCaption('الأجزاء المتضررة والتكلفة'),
             _costItemsList(imageDoc.reference),
             const SizedBox(height: 4),
-            const Text(
-              'ملاحظة: القائمتان مستقلتان — لا يوجد ربط مباشر مخزّن بين ضرر محدد وجزء محدد.',
-              textDirection: TextDirection.rtl,
-              textAlign: TextAlign.right,
-              style: TextStyle(color: _textMuted, fontSize: 10, fontStyle: FontStyle.italic),
-            ),
           ],
         ],
       ),
@@ -462,7 +542,9 @@ class CaseAssessmentView extends StatelessWidget {
             final d = doc.data() as Map<String, dynamic>;
             final String label = d['label']?.toString() ?? '-';
             final dynamic confidence = d['confidence'];
-            final String confText = confidence is num ? '${(confidence * 100).round()}%' : '-';
+            final String confText = confidence is num
+                ? '${(confidence * 100).round()}%'
+                : '-';
             return Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(
@@ -473,12 +555,20 @@ class CaseAssessmentView extends StatelessWidget {
                       label,
                       textDirection: TextDirection.rtl,
                       textAlign: TextAlign.right,
-                      style: const TextStyle(color: _textDark, fontWeight: FontWeight.w600, fontSize: 13),
+                      style: const TextStyle(
+                        color: _textDark,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                   Text(
                     'ثقة: $confText',
-                    style: const TextStyle(color: _textMuted, fontWeight: FontWeight.w700, fontSize: 12),
+                    style: const TextStyle(
+                      color: _textMuted,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -510,8 +600,12 @@ class CaseAssessmentView extends StatelessWidget {
             final item = doc.data() as Map<String, dynamic>;
             final String partKey = item['part']?.toString() ?? '';
             final String damageKey = item['damageType']?.toString() ?? '';
-            final String partLabel = _partLabelAr[partKey] ?? (partKey.isEmpty ? 'غير محدد' : partKey);
-            final String damageLabel = _damageTypeLabelAr[damageKey] ?? (damageKey.isEmpty ? 'غير محدد' : damageKey);
+            final String partLabel =
+                _partLabelAr[partKey] ??
+                (partKey.isEmpty ? 'غير محدد' : partKey);
+            final String damageLabel =
+                _damageTypeLabelAr[damageKey] ??
+                (damageKey.isEmpty ? 'غير محدد' : damageKey);
             final dynamic cost = item['lineCostSar'];
             final List<dynamic> flags = (item['flags'] as List?) ?? const [];
             return Padding(
@@ -527,7 +621,11 @@ class CaseAssessmentView extends StatelessWidget {
                           '$partLabel — $damageLabel',
                           textDirection: TextDirection.rtl,
                           textAlign: TextAlign.right,
-                          style: const TextStyle(color: _textDark, fontWeight: FontWeight.w600, fontSize: 13),
+                          style: const TextStyle(
+                            color: _textDark,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -545,7 +643,9 @@ class CaseAssessmentView extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
-                        flags.join('، '),
+                        flags
+                            .map((f) => _costFactorLabel(f.toString()))
+                            .join('، '),
                         textDirection: TextDirection.rtl,
                         textAlign: TextAlign.right,
                         style: const TextStyle(color: Colors.red, fontSize: 10),
@@ -567,9 +667,11 @@ class CaseAssessmentView extends StatelessWidget {
     if (totalRaw is! num) {
       return const SizedBox.shrink();
     }
-    final costConfidence = (caseData['costConfidence'] as Map<String, dynamic>?) ?? {};
+    final costConfidence =
+        (caseData['costConfidence'] as Map<String, dynamic>?) ?? {};
     final String? levelAr = costConfidence['level_ar'] as String?;
-    final String? recommendationAr = costConfidence['recommendation_ar'] as String?;
+    final String? recommendationAr =
+        costConfidence['recommendation_ar'] as String?;
 
     return _sectionCard(
       title: 'التكلفة التقديرية',
@@ -584,7 +686,11 @@ class CaseAssessmentView extends StatelessWidget {
                   : 'مستوى ثقة التقدير: $levelAr',
               textDirection: TextDirection.rtl,
               textAlign: TextAlign.right,
-              style: const TextStyle(color: _textMuted, fontSize: 12, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: _textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
       ],
@@ -594,7 +700,8 @@ class CaseAssessmentView extends StatelessWidget {
   // ── Section 7: confidence detail ─────────────────────────────────────────
 
   Widget _confidenceDetailCard(Map<String, dynamic> caseData) {
-    final costConfidence = (caseData['costConfidence'] as Map<String, dynamic>?) ?? {};
+    final costConfidence =
+        (caseData['costConfidence'] as Map<String, dynamic>?) ?? {};
     if (costConfidence.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -602,15 +709,19 @@ class CaseAssessmentView extends StatelessWidget {
     final dynamic score = costConfidence['confidence_score'];
     final String? levelAr = costConfidence['level_ar'] as String?;
     final bool requiresReview =
-        costConfidence['requires_admin_review'] == true || caseData['needsAdminReview'] == true;
-    final List<dynamic> deductions = (costConfidence['deductions'] as List?) ?? const [];
-    final List<dynamic> reviewReasons = (caseData['reviewReasons'] as List?) ?? const [];
+        costConfidence['requires_admin_review'] == true ||
+        caseData['needsAdminReview'] == true;
+    final List<dynamic> deductions =
+        (costConfidence['deductions'] as List?) ?? const [];
+    final List<dynamic> reviewReasons =
+        (caseData['reviewReasons'] as List?) ?? const [];
 
     return _sectionCard(
       title: 'تفاصيل الثقة',
       children: [
         if (score is num) _infoBox('درجة الثقة', '$score / 100'),
-        if (levelAr != null && levelAr.isNotEmpty) _infoBox('مستوى الثقة', levelAr),
+        if (levelAr != null && levelAr.isNotEmpty)
+          _infoBox('مستوى الثقة', levelAr),
         if (requiresReview)
           Container(
             width: double.infinity,
@@ -619,12 +730,18 @@ class CaseAssessmentView extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFFFFF7ED),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFEA580C).withOpacity(0.4)),
+              border: Border.all(
+                color: const Color(0xFFEA580C).withOpacity(0.4),
+              ),
             ),
             child: const Text(
               'يتطلب مراجعة الإدارة',
               textDirection: TextDirection.rtl,
-              style: TextStyle(color: Color(0xFFEA580C), fontWeight: FontWeight.w800, fontSize: 12),
+              style: TextStyle(
+                color: Color(0xFFEA580C),
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+              ),
             ),
           ),
         if (deductions.isNotEmpty) ...[
@@ -639,14 +756,18 @@ class CaseAssessmentView extends StatelessWidget {
                 '− $points: $reasonAr',
                 textDirection: TextDirection.rtl,
                 textAlign: TextAlign.right,
-                style: const TextStyle(color: _textDark, fontSize: 13, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  color: _textDark,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             );
           }),
           const SizedBox(height: 6),
         ],
         if (reviewReasons.isNotEmpty) ...[
-          _mutedCaption('أسباب تقنية (داخلية)'),
+          _mutedCaption('عوامل التكلفة'),
           Wrap(
             alignment: WrapAlignment.end,
             spacing: 6,
@@ -660,7 +781,8 @@ class CaseAssessmentView extends StatelessWidget {
                   border: Border.all(color: const Color(0xFFE8EEF7)),
                 ),
                 child: Text(
-                  r.toString(),
+                  _costFactorLabel(r.toString()),
+                  textDirection: TextDirection.rtl,
                   style: const TextStyle(color: _textMuted, fontSize: 10),
                 ),
               );
@@ -674,7 +796,10 @@ class CaseAssessmentView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('accidentCase').doc(caseId).snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('accidentCase')
+          .doc(caseId)
+          .snapshots(),
       builder: (context, caseSnap) {
         if (caseSnap.connectionState == ConnectionState.waiting) {
           return const Padding(
@@ -690,7 +815,10 @@ class CaseAssessmentView extends StatelessWidget {
               child: Text(
                 'لم يتم العثور على الحالة',
                 textDirection: TextDirection.rtl,
-                style: TextStyle(color: _textMuted, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: _textMuted,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           );
@@ -699,7 +827,8 @@ class CaseAssessmentView extends StatelessWidget {
         final caseData = caseSnap.data!.data() as Map<String, dynamic>;
         final String vehicleId = caseData['vehicleId']?.toString() ?? '';
         final String ownerId = caseData['ownerId']?.toString() ?? '';
-        final najmReport = (caseData['najimReport'] as Map<String, dynamic>?) ?? {};
+        final najmReport =
+            (caseData['najimReport'] as Map<String, dynamic>?) ?? {};
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.end,

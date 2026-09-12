@@ -836,6 +836,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
         bgColor = const Color(0xFFFFEEF0);
         textColor = Colors.red;
         icon = Icons.gpp_bad_outlined;
+      } else if (s == 'محالة لشيخ المعارض') {
+        // A case sent to the human specialist is presented to the customer
+        // the same way a rejection would be — the standard estimate did not
+        // go through, even though internally this is a distinct workflow.
+        displayStatus = 'مرفوضة';
+        bgColor = const Color(0xFFFFEEF0);
+        textColor = Colors.red;
+        icon = Icons.gpp_bad_outlined;
       } else {
         // Any unknown internal status is safely displayed as under review.
         displayStatus = 'قيد المراجعة';
@@ -858,6 +866,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
         bgColor = const Color(0xFFFFEEF0);
         textColor = Colors.red;
         icon = Icons.gpp_bad_outlined;
+      } else if (s == 'تم اعتماد الاعتراض' || s == 'approved') {
+        displayStatus = 'مقبول';
+        bgColor = const Color(0xFFDCFCE7);
+        textColor = Colors.green;
+        icon = Icons.check;
       } else {
         displayStatus = s.isEmpty ? 'تمت المعالجة' : s;
         bgColor = const Color(0xFFDCFCE7);
@@ -921,6 +934,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
         bgColor = const Color(0xFFFFEEF0);
         iconColor = Colors.red;
         icon = Icons.gpp_bad_outlined;
+      } else if (s == 'تم اعتماد الاعتراض' || s == 'approved') {
+        bgColor = const Color(0xFFDCFCE7);
+        iconColor = Colors.green;
+        icon = Icons.check_circle_outline_rounded;
       } else {
         bgColor = const Color(0xFFDCFCE7);
         iconColor = Colors.green;
@@ -948,6 +965,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
         icon = Icons.check_circle_outline_rounded;
       } else if (s == 'فشل الفحص' || s == 'ocr_failed') {
         // Inspection failure remains visible to the user.
+        bgColor = const Color(0xFFFFEEF0);
+        iconColor = Colors.red;
+        icon = Icons.gpp_bad_outlined;
+      } else if (s == 'محالة لشيخ المعارض') {
         bgColor = const Color(0xFFFFEEF0);
         iconColor = Colors.red;
         icon = Icons.gpp_bad_outlined;

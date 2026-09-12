@@ -14,7 +14,8 @@ class AdminClaimDetailsScreen extends StatefulWidget {
   const AdminClaimDetailsScreen({super.key, required this.objectionId});
 
   @override
-  State<AdminClaimDetailsScreen> createState() => _AdminClaimDetailsScreenState();
+  State<AdminClaimDetailsScreen> createState() =>
+      _AdminClaimDetailsScreenState();
 }
 
 class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
@@ -28,7 +29,9 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
   /// Same dual lookup submit_objection_screen.dart uses when resolving an
   /// objection's caseId field: some case docs carry a human-readable
   /// `caseID` field distinct from the Firestore document id, some don't.
-  Future<DocumentSnapshot<Map<String, dynamic>>?> _resolveAccidentCaseDoc(String rawCaseId) async {
+  Future<DocumentSnapshot<Map<String, dynamic>>?> _resolveAccidentCaseDoc(
+    String rawCaseId,
+  ) async {
     final byField = await FirebaseFirestore.instance
         .collection('accidentCase')
         .where('caseID', isEqualTo: rawCaseId)
@@ -39,7 +42,10 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
       return byField.docs.first;
     }
 
-    final byId = await FirebaseFirestore.instance.collection('accidentCase').doc(rawCaseId).get();
+    final byId = await FirebaseFirestore.instance
+        .collection('accidentCase')
+        .doc(rawCaseId)
+        .get();
     return byId.exists ? byId : null;
   }
 
@@ -52,22 +58,20 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
       ..showSnackBar(
         SnackBar(
           content: SizedBox(
-            height: 44,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Transform.translate(
-                offset: const Offset(0, -3),
-                child: Text(
-                  message,
-                  textAlign: TextAlign.right,
-                  textDirection: TextDirection.rtl,
-                  style: const TextStyle(height: 1.0),
-                ),
-              ),
+            width: double.infinity,
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(height: 1.3),
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-          backgroundColor: isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          backgroundColor: isError
+              ? const Color(0xFFDC2626)
+              : const Color(0xFF16A34A),
           behavior: SnackBarBehavior.floating,
           margin: EdgeInsets.only(
             top: topPadding + kToolbarHeight + 35,
@@ -89,7 +93,11 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFE8EEF7)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.035), blurRadius: 14, offset: const Offset(0, 6)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.035),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
         ],
       ),
       child: Column(
@@ -98,7 +106,11 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
           Text(
             title,
             textDirection: TextDirection.rtl,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _textDark),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: _textDark,
+            ),
           ),
           const SizedBox(height: 14),
           ...children,
@@ -107,7 +119,11 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
     );
   }
 
-  Widget _infoRow({required String title, required String value, bool ltr = false}) {
+  Widget _infoRow({
+    required String title,
+    required String value,
+    bool ltr = false,
+  }) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 10),
@@ -120,7 +136,14 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
       child: Row(
         textDirection: TextDirection.rtl,
         children: [
-          Text(title, textDirection: TextDirection.rtl, style: const TextStyle(color: _textMuted, fontWeight: FontWeight.w700)),
+          Text(
+            title,
+            textDirection: TextDirection.rtl,
+            style: const TextStyle(
+              color: _textMuted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Directionality(
@@ -128,7 +151,10 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
               child: Text(
                 value.trim().isEmpty ? '—' : value,
                 textAlign: TextAlign.right,
-                style: const TextStyle(color: _textDark, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  color: _textDark,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
@@ -155,9 +181,13 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
       builder: (ctx) {
         final screenWidth = MediaQuery.of(ctx).size.width;
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85),
+            constraints: BoxConstraints(
+              maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85,
+            ),
             child: SingleChildScrollView(
               child: Padding(
                 padding: EdgeInsets.all(screenWidth * 0.06),
@@ -173,7 +203,11 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                           child: Text(
                             title,
                             textDirection: TextDirection.rtl,
-                            style: const TextStyle(color: _textDark, fontWeight: FontWeight.w800, fontSize: 17),
+                            style: const TextStyle(
+                              color: _textDark,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 17,
+                            ),
                           ),
                         ),
                       ],
@@ -183,34 +217,60 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                       body,
                       textDirection: TextDirection.rtl,
                       textAlign: TextAlign.right,
-                      style: const TextStyle(color: Color(0xFF475569), fontSize: 14, height: 1.5),
+                      style: const TextStyle(
+                        color: Color(0xFF475569),
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
                     ),
                     const SizedBox(height: 20),
                     Row(
                       children: [
                         Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFEDEDED),
-                              foregroundColor: Colors.black87,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                              elevation: 0,
+                          child: SizedBox(
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFEDEDED),
+                                foregroundColor: Colors.black87,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text('إلغاء'),
+                              ),
                             ),
-                            child: const Text('إلغاء'),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _primaryBlue,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                              elevation: 4,
+                          child: SizedBox(
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _primaryBlue,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                elevation: 4,
+                              ),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(confirmLabel),
+                              ),
                             ),
-                            child: Text(confirmLabel),
                           ),
                         ),
                       ],
@@ -240,9 +300,13 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
           builder: (ctx, setDialogState) {
             final screenWidth = MediaQuery.of(ctx).size.width;
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: screenWidth > 600 ? 420 : screenWidth * 0.9),
+                constraints: BoxConstraints(
+                  maxWidth: screenWidth > 600 ? 420 : screenWidth * 0.9,
+                ),
                 child: SingleChildScrollView(
                   child: Padding(
                     padding: EdgeInsets.all(screenWidth * 0.06),
@@ -252,13 +316,20 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                         Row(
                           textDirection: TextDirection.rtl,
                           children: [
-                            const Icon(Icons.gpp_bad_outlined, color: Colors.red),
+                            const Icon(
+                              Icons.gpp_bad_outlined,
+                              color: Colors.red,
+                            ),
                             const SizedBox(width: 8),
                             const Expanded(
                               child: Text(
                                 'رفض الاعتراض',
                                 textDirection: TextDirection.rtl,
-                                style: TextStyle(color: _textDark, fontWeight: FontWeight.w800, fontSize: 17),
+                                style: TextStyle(
+                                  color: _textDark,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 17,
+                                ),
                               ),
                             ),
                           ],
@@ -273,21 +344,28 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                           textDirection: TextDirection.rtl,
                           decoration: InputDecoration(
                             hintText: 'اكتب سبب رفض الاعتراض هنا...',
-                            hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                            hintStyle: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 14,
+                            ),
                             filled: true,
                             fillColor: Colors.white,
                             contentPadding: const EdgeInsets.all(16),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide(
-                                color: error != null ? const Color(0xFFDC2626) : const Color(0xFFCBD5E1),
+                                color: error != null
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFFCBD5E1),
                                 width: error != null ? 1.5 : 1,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide(
-                                color: error != null ? const Color(0xFFDC2626) : _primaryBlue,
+                                color: error != null
+                                    ? const Color(0xFFDC2626)
+                                    : _primaryBlue,
                                 width: 1.5,
                               ),
                             ),
@@ -300,7 +378,10 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                             child: Text(
                               error!,
                               textAlign: TextAlign.right,
-                              style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12.5),
+                              style: const TextStyle(
+                                color: Color(0xFFDC2626),
+                                fontSize: 12.5,
+                              ),
                             ),
                           ),
                         ],
@@ -308,35 +389,59 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: ElevatedButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFEDEDED),
-                                  foregroundColor: Colors.black87,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                                  elevation: 0,
+                              child: SizedBox(
+                                height: 48,
+                                child: ElevatedButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFEDEDED),
+                                    foregroundColor: Colors.black87,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: const FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text('إلغاء'),
+                                  ),
                                 ),
-                                child: const Text('إلغاء'),
                               ),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  final text = controller.text.trim();
-                                  if (text.isEmpty) {
-                                    setDialogState(() => error = 'يرجى كتابة سبب الرفض.');
-                                    return;
-                                  }
-                                  Navigator.pop(ctx, text);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _primaryBlue,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                                  elevation: 4,
+                              child: SizedBox(
+                                height: 48,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    final text = controller.text.trim();
+                                    if (text.isEmpty) {
+                                      setDialogState(
+                                        () => error = 'يرجى كتابة سبب الرفض.',
+                                      );
+                                      return;
+                                    }
+                                    Navigator.pop(ctx, text);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _primaryBlue,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    elevation: 4,
+                                  ),
+                                  child: const FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text('تأكيد الرفض'),
+                                  ),
                                 ),
-                                child: const Text('تأكيد الرفض'),
                               ),
                             ),
                           ],
@@ -360,16 +465,21 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      await FirebaseFirestore.instance.collection('objection').doc(widget.objectionId).update({
-        'objectionStatus': 'تم رفض الاعتراض',
-        'adminFeedback': reason.trim(),
-      });
+      await FirebaseFirestore.instance
+          .collection('objection')
+          .doc(widget.objectionId)
+          .update({
+            'objectionStatus': 'تم رفض الاعتراض',
+            'adminFeedback': reason.trim(),
+          });
       if (!mounted) return;
       _showMessage('تم رفض الاعتراض', isError: false);
-      Navigator.pop(context);
     } catch (error) {
       if (!mounted) return;
-      _showMessage(error.toString().replaceFirst('Exception: ', ''), isError: true);
+      _showMessage(
+        error.toString().replaceFirst('Exception: ', ''),
+        isError: true,
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -389,12 +499,18 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
     setState(() => _isSubmitting = true);
     try {
       final batch = FirebaseFirestore.instance.batch();
-      batch.update(FirebaseFirestore.instance.collection('objection').doc(widget.objectionId), {
-        'objectionStatus': 'تم اعتماد الاعتراض',
-      });
-      batch.update(FirebaseFirestore.instance.collection('accidentCase').doc(resolvedCaseId), {
-        'status': 'تم حساب التكلفة',
-      });
+      batch.update(
+        FirebaseFirestore.instance
+            .collection('objection')
+            .doc(widget.objectionId),
+        {'objectionStatus': 'تم اعتماد الاعتراض'},
+      );
+      batch.update(
+        FirebaseFirestore.instance
+            .collection('accidentCase')
+            .doc(resolvedCaseId),
+        {'status': 'تم حساب التكلفة'},
+      );
       await batch.commit();
 
       if (!mounted) return;
@@ -402,7 +518,10 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
       await AdminNavigation.openAddDamage(context, resolvedCaseId);
     } catch (error) {
       if (!mounted) return;
-      _showMessage(error.toString().replaceFirst('Exception: ', ''), isError: true);
+      _showMessage(
+        error.toString().replaceFirst('Exception: ', ''),
+        isError: true,
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -410,7 +529,49 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
 
   Widget _actionButtons(String resolvedCaseId) {
     return Row(
+      textDirection: TextDirection.rtl,
       children: [
+        Expanded(
+          child: SizedBox(
+            height: 54,
+            child: ElevatedButton(
+              onPressed: _isSubmitting
+                  ? null
+                  : () => _handleAccept(resolvedCaseId),
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: _primaryBlue,
+                disabledBackgroundColor: const Color(0xFF93C5FD),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'قبول الاعتراض',
+                        textDirection: TextDirection.rtl,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
         Expanded(
           child: SizedBox(
             height: 54,
@@ -421,40 +582,19 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                 backgroundColor: const Color(0xFFEDEDED),
                 disabledBackgroundColor: const Color(0xFFEDEDED),
                 foregroundColor: Colors.black87,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
               ),
-              child: const Text(
-                'رفض الاعتراض',
-                textDirection: TextDirection.rtl,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'رفض الاعتراض',
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
               ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: SizedBox(
-            height: 54,
-            child: ElevatedButton(
-              onPressed: _isSubmitting ? null : () => _handleAccept(resolvedCaseId),
-              style: ElevatedButton.styleFrom(
-                elevation: 0,
-                backgroundColor: _primaryBlue,
-                disabledBackgroundColor: const Color(0xFF93C5FD),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-              ),
-              child: _isSubmitting
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                    )
-                  : const Text(
-                      'قبول الاعتراض',
-                      textDirection: TextDirection.rtl,
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                    ),
             ),
           ),
         ),
@@ -472,18 +612,28 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
         backgroundColor: _pageBg,
         elevation: 0,
         automaticallyImplyLeading: false,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_forward_ios_rounded, color: _textDark),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const SizedBox(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.arrow_forward_ios_rounded, color: _textDark),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
         title: const Text(
           'مراجعة الاعتراض',
-          style: TextStyle(color: _textDark, fontWeight: FontWeight.w800, fontSize: 18),
+          style: TextStyle(
+            color: _textDark,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+          ),
         ),
         centerTitle: true,
       ),
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('objection').doc(widget.objectionId).snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('objection')
+            .doc(widget.objectionId)
+            .snapshots(),
         builder: (context, objSnap) {
           if (objSnap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -493,7 +643,10 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
               child: Text(
                 'لم يتم العثور على الاعتراض',
                 textDirection: TextDirection.rtl,
-                style: TextStyle(color: _textMuted, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: _textMuted,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             );
           }
@@ -501,8 +654,10 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
           final data = objSnap.data!.data() ?? {};
           final rawCaseId = data['caseId']?.toString() ?? '';
           final reason = data['reason']?.toString() ?? '';
-          final status = data['objectionStatus']?.toString() ?? 'قيد المراجعة';
-          final createdAt = data['createdAt'] is Timestamp ? (data['createdAt'] as Timestamp).toDate() : null;
+          final status = data['objectionStatus']?.toString() ?? 'لاعتراض معلق';
+          final createdAt = data['createdAt'] is Timestamp
+              ? (data['createdAt'] as Timestamp).toDate()
+              : null;
 
           return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>?>(
             future: _resolveAccidentCaseDoc(rawCaseId),
@@ -520,7 +675,10 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                       'لم يتم العثور على الحالة المرتبطة بهذا الاعتراض ($rawCaseId)',
                       textDirection: TextDirection.rtl,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: _textMuted, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        color: _textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 );
@@ -536,10 +694,21 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                     _sectionCard(
                       title: 'معلومات الاعتراض',
                       children: [
-                        _infoRow(title: 'رقم الاعتراض', value: widget.objectionId, ltr: true),
-                        _infoRow(title: 'رقم الحالة', value: rawCaseId, ltr: true),
-                        _infoRow(title: 'تاريخ التقديم', value: _formatDate(createdAt)),
-                        _infoRow(title: 'حالة الاعتراض (داخلية)', value: status),
+                        _infoRow(
+                          title: 'رقم الاعتراض',
+                          value: widget.objectionId,
+                          ltr: true,
+                        ),
+                        _infoRow(
+                          title: 'رقم الحالة',
+                          value: rawCaseId,
+                          ltr: true,
+                        ),
+                        _infoRow(
+                          title: 'تاريخ التقديم',
+                          value: _formatDate(createdAt),
+                        ),
+                        _infoRow(title: 'حالة الاعتراض', value: status),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -555,10 +724,17 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                             border: Border.all(color: const Color(0xFFE8EEF7)),
                           ),
                           child: Text(
-                            reason.trim().isEmpty ? 'لا يوجد وصف للاعتراض' : reason,
+                            reason.trim().isEmpty
+                                ? 'لا يوجد وصف للاعتراض'
+                                : reason,
                             textDirection: TextDirection.rtl,
                             textAlign: TextAlign.right,
-                            style: const TextStyle(color: _textDark, fontSize: 14, fontWeight: FontWeight.w600, height: 1.7),
+                            style: const TextStyle(
+                              color: _textDark,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              height: 1.7,
+                            ),
                           ),
                         ),
                       ],
