@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import './verification_screen.dart';
 import '../NavBar/nav_bar.dart';
+import '../admin/navigation/admin_nav_bar.dart';
 import './change_phone_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -197,13 +198,14 @@ class _AuthScreenState extends State<AuthScreen> {
           final user = _auth.currentUser;
           if (user == null) return;
 
-          final userDoc = await FirebaseFirestore.instance
+          final userQuery = await FirebaseFirestore.instance
               .collection('users')
-              .doc(user.uid)
+              .where('phoneNumber', isEqualTo: phone)
+              .limit(1)
               .get();
 
           if (isSignUp) {
-            if (userDoc.exists) {
+            if (userQuery.docs.isNotEmpty) {
               await _auth.signOut();
               if (!mounted) return;
               _showSnackBar('هذا الرقم مسجل مسبقاً، يرجى تسجيل الدخول');
@@ -212,7 +214,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
             await _saveUserToFirestore(phone);
           } else {
-            if (!userDoc.exists) {
+            if (userQuery.docs.isEmpty) {
               await _auth.signOut();
               if (!mounted) return;
               _showSnackBar('لا يوجد حساب، يرجى التسجيل أولاً');
@@ -220,10 +222,21 @@ class _AuthScreenState extends State<AuthScreen> {
             }
           }
 
+          final role = userQuery.docs.isNotEmpty
+              ? (userQuery.docs.first.data()['role'] ?? 'user')
+                    .toString()
+                    .trim()
+                    .toLowerCase()
+              : 'user';
+
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const AppBottomNav()),
+            MaterialPageRoute(
+              builder: (_) => role == 'admin'
+                  ? const AdminBottomNav()
+                  : const AppBottomNav(),
+            ),
           );
         } catch (e) {
           if (!mounted) return;

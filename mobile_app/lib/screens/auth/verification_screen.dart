@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../NavBar/nav_bar.dart';
+import '../admin/navigation/admin_nav_bar.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String verificationId;
@@ -111,15 +112,34 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   String get _otpCode => _controllers.map((c) => c.text).join();
 
-  void _navigateAfterVerification() {
+  Future<void> _navigateAfterVerification() async {
     if (widget.onVerified != null) {
       widget.onVerified!();
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AppBottomNav()),
-      );
+      return;
     }
+
+    final userQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .where('phoneNumber', isEqualTo: widget.phone)
+        .limit(1)
+        .get();
+
+    final role = userQuery.docs.isNotEmpty
+        ? (userQuery.docs.first.data()['role'] ?? 'user')
+              .toString()
+              .trim()
+              .toLowerCase()
+        : 'user';
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => role == 'admin'
+            ? const AdminBottomNav()
+            : const AppBottomNav(),
+      ),
+    );
   }
 
   Future<void> _verifyOtp() async {
@@ -145,13 +165,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
       }
 
       // ✅ الآن فقط نقرأ Firestore لأن المستخدم أصبح موثّقًا.
-      final userDoc = await FirebaseFirestore.instance
+      final userQuery = await FirebaseFirestore.instance
           .collection('users')
-          .doc(user.uid)
+          .where('phoneNumber', isEqualTo: widget.phone)
+          .limit(1)
           .get();
 
       if (widget.isSignUp) {
-        if (userDoc.exists) {
+        if (userQuery.docs.isNotEmpty) {
           await FirebaseAuth.instance.signOut();
           if (!mounted) return;
           setState(() => _isLoading = false);
@@ -161,7 +182,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
         await _saveUserToFirestore();
       } else if (widget.onVerified == null) {
-        if (!userDoc.exists) {
+        if (userQuery.docs.isEmpty) {
           await FirebaseAuth.instance.signOut();
           if (!mounted) return;
           setState(() => _isLoading = false);
@@ -171,7 +192,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       }
 
       if (!mounted) return;
-      _navigateAfterVerification();
+      await _navigateAfterVerification();
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -219,13 +240,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
           final user = FirebaseAuth.instance.currentUser;
           if (user == null) return;
 
-          final userDoc = await FirebaseFirestore.instance
+          final userQuery = await FirebaseFirestore.instance
               .collection('users')
-              .doc(user.uid)
+              .where('phoneNumber', isEqualTo: widget.phone)
+              .limit(1)
               .get();
 
           if (widget.isSignUp) {
-            if (userDoc.exists) {
+            if (userQuery.docs.isNotEmpty) {
               await FirebaseAuth.instance.signOut();
               if (!mounted) return;
               _showSnackBar('هذا الرقم مسجل مسبقاً، يرجى تسجيل الدخول');
@@ -233,7 +255,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
             }
 
             await _saveUserToFirestore();
-          } else if (widget.onVerified == null && !userDoc.exists) {
+          } else if (widget.onVerified == null && userQuery.docs.isEmpty) {
             await FirebaseAuth.instance.signOut();
             if (!mounted) return;
             _showSnackBar('لا يوجد حساب بهذا الرقم. الرجاء إنشاء حساب جديد');
@@ -241,7 +263,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           }
 
           if (!mounted) return;
-          _navigateAfterVerification();
+          await _navigateAfterVerification();
         } catch (e) {
           if (!mounted) return;
           _showSnackBar('فشل التحقق. حاول مرة أخرى');
