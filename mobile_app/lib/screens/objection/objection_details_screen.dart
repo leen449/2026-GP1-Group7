@@ -247,18 +247,25 @@ class ObjectionDetailsScreen extends StatelessWidget {
             textDirection: TextDirection.rtl,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                textAlign: TextAlign.right,
-                textDirection: TextDirection.rtl,
-                style: const TextStyle(
-                  color: _textDark,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
+              Expanded(
+                child: Text(
+                  title,
+                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _textDark,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
 
-              if (headerWidget != null) headerWidget,
+              if (headerWidget != null) ...[
+                const SizedBox(width: 8),
+                headerWidget,
+              ],
             ],
           ),
 
@@ -352,11 +359,19 @@ class ObjectionDetailsScreen extends StatelessWidget {
       bgColor = const Color(0xFFEAF1FF);
       textColor = const Color(0xFF2563EB);
       icon = Icons.hourglass_empty_rounded;
-    } else if (s == 'مرفوض' || s == 'مرفوضة' || s == 'rejected') {
+    } else if (s == 'مرفوض' ||
+        s == 'مرفوضة' ||
+        s == 'rejected' ||
+        s == 'تم رفض الاعتراض') {
       displayStatus = 'مرفوض';
       bgColor = const Color(0xFFFFEEF0);
       textColor = Colors.red;
       icon = Icons.gpp_bad_outlined;
+    } else if (s == 'تم اعتماد الاعتراض' || s == 'approved') {
+      displayStatus = 'مقبول';
+      bgColor = const Color(0xFFDCFCE7);
+      textColor = Colors.green;
+      icon = Icons.check_circle_outline_rounded;
     } else {
       displayStatus = s.isEmpty ? 'تمت المعالجة' : s;
       bgColor = const Color(0xFFDCFCE7);
@@ -364,26 +379,35 @@ class ObjectionDetailsScreen extends StatelessWidget {
       icon = Icons.check_circle_outline_rounded;
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: textColor),
-          const SizedBox(width: 5),
-          Text(
-            displayStatus,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
+    return ConstrainedBox(
+      // Caps the badge's own width so an unusually long/unrecognized status
+      // string can't overflow the section-card header row it sits in.
+      constraints: const BoxConstraints(maxWidth: 150),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: textColor),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                displayStatus,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
