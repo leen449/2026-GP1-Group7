@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import 'admin_navigation.dart';
 import '../widgets/case_assessment_view.dart';
+import '../edits/edit_objection_case_screen.dart';
+import 'package:http/http.dart' as http;
 
 /// Admin-facing claim (objection) review screen. Reuses the same
 /// [CaseAssessmentView] the Case Review screen uses for the underlying
@@ -19,6 +21,8 @@ class AdminClaimDetailsScreen extends StatefulWidget {
 }
 
 class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
+  static const String _backendUrl = 'http://192.168.0.239:8000';
+
   static const Color _pageBg = Color(0xFFF7FAFF);
   static const Color _textDark = Color(0xFF071A3D);
   static const Color _textMuted = Color(0xFF8B97AA);
@@ -503,7 +507,7 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
         FirebaseFirestore.instance
             .collection('objection')
             .doc(widget.objectionId),
-        {'objectionStatus': 'تم اعتماد الاعتراض'},
+        {'objectionStatus': 'قيد تعديل الحالة'},
       );
       batch.update(
         FirebaseFirestore.instance
@@ -514,8 +518,13 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
       await batch.commit();
 
       if (!mounted) return;
-      _showMessage('تم قبول الاعتراض', isError: false);
-      //await AdminNavigation.openAddDamage(context, resolvedCaseId);
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ObjectionCaseEditScreen(caseId: resolvedCaseId),
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
       _showMessage(
@@ -527,7 +536,124 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
     }
   }
 
-  Widget _actionButtons(String resolvedCaseId) {
+  void _openCaseEdit(String resolvedCaseId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ObjectionCaseEditScreen(caseId: resolvedCaseId),
+      ),
+    );
+  }
+
+  Future<void> _handleFinalizeObjection(String resolvedCaseId) async {
+    if (_isSubmitting) return;
+
+    final confirmed = await _confirmDialog(
+      icon: Icons.verified_outlined,
+      iconColor: _primaryBlue,
+      title: 'اعتماد نتيجة الاعتراض؟',
+      body: 'سيتم اعتماد التقييم المعدل وإصدار تقرير رسمي جديد للحالة.',
+      confirmLabel: 'اعتماد النتيجة',
+    );
+
+    if (!confirmed) return;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final uri = Uri.parse(
+        '$_backendUrl/reports/cases/$resolvedCaseId/generate'
+        '?objection_finalization=true',
+      );
+
+      final response = await http.post(uri);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('فشل اعتماد نتيجة الاعتراض (${response.statusCode})');
+      }
+
+      if (!mounted) return;
+
+      _showMessage(
+        'تم اعتماد نتيجة الاعتراض وإصدار التقرير الجديد',
+        isError: false,
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      _showMessage(
+        error.toString().replaceFirst('Exception: ', ''),
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  Widget _actionButtons(String resolvedCaseId, String objectionStatus) {
+    if (objectionStatus == 'تم قبول الاعتراض' ||
+        objectionStatus == 'تم رفض الاعتراض') {
+      return const SizedBox.shrink();
+    }
+    if (objectionStatus == 'قيد تعديل الحالة') {
+      return Row(
+        textDirection: TextDirection.rtl,
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: 54,
+              child: ElevatedButton(
+                onPressed: _isSubmitting
+                    ? null
+                    : () {
+                        _openCaseEdit(resolvedCaseId);
+                      },
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: const Color(0xFFEDEDED),
+                  foregroundColor: Colors.black87,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                child: const Text(
+                  'تعديل الحالة',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: SizedBox(
+              height: 54,
+              child: ElevatedButton(
+                onPressed: _isSubmitting
+                    ? null
+                    : () => _handleFinalizeObjection(resolvedCaseId),
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: _primaryBlue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                child: const Text(
+                  'اعتماد نتيجة الاعتراض',
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return Row(
       textDirection: TextDirection.rtl,
       children: [
@@ -605,6 +731,36 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
+    if (_isSubmitting) {
+      return Scaffold(
+        backgroundColor: _pageBg,
+        appBar: AppBar(
+          backgroundColor: _pageBg,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          leading: const SizedBox(),
+          actions: [
+            IconButton(
+              icon: const Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: _textDark,
+              ),
+              onPressed: null,
+            ),
+          ],
+          title: const Text(
+            'مراجعة الاعتراض',
+            style: TextStyle(
+              color: _textDark,
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       backgroundColor: _pageBg,
@@ -742,7 +898,7 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                     const SizedBox(height: 16),
                     CaseAssessmentView(caseId: resolvedCaseId),
                     const SizedBox(height: 20),
-                    _actionButtons(resolvedCaseId),
+                    _actionButtons(resolvedCaseId, status),
                   ],
                 ),
               );

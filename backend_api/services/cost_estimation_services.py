@@ -54,6 +54,17 @@ BLOCKING_COST_STATES = {"running", "failed"}
 REFERRED_STATUS = "محالة لشيخ المعارض"
 LOCKED_STATUSES = REVIEWED_STATUSES | {REFERRED_STATUS}
 
+def _has_objection_edit_access(db, case_id: str) -> bool:
+    objections = (
+        db.collection("objection")
+        .where("caseId", "==", case_id)
+        .where("objectionStatus", "==", "قيد تعديل الحالة")
+        .limit(1)
+        .stream()
+    )
+
+    return next(objections, None) is not None
+
 # Admin damage values
 ADMIN_DAMAGE_TYPES = {
     "dent": "dent",
@@ -643,14 +654,19 @@ async def add_admin_damage(
 
     current_status = str(case.get("status") or "").strip()
 
-    # Prevent editing after final review/report issuance.
-    if current_status in LOCKED_STATUSES or case.get("reportId"):
+    has_objection_edit_access = _has_objection_edit_access(db, case_id)
+
+    # A reviewed/reported case is normally locked.
+    # It can only be edited again while an accepted objection is being modified.
+    if (
+        current_status in LOCKED_STATUSES or case.get("reportId")
+    ) and not has_objection_edit_access:
         return {
             "status": "error",
             "message": "This case can no longer be modified",
         }
-
     image_ref = case_ref.collection("images").document(image_id)
+
     image_doc = image_ref.get()
 
     if not image_doc.exists:
@@ -812,10 +828,15 @@ async def update_admin_damage(
 
     current_status = str(case.get("status") or "").strip()
 
-    # Prevent changes after final review/report issuance.
-    if current_status in LOCKED_STATUSES or case.get("reportId"):
+    has_objection_edit_access = _has_objection_edit_access(db, case_id)
+
+# A reviewed/reported case is normally locked.
+# It can only be edited again while an accepted objection is being modified.
+    if (
+    current_status in LOCKED_STATUSES or case.get("reportId")
+    ) and not has_objection_edit_access:
         raise CostEstimationAbort(
-            "This case can no longer be modified"
+        "This case can no longer be modified"
         )
 
     damage_type = str(damage_type or "").strip().lower()
@@ -937,9 +958,15 @@ async def delete_admin_damage(
 
     current_status = str(case.get("status") or "").strip()
 
-    if current_status in LOCKED_STATUSES or case.get("reportId"):
+    has_objection_edit_access = _has_objection_edit_access(db, case_id)
+
+# A reviewed/reported case is normally locked.
+# It can only be edited again while an accepted objection is being modified.
+    if (
+        current_status in LOCKED_STATUSES or case.get("reportId")
+    ) and not has_objection_edit_access:
         raise CostEstimationAbort(
-            "This case can no longer be modified"
+        "This case can no longer be modified"
         )
 
     image_ref = case_ref.collection("images").document(image_id)

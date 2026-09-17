@@ -10,6 +10,7 @@ class EditDamagesScreen extends StatelessWidget {
   final String imageId;
   final String imageUrl;
   final int imageNumber;
+  final bool isObjectionFlow;
 
   const EditDamagesScreen({
     super.key,
@@ -17,13 +18,15 @@ class EditDamagesScreen extends StatelessWidget {
     required this.imageId,
     required this.imageUrl,
     required this.imageNumber,
+    this.isObjectionFlow = false,
+
   });
 
   static const Color primaryBlue = Color(0xFF173F7A);
   static const Color borderColor = Color(0xFFD7E0EC);
   static const Color textDark = Color(0xFF142A4A);
 
-  static const String backendUrl = 'http://192.168.0.2:8000';
+  static const String backendUrl = 'http://192.168.0.239:8000';
 
   static const Map<String, String> damageLabels = {
     'dent': 'انبعاج',
@@ -160,6 +163,7 @@ class EditDamagesScreen extends StatelessWidget {
                               imageId: imageId,
                               imageUrl: imageUrl,
                               imageNumber: imageNumber,
+                              isObjectionFlow: isObjectionFlow,
                             ),
                           ),
                         );

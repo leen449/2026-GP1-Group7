@@ -212,7 +212,6 @@ def _read_damage_items(
             if image_data.get("hasDamage") is False:
                 continue
 
-            severity = _severity_label(image_data.get("severity"))
 
             cost_item_snapshots = (
                 image_snapshot.reference
@@ -223,6 +222,12 @@ def _read_damage_items(
             for cost_item_snapshot in cost_item_snapshots:
                 any_cost_items_seen = True
                 cost_item_data = cost_item_snapshot.to_dict() or {}
+
+                severity = _severity_label(
+                    cost_item_data.get("severity")
+                    or image_data.get("severity")
+                )
+
                 damage_type = cost_item_data.get("damageType")
 
                 if damage_type is None or not str(damage_type).strip():
@@ -355,7 +360,10 @@ def _build_report_input(
 
 
 @router.post("/cases/{case_id}/generate")
-def generate_case_report(case_id: str):
+def generate_case_report(
+    case_id: str,
+    objection_finalization: bool = False,
+):
     """
     Generate an official report once for a reviewed accident case.
 
@@ -402,7 +410,11 @@ def generate_case_report(case_id: str):
     existing_pdf_url = case_data.get("reportPdfUrl")
     existing_pdf_path = case_data.get("reportPdfPath")
 
-    if existing_report_id and existing_pdf_url:
+    if (
+    existing_report_id
+    and existing_pdf_url
+    and not objection_finalization
+    ):
         return {
             "created": False,
             "message": "Report already exists",
@@ -416,15 +428,41 @@ def generate_case_report(case_id: str):
 
     current_status = str(case_data.get("status") or "").strip()
 
-    if current_status != _ALLOWED_STATUS:
+    if objection_finalization:
+        objections = (
+            db.collection("objection")
+            .where("caseId", "==", case_id)
+            .where("objectionStatus", "==", "قيد تعديل الحالة")
+            .limit(1)
+            .stream()
+        )
+
+        objection_snapshot = next(objections, None)
+
+        if objection_snapshot is None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "A new report can only be generated while an accepted "
+                    "objection is in the case-editing stage."
+            ),
+        )
+
+        if not existing_report_id:
+            raise HTTPException(
+                status_code=409,
+                detail="No previous report exists for this objection.",
+        )
+
+    if not objection_finalization and current_status != _ALLOWED_STATUS:
         raise HTTPException(
             status_code=409,
             detail=(
                 "The report can only be generated when the case status is "
                 f"'{_ALLOWED_STATUS}'. "
                 f"Current status: '{current_status or 'غير محدد'}'"
-            ),
-        )
+        ),
+    )
 
     owner_id = _required_text(
         case_data,
@@ -504,16 +542,46 @@ def generate_case_report(case_id: str):
             report_id=record.report_id,
             pdf_bytes=pdf_bytes,
         )
+        if objection_finalization:
+            old_report = store.get(existing_report_id)
 
-        # Link the active report to the accident case.
-        case_reference.update({
-            "reportId": record.report_id,
-            "reportNumber": record.report_number,
-            "reportPdfPath": pdf_path,
-            "reportPdfUrl": pdf_url,
-            "reportVerifyUrl": verify_url,
-            "reportCreatedAt": firestore.SERVER_TIMESTAMP,
-        })
+            if old_report is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Previous report not found: {existing_report_id}",
+        )
+
+            # First point the case to the newly generated report.
+            case_reference.update({
+                "reportId": record.report_id,
+                "reportNumber": record.report_number,
+                "reportPdfPath": pdf_path,
+                "reportPdfUrl": pdf_url,
+                "reportVerifyUrl": verify_url,
+                "reportCreatedAt": firestore.SERVER_TIMESTAMP,
+                "status": _ALLOWED_STATUS,
+    })
+
+            # The previous report remains stored, but is no longer the current report.
+            old_report.status = "superseded"
+            store.save(old_report)
+
+         # The objection is now fully finalized.
+            objection_snapshot.reference.update({
+                "objectionStatus": "تم قبول الاعتراض",
+                "resolvedAt": firestore.SERVER_TIMESTAMP,
+    })
+
+        else:
+        # Normal first-time report generation.
+            case_reference.update({
+                "reportId": record.report_id,
+                "reportNumber": record.report_number,
+                "reportPdfPath": pdf_path,
+                "reportPdfUrl": pdf_url,
+                "reportVerifyUrl": verify_url,
+                "reportCreatedAt": firestore.SERVER_TIMESTAMP,
+    })
 
         return {
             "created": True,

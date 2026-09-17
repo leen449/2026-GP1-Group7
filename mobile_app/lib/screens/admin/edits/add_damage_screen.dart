@@ -9,6 +9,7 @@ class AddDamageScreen extends StatefulWidget {
   final String imageId;
   final String imageUrl;
   final int imageNumber;
+  final bool isObjectionFlow;
 
   const AddDamageScreen({
     super.key,
@@ -16,6 +17,7 @@ class AddDamageScreen extends StatefulWidget {
     required this.imageId,
     required this.imageUrl,
     required this.imageNumber,
+    this.isObjectionFlow = false,
   });
 
   @override
@@ -27,7 +29,7 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
   static const Color borderColor = Color(0xFFD7E0EC);
 
   // Backend base URL used to submit the admin-added damage.
-  static const String backendUrl = 'http://192.168.0.2:8000';
+  static const String backendUrl = 'http://192.168.0.239:8000';
 
   // Controls the current step:
   // 0 = damage details
@@ -48,7 +50,7 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
     DropdownOption(value: 'glass', label: 'كسر الزجاج', englishLabel: 'Glass'),
     DropdownOption(value: 'lamp', label: 'كسر المصباح', englishLabel: 'Lamp'),
     DropdownOption(
-      value: 'tire_flat',
+      value: 'tire',
       label: 'إطار تالف',
       englishLabel: 'Tire Flat',
     ),
@@ -180,10 +182,21 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
     }
   }
 
-  void _resetForm() {
-    Navigator.of(context).pop();
+  void _handleAddAnotherDamage(BuildContext dialogContext) {
+    // Close the success dialog.
+    Navigator.pop(dialogContext);
 
-    // Reset all selections so the admin can add another damage.
+    if (widget.isObjectionFlow) {
+      // Close AddDamageScreen.
+      Navigator.pop(context, true);
+
+      // Close EditDamagesScreen and return to image selection.
+      Navigator.pop(context, true);
+      return;
+    }
+
+    // In the normal review flow, stay on the same image
+    // and reset the form to add another damage.
     setState(() {
       _currentStep = 0;
       _selectedDamageType = null;
@@ -244,7 +257,9 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _resetForm,
+                    onPressed: () {
+                      _handleAddAnotherDamage(dialogContext);
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryBlue,
                       foregroundColor: Colors.white,
@@ -267,10 +282,17 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
                     onPressed: () {
                       // Close the success dialog.
                       Navigator.pop(dialogContext);
+
                       // Close AddDamageScreen.
                       Navigator.pop(context, true);
-                      // Close EditDamagesScreen and return to Case Details.
+
+                      // Close EditDamagesScreen.
                       Navigator.pop(context, true);
+
+                      if (widget.isObjectionFlow) {
+                        // Close image selection and return to objection details.
+                        Navigator.pop(context, true);
+                      }
                     },
                     style: OutlinedButton.styleFrom(
                       backgroundColor: Colors.white,
