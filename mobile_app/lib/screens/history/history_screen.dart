@@ -837,13 +837,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
         textColor = Colors.red;
         icon = Icons.gpp_bad_outlined;
       } else if (s == 'محالة لشيخ المعارض') {
-        // A case sent to the human specialist is presented to the customer
-        // the same way a rejection would be — the standard estimate did not
-        // go through, even though internally this is a distinct workflow.
-        displayStatus = 'مرفوضة';
-        bgColor = const Color(0xFFFFEEF0);
-        textColor = Colors.red;
-        icon = Icons.gpp_bad_outlined;
+        // Referred to the human specialist for manual vehicle valuation —
+        // its own distinct, neutral "needs manual attention" status, not a
+        // rejection and not an ordinary in-progress review.
+        displayStatus = 'محالة للتقييم اليدوي';
+        bgColor = const Color(0xFFFFF7ED);
+        textColor = const Color(0xFFEA580C);
+        icon = Icons.person_search_rounded;
       } else {
         // Any unknown internal status is safely displayed as under review.
         displayStatus = 'قيد المراجعة';
@@ -969,9 +969,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
         iconColor = Colors.red;
         icon = Icons.gpp_bad_outlined;
       } else if (s == 'محالة لشيخ المعارض') {
-        bgColor = const Color(0xFFFFEEF0);
-        iconColor = Colors.red;
-        icon = Icons.gpp_bad_outlined;
+        bgColor = const Color(0xFFFFF7ED);
+        iconColor = const Color(0xFFEA580C);
+        icon = Icons.person_search_rounded;
       } else {
         // Unknown internal case statuses default to "under review".
         bgColor = const Color(0xFFEAF1FF);

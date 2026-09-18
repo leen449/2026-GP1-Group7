@@ -47,6 +47,12 @@ class ReportInput(BaseModel):
     # on every damage row. Optional so existing callers/tests keep working.
     overall_severity: Optional[str] = None
     pdf_sha256: Optional[str] = None   # set once the final PDF exists
+    # A case referred to the human specialist (شيخ المعارض) instead of being
+    # admin-reviewed. Its report is preliminary and carries no repair-cost
+    # figures — see ReportRecord.report_kind. Defaults keep every existing
+    # caller/test unaffected.
+    is_referral_report: bool = False
+    referral_reasons: Optional[List[str]] = None
 
 
 class ReportRecord(BaseModel):
@@ -62,4 +68,8 @@ class ReportRecord(BaseModel):
     total_cost_sar: float
     pdf_sha256: Optional[str] = None
     status: str = "valid"     # valid | superseded | claim_pending  (LIVE, not signed)
+    # An ISSUED, permanent fact (unlike `status` above) — fixed at generation
+    # time and included in the signature. final | referral_preliminary.
+    report_kind: str = "final"
+    referral_reasons: Optional[List[str]] = None
     signature: Optional[str] = None   # base64 Ed25519 signature over the issued facts

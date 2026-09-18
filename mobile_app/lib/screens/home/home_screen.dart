@@ -1051,6 +1051,15 @@ class _HomeScreenState extends State<HomeScreen> {
       bgColor = const Color(0xFFFFEEF0);
       textColor = Colors.red;
       icon = Icons.gpp_bad_outlined;
+    } else if (s == 'محالة لشيخ المعارض') {
+      // Referred to the human specialist for manual vehicle valuation —
+      // its own distinct, neutral "needs manual attention" status, not a
+      // rejection and not an ordinary in-progress review. Matches
+      // history_screen.dart's treatment of the same status.
+      displayStatus = 'محالة للتقييم اليدوي';
+      bgColor = const Color(0xFFFFF7ED);
+      textColor = const Color(0xFFEA580C);
+      icon = Icons.person_search_rounded;
     } else {
       // Unknown internal statuses default to "under review".
       displayStatus = 'قيد المراجعة';
@@ -1113,6 +1122,10 @@ class _HomeScreenState extends State<HomeScreen> {
       bgColor = const Color(0xFFFFEEF0);
       iconColor = Colors.red;
       icon = Icons.gpp_bad_outlined;
+    } else if (s == 'محالة لشيخ المعارض') {
+      bgColor = const Color(0xFFFFF7ED);
+      iconColor = const Color(0xFFEA580C);
+      icon = Icons.person_search_rounded;
     } else {
       // Unknown internal statuses default to "under review".
       bgColor = const Color(0xFFEAF1FF);

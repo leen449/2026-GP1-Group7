@@ -460,50 +460,87 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
     required String? reportPdfUrl,
     required String? reportNumber,
   }) {
-    if (status.trim() != 'تمت المراجعة') {
+    final String trimmedStatus = status.trim();
+    final bool isReferral = trimmedStatus == 'محالة لشيخ المعارض';
+    if (trimmedStatus != 'تمت المراجعة' && !isReferral) {
       return const SizedBox.shrink();
     }
 
     final hasExistingReport =
         reportPdfUrl != null && reportPdfUrl.trim().isNotEmpty;
 
-    return SizedBox(
-      width: double.infinity,
-      height: 54,
-      child: ElevatedButton(
-        onPressed: _isGeneratingReport
-            ? null
-            : () => _handleReportButton(
-                existingPdfUrl: reportPdfUrl,
-                existingReportNumber: reportNumber,
+    final String label = isReferral
+        ? (hasExistingReport ? 'عرض تقرير أولي غير معتمد' : 'إنشاء تقرير أولي غير معتمد')
+        : (hasExistingReport ? 'عرض التقرير' : 'إنشاء التقرير');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (isReferral) ...[
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7ED),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFFEA580C).withOpacity(0.35),
               ),
-        style: ElevatedButton.styleFrom(
-          elevation: 0,
-          backgroundColor: _primaryBlue,
-          disabledBackgroundColor: const Color(0xFF93C5FD),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+            ),
+            child: const Text(
+              'هذا تقرير أولي فقط — لم تتم مراجعته من قبل الإدارة، '
+              'والحالة قيد التقييم اليدوي',
+              textDirection: TextDirection.rtl,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: Color(0xFFEA580C),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+        SizedBox(
+          width: double.infinity,
+          height: 54,
+          child: ElevatedButton(
+            onPressed: _isGeneratingReport
+                ? null
+                : () => _handleReportButton(
+                    existingPdfUrl: reportPdfUrl,
+                    existingReportNumber: reportNumber,
+                  ),
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              backgroundColor: _primaryBlue,
+              disabledBackgroundColor: const Color(0xFF93C5FD),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+            child: _isGeneratingReport
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(
+                    label,
+                    textDirection: TextDirection.rtl,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
           ),
         ),
-        child: _isGeneratingReport
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: Colors.white,
-                ),
-              )
-            : Text(
-                hasExistingReport ? 'عرض التقرير' : 'إنشاء التقرير',
-                textDirection: TextDirection.rtl,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-      ),
+      ],
     );
   }
 
@@ -564,6 +601,10 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
           final najmReport =
               (caseData['najimReport'] as Map<String, dynamic>?) ?? {};
           final String status = caseData['status']?.toString() ?? '';
+          final List<String> referralReasons =
+              ((caseData['referralReasonsAr'] as List?) ?? const [])
+                  .map((e) => e.toString())
+                  .toList();
 
           debugPrint(
             '[caseDebug] caseId=${widget.caseId} rawStatus="$status" '
@@ -588,6 +629,132 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                // ── Referral notice (only when referred to the specialist) ─
+                if (status.trim() == 'محالة لشيخ المعارض') ...[
+                  _sectionCard(
+                    title: 'تمت إحالة الحالة لشيخ المعارض',
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF7ED),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(
+                              0xFFEA580C,
+                            ).withOpacity(0.35),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Row(
+                              textDirection: TextDirection.rtl,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.person_search_rounded,
+                                  color: Color(0xFFEA580C),
+                                  size: 21,
+                                ),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Text(
+                                    'سيقوم شيخ المعارض بتقييم القيمة '
+                                    'السوقية للمركبة بدلاً من تقدير تكلفة '
+                                    'الإصلاح.',
+                                    textDirection: TextDirection.rtl,
+                                    textAlign: TextAlign.right,
+                                    style: TextStyle(
+                                      color: _textDark,
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.6,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (referralReasons.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              const Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  'سبب الإحالة',
+                                  textDirection: TextDirection.rtl,
+                                  style: TextStyle(
+                                    color: _textMuted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              ...referralReasons.map(
+                                (r) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: Row(
+                                    textDirection: TextDirection.rtl,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Padding(
+                                        padding: EdgeInsets.only(top: 6),
+                                        child: Icon(
+                                          Icons.circle,
+                                          size: 5,
+                                          color: _textMuted,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          r,
+                                          textDirection: TextDirection.rtl,
+                                          textAlign: TextAlign.right,
+                                          style: const TextStyle(
+                                            color: _textDark,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ] else ...[
+                              const SizedBox(height: 10),
+                              Row(
+                                textDirection: TextDirection.rtl,
+                                children: const [
+                                  Icon(
+                                    Icons.schedule_rounded,
+                                    size: 18,
+                                    color: _textMuted,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'لم يتم تحديد سبب الإحالة بعد',
+                                    textDirection: TextDirection.rtl,
+                                    style: TextStyle(
+                                      color: _textMuted,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 // ── Request summary ──────────────────────────────────────
                 _sectionCard(
                   title: 'ملخص الطلب',
@@ -681,7 +848,8 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
                 const SizedBox(height: 16),
 
                 // ── Report ───────────────────────────────────────────────
-                if (status.trim() == 'تمت المراجعة') ...[
+                if (status.trim() == 'تمت المراجعة' ||
+                    status.trim() == 'محالة لشيخ المعارض') ...[
                   const SizedBox(height: 16),
                   _reportButton(
                     status: status,

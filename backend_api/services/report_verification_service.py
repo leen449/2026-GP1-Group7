@@ -104,6 +104,8 @@ def build_report_record(data: ReportInput, report_id: str, report_number: str) -
         total_cost_sar=total,
         pdf_sha256=data.pdf_sha256,
         status="valid",
+        report_kind="referral_preliminary" if data.is_referral_report else "final",
+        referral_reasons=data.referral_reasons,
     )
     record.signature = sign_record(record)
     return record
@@ -234,6 +236,10 @@ _PAGE = Template(r"""<!doctype html><html lang="ar" dir="rtl"><head><meta charse
    background:#fafbfc;border-top:1px solid var(--line)}
  .foot{padding:14px clamp(14px,4vw,24px);color:var(--muted);font-size:12.5px;line-height:1.6}
  .foot.bad{color:#c0362c;font-weight:600}
+ .referral-warn{background:#FFF7ED;color:#EA580C;border-bottom:1px solid #EA580C;
+   font-weight:700;padding:12px clamp(14px,4vw,24px);font-size:13.5px;line-height:1.6}
+ .referral-warn ul{margin:8px 0 0;padding-inline-start:18px}
+ .referral-warn li{margin-bottom:4px}
  @media (max-width:420px){
    .row{flex-direction:column;gap:2px} .row .v{text-align:right}
    .total{flex-direction:column;gap:4px}
@@ -244,6 +250,11 @@ _PAGE = Template(r"""<!doctype html><html lang="ar" dir="rtl"><head><meta charse
    <div><div class="brand">CrashLens</div><div class="sub">التحقق من التقرير</div></div>
  </div>
  <div class="status" style="background:{{ scolor }}12;color:{{ scolor }}">الحالة: {{ slabel }}</div>
+ {% if r.report_kind == 'referral_preliminary' %}
+ <div class="referral-warn">⚠ تقرير أولي — لم تتم مراجعته من قبل الإدارة. الحالة قيد التقييم اليدوي من الشيخ المعارض، ولا يتضمن هذا التقرير أي تقدير نهائي لتكلفة الإصلاح.
+   {% if r.referral_reasons %}<ul>{% for reason in r.referral_reasons %}<li>{{ reason }}</li>{% endfor %}</ul>{% endif %}
+ </div>
+ {% endif %}
  <div class="grid">
    <div class="sec">
      <div class="row"><span class="k">رقم التقرير</span><span class="v">{{ r.report_number }}</span></div>
@@ -266,10 +277,10 @@ _PAGE = Template(r"""<!doctype html><html lang="ar" dir="rtl"><head><meta charse
      <tbody>{% for d in r.damages %}<tr><td>{{ d.type }}</td>
        <td>{{ part_labels.get(d.part, d.part or 'غير محدد') }}</td>
        <td class="sev">{{ d.severity }}</td>
-       <td>{{ "%.0f"|format(d.cost_sar) }}</td></tr>{% endfor %}</tbody></table></div>
+       <td>{% if r.report_kind == 'referral_preliminary' %}قيد التقييم اليدوي{% else %}{{ "%.0f"|format(d.cost_sar) }}{% endif %}</td></tr>{% endfor %}</tbody></table></div>
    </div>
  </div>
- <div class="total"><span>إجمالي التكلفة التقديرية</span><span>{{ "%.0f"|format(r.total_cost_sar) }} ريال</span></div>
+ <div class="total"><span>إجمالي التكلفة التقديرية</span><span>{% if r.report_kind == 'referral_preliminary' %}لا يوجد تقدير — قيد التقييم اليدوي{% else %}{{ "%.0f"|format(r.total_cost_sar) }} ريال{% endif %}</span></div>
  <div class="foot{% if not valid %} bad{% endif %}">
    {% if valid %}تم التحقق من هذا التقرير إلكترونيًا، ولم تُعدَّل بياناته منذ إصداره من قِبل CrashLens.
    {% else %}تنبيه: تعذّر التحقق من هذا التقرير. قد تكون بياناته معدَّلة أو أنه لم يصدر عن CrashLens.{% endif %}

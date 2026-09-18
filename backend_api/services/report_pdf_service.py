@@ -20,6 +20,19 @@ _LINE = (0.12, 0.12, 0.12)
 _BAND_FILL = (0.94, 0.94, 0.94)
 _BRAND = "#173d6b"
 
+# Warning/"needs attention" amber — matches the app-wide convention already
+# used for this exact semantic on the mobile referral banner and the public
+# verify page (#FFF7ED / #EA580C). No competing warning color exists
+# elsewhere in this file.
+_WARN_BG = (1.0, 0.968627, 0.929412)
+_WARN_BORDER = (0.917647, 0.345098, 0.047059)
+_WARN_TEXT = "#EA580C"
+
+# Placeholder shown instead of a cost figure on a referral-preliminary
+# report — the case was referred to the specialist precisely because no
+# reliable repair-cost estimate exists; never render a fabricated number.
+_REFERRAL_COST_PLACEHOLDER = "قيد التقييم اليدوي"
+
 # Maximum number of individual damage rows on the first page while keeping
 # the same approved row height and enough room for Total + QR/footer. One
 # row slot of this same budget is always reserved for the Overall Severity
@@ -239,6 +252,14 @@ def _value(
     return f'<div class="{cls}">{_e(value)}</div>'
 
 
+def _bullet_html(items: list[str]) -> str:
+    return "".join(
+        f'<div class="ar value" style="text-align:right">• {_e(item)}</div>'
+        '<div class="gap"></div>'
+        for item in items
+    )
+
+
 def _insert_logo(page: fitz.Page) -> None:
     if not _LOGO_PATH.is_file():
         raise FileNotFoundError(
@@ -370,6 +391,113 @@ def _draw_notices_and_qr(
     )
 
 
+def _draw_referral_notice_page(
+    doc: fitz.Document,
+    record: ReportRecord,
+) -> None:
+    """A dedicated, separate first page for a referral-preliminary report —
+    the normal report (built by _draw_first_page etc.) becomes page 2+,
+    completely unchanged. Kept as its own page instead of squeezing into the
+    normal first page's top margin, which has no room for this much text and
+    whose pixel-tuned layout (see _draw_first_page) must not be reflowed for
+    an additive feature."""
+    page = doc.new_page(
+        width=_PAGE_W,
+        height=_PAGE_H,
+    )
+
+    _insert_logo(page)
+
+    left = 24.0
+    right = _PAGE_W - 24.0
+    reasons = record.referral_reasons or []
+
+    # Generous, content-driven heights rather than tightly-fitted pixel
+    # offsets — insert_htmlbox (inside _html_box) raises if content doesn't
+    # fit even after shrinking, so each block gets more room than its text
+    # is ever expected to need, with the whole box capped well inside the
+    # page so there's always room left for the footer note below it.
+    title_h = 34.0
+    body_h = 110.0
+    reasons_subtitle_h = 22.0 if reasons else 0.0
+    # ~24pt per reason covers one wrapped line comfortably; long reasons
+    # wrapping to two lines still fit well inside the box's overall margin.
+    reasons_h = len(reasons) * 24.0
+    inner_padding = 28.0
+
+    box_top = 92.0
+    box_height = (
+        inner_padding + title_h + body_h + reasons_subtitle_h + reasons_h
+    )
+    box_bottom = min(box_top + box_height, _PAGE_H - 60.0)
+
+    page.draw_rect(
+        fitz.Rect(left, box_top, right, box_bottom),
+        color=_WARN_BORDER,
+        fill=_WARN_BG,
+        width=1.2,
+        overlay=True,
+    )
+
+    cursor_y = box_top + 12.0
+
+    _html_box(
+        page,
+        fitz.Rect(left + 14, cursor_y, right - 14, cursor_y + title_h),
+        '<div class="ar strong" style="text-align:right">'
+        "⚠ تقرير أولي — لم تتم مراجعته من قبل الإدارة"
+        "</div>",
+        font_size=13.5,
+        bold=True,
+        color=_WARN_TEXT,
+        padding=2,
+    )
+    cursor_y += title_h
+
+    body_text = (
+        "تمت إحالة هذه الحالة إلى الشيخ المعارض لتحديد القيمة السوقية "
+        "للمركبة يدويًا. لا يتضمن هذا المستند أي تقدير نهائي لتكلفة "
+        "الإصلاح، ولم تتم مراجعته أو اعتماده من قِبل الإدارة. المعلومات "
+        "أدناه للاطلاع فقط."
+    )
+
+    _html_box(
+        page,
+        fitz.Rect(left + 14, cursor_y, right - 14, cursor_y + body_h),
+        f'<div class="ar value" style="text-align:right;line-height:1.7">'
+        f"{_e(body_text)}</div>",
+        font_size=9.5,
+        color=_WARN_TEXT,
+        padding=2,
+        line_height=1.55,
+    )
+    cursor_y += body_h
+
+    if reasons:
+        _html_box(
+            page,
+            fitz.Rect(
+                left + 14, cursor_y, right - 14, cursor_y + reasons_subtitle_h
+            ),
+            '<div class="ar strong" style="text-align:right">أسباب الإحالة:</div>',
+            font_size=9.5,
+            bold=True,
+            color=_WARN_TEXT,
+            padding=1,
+        )
+        cursor_y += reasons_subtitle_h
+
+        _html_box(
+            page,
+            fitz.Rect(left + 14, cursor_y, right - 14, box_bottom - 10),
+            _bullet_html(reasons),
+            font_size=8.5,
+            color=_WARN_TEXT,
+            padding=2,
+            line_height=1.5,
+        )
+
+
 def _draw_total_section(
     page: fitz.Page,
     record: ReportRecord,
@@ -381,6 +509,7 @@ def _draw_total_section(
     inner_x: float,
     outer_x: float,
     label_col_x: float,
+    is_referral_report: bool = False,
 ) -> None:
     _draw_box(
         page,
@@ -453,6 +582,12 @@ def _draw_total_section(
         padding=4,
     )
 
+    total_value = (
+        _REFERRAL_COST_PLACEHOLDER
+        if is_referral_report
+        else _money(record.total_cost_sar)
+    )
+
     _html_box(
         page,
         fitz.Rect(
@@ -463,10 +598,10 @@ def _draw_total_section(
         ),
         (
             '<div style="padding-top: 35pt;">'
-            f'{_value(_money(record.total_cost_sar), strong=True)}'
+            f'{_value(total_value, strong=True)}'
             "</div>"
         ),
-        font_size=9.0,
+        font_size=9.0 if not is_referral_report else 7.5,
         bold=True,
     )
 
@@ -520,6 +655,7 @@ def _draw_first_page(
     qr_png: bytes,
     first_page_damages: list,
     has_continuation: bool,
+    is_referral_report: bool = False,
 ) -> None:
     page = doc.new_page(
         width=_PAGE_W,
@@ -1072,8 +1208,10 @@ def _draw_first_page(
 
         type_value = damage.type
         part_value = _part_label(damage.part)
-        cost_value = _money(
-            damage.cost_sar
+        cost_value = (
+            _REFERRAL_COST_PLACEHOLDER
+            if is_referral_report
+            else _money(damage.cost_sar)
         )
 
         _html_box(
@@ -1150,6 +1288,7 @@ def _draw_first_page(
             inner_x=inner_x,
             outer_x=outer_x,
             label_col_x=label_col_x,
+            is_referral_report=is_referral_report,
         )
 
         footer_line_y = full_main_y2 + 16.0
@@ -1171,6 +1310,7 @@ def _draw_continuation_page(
     *,
     start_number: int,
     is_last_page: bool,
+    is_referral_report: bool = False,
 ) -> None:
     page = doc.new_page(
         width=_PAGE_W,
@@ -1452,7 +1592,7 @@ def _draw_continuation_page(
             ),
             (
                 '<div style="padding-top: 10pt;">'
-                f"{_value(_money(damage.cost_sar))}"
+                f"{_value(_REFERRAL_COST_PLACEHOLDER if is_referral_report else _money(damage.cost_sar))}"
                 "</div>"
             ),
             font_size=7.15,
@@ -1484,6 +1624,7 @@ def _draw_continuation_page(
             inner_x=inner_x,
             outer_x=outer_x,
             label_col_x=label_col_x,
+            is_referral_report=is_referral_report,
         )
 
         footer_line_y = total_bottom + 16.0
@@ -1500,6 +1641,7 @@ def _draw_continuation_page(
 def build_report_pdf(
     record: ReportRecord,
     qr_png: bytes,
+    is_referral_report: bool = False,
 ) -> bytes:
     """Build the finalized CrashLens assessment PDF.
 
@@ -1538,12 +1680,16 @@ def build_report_pdf(
 
     doc = fitz.open()
 
+    if is_referral_report:
+        _draw_referral_notice_page(doc, record)
+
     _draw_first_page(
         doc,
         record,
         qr_png,
         first_page_damages,
         has_continuation=bool(remaining_damages),
+        is_referral_report=is_referral_report,
     )
 
     if remaining_damages:
@@ -1574,6 +1720,7 @@ def build_report_pdf(
                 chunk,
                 start_number=next_damage_number,
                 is_last_page=is_last_page,
+                is_referral_report=is_referral_report,
             )
 
             next_damage_number += len(chunk)

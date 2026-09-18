@@ -26,6 +26,11 @@ from services.report_store import get_store
 router = APIRouter()
 
 _ALLOWED_STATUS = "تمت المراجعة"  # only generate a report for a reviewed case
+# A case referred to the human specialist (شيخ المعارض) can also get a report
+# — a preliminary one, clearly marked as not admin-reviewed and carrying no
+# repair-cost figures (see is_referral_report below) — without waiting for it
+# to reach _ALLOWED_STATUS.
+_REFERRAL_STATUS = "محالة لشيخ المعارض"
 
 
 def _required_text(
@@ -138,6 +143,8 @@ def _vehicle_year(vehicle_data: dict[str, Any]) -> int:
 def _read_damage_items(
     case_reference,
     case_data: dict[str, Any],
+    *,
+    require_pricing: bool = True,
 ) -> list[DamageItem]:
     """
     Read PRICED damage line-items from either:
@@ -158,11 +165,22 @@ def _read_damage_items(
     labor-hours row — see the case's reviewReasons) is left OFF the official
     report rather than shown as a misleading "0.00 SAR" on a signed document;
     that case should be resolved administratively before its report is issued.
+
+    `require_pricing=False` is for a referral-case report only: a case
+    referred to the specialist may legitimately have no priced (or no) cost
+    items at all — that can be exactly why it was referred. In that mode the
+    cost-snapshot coherence check is skipped (it's purely about pricing, not
+    applicable to a case with no reliable pricing), unpriced items are still
+    included with a 0.0 placeholder cost (never rendered — see
+    report_pdf_service.py / report_verification_service.py, which suppress
+    cost figures for a referral report), and finding zero items is not an
+    error. This never changes behavior for the default/normal path.
     """
     damages: list[DamageItem] = []
     legacy_damages: list[DamageItem] = []
 
-    _assert_current_cost_snapshot(case_reference, case_data)
+    if require_pricing:
+        _assert_current_cost_snapshot(case_reference, case_data)
 
     # ── First: read the structure currently used by existing cases ──────────
     damage_analysis = case_data.get("damageAnalysis")
@@ -236,6 +254,24 @@ def _read_damage_items(
                 line_cost = cost_item_data.get("lineCostSar")
 
                 if line_cost is None:
+                    if not require_pricing:
+                        # Referral report: the type/part/severity are still
+                        # real and worth showing; the cost figure is never
+                        # rendered for this report kind, so 0.0 is a safe
+                        # placeholder rather than a fabricated real cost.
+                        damages.append(
+                            DamageItem(
+                                type=str(damage_type).strip(),
+                                part=(
+                                    str(cost_item_data.get("part")).strip()
+                                    if cost_item_data.get("part") is not None
+                                    and str(cost_item_data.get("part")).strip()
+                                    else None
+                                ),
+                                severity=severity,
+                                cost_sar=0.0,
+                            )
+                        )
                     continue   # not priced yet — leave off the official report
 
                 damages.append(
@@ -256,6 +292,11 @@ def _read_damage_items(
     # compatibility fallback when no costItems exist at all.
     if not damages and legacy_damages and not any_cost_items_seen:
         damages = legacy_damages
+
+    if not damages and not require_pricing:
+        # A referred case may legitimately have no detected/priced damage at
+        # all — that's not an error for a preliminary, unreviewed report.
+        return damages
 
     if not damages:
         if any_cost_items_seen:
@@ -283,6 +324,7 @@ def _build_report_input(
     case_data: dict[str, Any],
     user_data: dict[str, Any],
     vehicle_data: dict[str, Any],
+    is_referral_report: bool = False,
 ) -> ReportInput:
     najm_report = case_data.get("najimReport") or {}
 
@@ -343,6 +385,7 @@ def _build_report_input(
     damages = _read_damage_items(
         case_reference,
         case_data,
+        require_pricing=not is_referral_report,
     )
 
     # Single case-level severity (MAX over images, written by
@@ -350,12 +393,20 @@ def _build_report_input(
     # the report instead of repeating severity on every damage row.
     overall_severity = _severity_label(case_data.get("overallSeverity"))
 
+    referral_reasons = None
+    if is_referral_report:
+        referral_reasons = [
+            str(r) for r in (case_data.get("referralReasonsAr") or [])
+        ]
+
     return ReportInput(
         accident_number=accident_number,
         user=user,
         vehicle=vehicle,
         damages=damages,
         overall_severity=overall_severity,
+        is_referral_report=is_referral_report,
+        referral_reasons=referral_reasons,
     )
 
 
@@ -454,14 +505,24 @@ def generate_case_report(
                 detail="No previous report exists for this objection.",
         )
 
-    if not objection_finalization and current_status != _ALLOWED_STATUS:
+    if not objection_finalization and current_status not in (
+        _ALLOWED_STATUS,
+        _REFERRAL_STATUS,
+    ):
         raise HTTPException(
             status_code=409,
             detail=(
                 "The report can only be generated when the case status is "
-                f"'{_ALLOWED_STATUS}'. "
+                f"'{_ALLOWED_STATUS}' or '{_REFERRAL_STATUS}'. "
                 f"Current status: '{current_status or 'غير محدد'}'"
         ),
+    )
+
+    # A referral report is preliminary and never carries a real cost
+    # estimate — objection_finalization always regenerates a normal,
+    # already-reviewed report, so it can never also be a referral report.
+    is_referral_report = (
+        not objection_finalization and current_status == _REFERRAL_STATUS
     )
 
     owner_id = _required_text(
@@ -509,6 +570,7 @@ def generate_case_report(
         case_data=case_data,
         user_data=user_data,
         vehicle_data=vehicle_data,
+        is_referral_report=is_referral_report,
     )
 
     store = get_store()
@@ -526,6 +588,7 @@ def generate_case_report(
         pdf_bytes = build_report_pdf(
             record=record,
             qr_png=qr_png,
+            is_referral_report=is_referral_report,
         )
 
         # Handoff Step C:
