@@ -41,7 +41,7 @@ class _AdminBottomNavState extends State<AdminBottomNav> {
   ),
       //const _AdminPlaceholderPage(title: 'الاعتراضات'),
       const AdminClaimDetailsScreen(
-    objectionId: 'S0C7Ou8aeXDs6OAXEXtp',
+    objectionId: 'J3uIT8i3oammQ8tBr7Nx',
   ),
     ];
 

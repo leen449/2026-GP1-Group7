@@ -22,6 +22,10 @@ class _ObjectionCaseEditScreenState extends State<ObjectionCaseEditScreen> {
   static const Color textDark = Color(0xFF142A4A);
   static const Color borderColor = Color(0xFFD7E0EC);
   static const Color pageBg = Color(0xFFF7FAFF);
+  // Matches the app's established primary-button color (see _primaryBlue in
+  // Case_Details_Screen.dart / admin_case_review_screen.dart) — the "التالي"
+  // button below previously used darkBlue, which doesn't match it.
+  static const Color buttonPrimary = Color(0xFF1E3A6E);
 
   String? _selectedImageId;
   String? _selectedImageUrl;
@@ -231,11 +235,11 @@ class _ObjectionCaseEditScreenState extends State<ObjectionCaseEditScreen> {
                       child: ElevatedButton(
                         onPressed: _goNext,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: darkBlue,
+                          backgroundColor: buttonPrimary,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(30),
                           ),
                         ),
                         child: const Text(

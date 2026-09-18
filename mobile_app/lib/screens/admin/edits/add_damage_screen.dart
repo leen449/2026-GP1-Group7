@@ -25,11 +25,18 @@ class AddDamageScreen extends StatefulWidget {
 }
 
 class _AddDamageScreenState extends State<AddDamageScreen> {
-  static const Color primaryBlue = Color(0xFF173F7A);
+  // Matches the app's established primary-button color (see _primaryBlue in
+  // Case_Details_Screen.dart / admin_case_review_screen.dart / etc.) — this
+  // screen previously used a different blue (0xFF173F7A) than the rest of
+  // the app's buttons.
+  static const Color primaryBlue = Color(0xFF1E3A6E);
   static const Color borderColor = Color(0xFFD7E0EC);
+  // Secondary/cancel button fill, matching the app's confirm-dialog cancel
+  // button (see _confirmDialog in admin_case_review_screen.dart).
+  static const Color secondaryButtonColor = Color(0xFFEDEDED);
 
   // Backend base URL used to submit the admin-added damage.
-  static const String backendUrl = 'http://192.168.0.239:8000';
+  static const String backendUrl = 'http://192.168.0.13:8000';
 
   // Controls the current step:
   // 0 = damage details
@@ -264,7 +271,7 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
                       backgroundColor: primaryBlue,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(30),
                       ),
                       elevation: 0,
                     ),
@@ -278,7 +285,7 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
                 SizedBox(
                   width: double.infinity,
                   height: 50,
-                  child: OutlinedButton(
+                  child: ElevatedButton(
                     onPressed: () {
                       // Close the success dialog.
                       Navigator.pop(dialogContext);
@@ -294,12 +301,12 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
                         Navigator.pop(context, true);
                       }
                     },
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: primaryBlue,
-                      side: const BorderSide(color: borderColor),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: secondaryButtonColor,
+                      foregroundColor: Colors.black87,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(30),
                       ),
                     ),
                     child: const Text(
@@ -316,32 +323,96 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
     );
   }
 
+  // Same responsive shape as the admin confirm dialogs elsewhere in the app
+  // (see _confirmDialog in admin_case_review_screen.dart /
+  // admin_claim_details_screen.dart): a width-constrained Dialog with an
+  // Icon + Expanded(Text) header, instead of a plain AlertDialog. The
+  // backend message shown here (missing labor-hours, no vehicle value,
+  // unassigned part, ...) varies in length, and AlertDialog's default
+  // unconstrained title Row overflowed on narrow screens regardless of
+  // which reason it was — Expanded plus an explicit max width fixes that
+  // for all of them at once, and keeps this dialog visually consistent
+  // with the rest of the app instead of using Material's default styling.
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
       builder: (dialogContext) {
+        final double screenWidth = MediaQuery.of(dialogContext).size.width;
         return Directionality(
           textDirection: TextDirection.rtl,
-          child: AlertDialog(
+          child: Dialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            title: const Row(
-              children: [
-                Icon(Icons.error_outline_rounded, color: Colors.red),
-                SizedBox(width: 8),
-                Text('تعذر إضافة الضرر'),
-              ],
-            ),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                },
-                child: const Text('حسنًا'),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85,
               ),
-            ],
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.all(screenWidth * 0.06),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        textDirection: TextDirection.rtl,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.error_outline_rounded,
+                            color: Colors.red,
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'تعذر إضافة الضرر',
+                              textDirection: TextDirection.rtl,
+                              style: TextStyle(
+                                color: Color(0xFF142A4A),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 17,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        message,
+                        textDirection: TextDirection.rtl,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          color: Color(0xFF475569),
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryBlue,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'حسنًا',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         );
       },
@@ -702,84 +773,96 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
 
         Directionality(
           textDirection: TextDirection.rtl,
-          child: DropdownButtonFormField<String>(
-            value: value,
-            isExpanded: true,
+          // Clips the sub-pixel RenderFlex overflow that DropdownButtonFormField's
+          // internal layout occasionally produces for some Arabic option widths.
+          child: ClipRect(
+            child: DropdownButtonFormField<String>(
+              value: value,
+              isExpanded: true,
 
-            icon: const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: Color(0xFF68758A),
-            ),
-
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Colors.white,
-
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 15,
+              icon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: Color(0xFF68758A),
               ),
 
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: borderColor),
-              ),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
 
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: Color(0xFF2563EB),
-                  width: 1.6,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 15,
+                ),
+
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: borderColor),
+                ),
+
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF2563EB),
+                    width: 1.6,
+                  ),
                 ),
               ),
-            ),
 
-            hint: Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                hint,
-                textAlign: TextAlign.right,
-                style: const TextStyle(color: Color(0xFF99A5B5), fontSize: 14),
+              hint: Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  hint,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: Color(0xFF99A5B5),
+                    fontSize: 14,
+                  ),
+                ),
               ),
-            ),
 
-            // Keep the selected value aligned to the right.
-            selectedItemBuilder: (context) {
-              return options.map((option) {
-                return Align(
+              // Keep the selected value aligned to the right.
+              selectedItemBuilder: (context) {
+                return options.map((option) {
+                  return Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      option.label,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF142A4A),
+                      ),
+                    ),
+                  );
+                }).toList();
+              },
+
+              // Show Arabic labels only inside the dropdown menu.
+              items: options.map((option) {
+                return DropdownMenuItem<String>(
+                  value: option.value,
                   alignment: Alignment.centerRight,
-                  child: Text(
-                    option.label,
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF142A4A),
+                  // Align (not SizedBox(width: double.infinity)) — the
+                  // dropdown menu needs each item's real intrinsic width to
+                  // size its popup correctly; an infinite-width child breaks
+                  // that measurement and is what caused the RenderFlex
+                  // overflow when opening this dropdown.
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      option.label,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF142A4A),
+                      ),
                     ),
                   ),
                 );
-              }).toList();
-            },
+              }).toList(),
 
-            // Show Arabic labels only inside the dropdown menu.
-            items: options.map((option) {
-              return DropdownMenuItem<String>(
-                value: option.value,
-                alignment: Alignment.centerRight,
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Text(
-                    option.label,
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF142A4A),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-
-            onChanged: onChanged,
+              onChanged: onChanged,
+            ),
           ),
         ),
       ],
@@ -975,16 +1058,16 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
     bool loading = false,
   }) {
     return SizedBox(
-      height: 53,
+      height: 54,
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           elevation: 0,
           backgroundColor: primaryBlue,
-          disabledBackgroundColor: primaryBlue.withOpacity(0.55),
+          disabledBackgroundColor: const Color(0xFF93C5FD),
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(30),
           ),
         ),
         child: loading
@@ -1012,14 +1095,15 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
     required VoidCallback? onPressed,
   }) {
     return SizedBox(
-      height: 53,
-      child: OutlinedButton(
+      height: 54,
+      child: ElevatedButton(
         onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: primaryBlue,
-          side: const BorderSide(color: borderColor),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: secondaryButtonColor,
+          foregroundColor: Colors.black87,
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(30),
           ),
         ),
         child: Text(

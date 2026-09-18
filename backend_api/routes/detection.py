@@ -26,13 +26,19 @@ async def create_admin_damage(
     case_id: str,
     request: AdminDamageRequest,
 ):
-    return await add_admin_damage(
-        case_id=case_id,
-        image_id=request.imageId,
-        damage_type=request.damageType,
-        part=request.part,
-        severity=request.severity,
-    )
+    try:
+        return await add_admin_damage(
+            case_id=case_id,
+            image_id=request.imageId,
+            damage_type=request.damageType,
+            part=request.part,
+            severity=request.severity,
+        )
+    except CostEstimationAbort as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
 class AdminDamageUpdateRequest(BaseModel):
     damageType: str
     part: str

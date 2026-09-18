@@ -4,13 +4,15 @@ Cost estimation service (request-path) — mirrors damage_detection.py.
 Runs AFTER damage detection, on a case_id. It reuses the damage boxes already stored
 in each image's `detections` subcollection (no re-running the damage model), adds part
 segmentation on the same images, associates damage->part(s), looks up labor hours, and
-writes the itemized cost + a separate confidence score back onto the case.
+writes the itemized cost + a plain-language list of admin-review reasons back onto the
+case (no numeric confidence score — see confidence_service.py).
 
 Cost model:
     per line:   hours x 165 x F_severity(image severity) x F_vehicle x F_paint
     per image:  sum(line costs)
     case total: sum(images)
-    confidence: separate 100-minus-deductions score; never changes the cost.
+    admin review: needed whenever any technical or heuristic reason applies; the
+        reasons are listed in plain Arabic, never as a score. Never changes the cost.
 
     Factors are applied per LINE (not just to the aggregate) so each costItem's
     lineCostSar is the damage's real, final contribution to the total — see
@@ -195,7 +197,10 @@ def _resolve_linked_vehicle(db, case: dict) -> dict:
     }
 
 
-def build_line_items(lines, factor: float = 1.0, *, price: bool = True, extra_flags=None):
+def build_line_items(
+    lines, factor: float = 1.0, *, price: bool = True, extra_flags=None,
+    severity: str = None, damages=None,
+):
     """
     Pure: CostLines -> cost line-item dicts + total SAR for this image. No
     Firestore I/O — the caller writes items to costItems and accumulates
@@ -208,6 +213,19 @@ def build_line_items(lines, factor: float = 1.0, *, price: bool = True, extra_fl
     bigger number than the final estimate (e.g. a 495 SAR line under a 420.75
     SAR total) — correct arithmetic, but a misleading field: lineCostSar meant
     "raw labor at the moderate baseline," not "what this damage costs."
+
+    `original*` fields mirror the model's own prediction at the moment it is
+    made — recorded here, at creation, for every item, not only retroactively
+    if/when an admin later edits it. update_admin_damage never overwrites
+    these once set, so they stay the permanent record of what the model said
+    regardless of whether anyone ever touches the item.
+
+    `damages` (the same list passed into associate() to build `lines`) is
+    optional here only so this stays callable without it; every real caller
+    passes it, so the admin can see the YOLO detection confidence next to
+    the damage type, alongside the part-segmentation confidence, on the
+    same line as the model's part/type prediction — replacing the need for
+    a second, disconnected "raw detections" list.
     """
     extra_flags = list(extra_flags or [])
     items = []
@@ -218,9 +236,28 @@ def build_line_items(lines, factor: float = 1.0, *, price: bool = True, extra_fl
         for flag in extra_flags:
             if flag not in flags:
                 flags.append(flag)
+
+        # Real, measured confidences only. "damage_class" (lamp/tire) and
+        # "unassigned" lines carry part_conf=1.0 or 0.0 as a placeholder,
+        # not an actual measured probability — showing that as a percentage
+        # would misrepresent what the model actually reported.
+        part_confidence = (
+            round(float(ln.part_conf), 3)
+            if ln.source in ("seg_ioa", "centroid_fallback")
+            else None
+        )
+        damage_confidence = None
+        if damages is not None and 0 <= ln.damage_index < len(damages):
+            raw_conf = damages[ln.damage_index].get("confidence")
+            if raw_conf is not None:
+                damage_confidence = round(float(raw_conf), 3)
+
         item = {
             "damageType": ln.damage_type, "part": ln.part,
             "lookupKey": ln.lookup_key, "source": ln.source,
+            "severity": severity,
+            "damageConfidence": damage_confidence,
+            "partConfidence": part_confidence,
             "hours": h, "lineCostSar": None, "flags": flags,
             "wheelPosition": getattr(ln, "wheel_position", None),
         }
@@ -229,6 +266,13 @@ def build_line_items(lines, factor: float = 1.0, *, price: bool = True, extra_fl
         elif price:
             item["lineCostSar"] = round(h * RATE_SAR * factor, 2)
             cost_sar += item["lineCostSar"]
+
+        item["originalDamageType"] = item["damageType"]
+        item["originalPart"] = item["part"]
+        item["originalSeverity"] = item["severity"]
+        item["originalHours"] = item["hours"]
+        item["originalLineCostSar"] = item["lineCostSar"]
+
         items.append(item)
     return {"items": items, "cost_sar": cost_sar}
 
@@ -405,6 +449,53 @@ def _find_prior_accident(
 def _append_reason(review_reasons, flag):
     if flag and flag not in review_reasons:
         review_reasons.append(flag)
+
+
+# Internal pipeline flag -> explained Arabic reason for the admin-facing
+# review-reasons list. Written so a first-time admin understands WHY the
+# item needs a look, not just the internal flag name. This is the single,
+# backend-owned source of truth for these translations — the app renders
+# them as-is instead of guessing a translation client-side.
+REVIEW_REASON_LABELS_AR = {
+    "missing_image_severity": (
+        "لم يتمكن النظام من تحديد شدة الضرر لإحدى الصور، "
+        "لذا لم يتم تسعير الأضرار فيها تلقائيًا"
+    ),
+    "invalid_image_severity": (
+        "قيمة شدة الضرر المسجّلة لإحدى الصور غير صالحة، "
+        "لذا لم يتم تسعير الأضرار فيها تلقائيًا"
+    ),
+    "no_hours": (
+        "لا توجد بيانات ساعات عمل معتمدة لهذا النوع من الضرر مع الجزء المحدد، "
+        "لذا لم يتم تسعيره تلقائيًا"
+    ),
+    "unassigned": "لم يتمكن النظام من ربط أحد الأضرار بجزء محدد في المركبة بثقة كافية",
+    "unassigned_admin_review": (
+        "لم يتحدد الجزء المتضرر تلقائيًا لأحد الأضرار، "
+        "ويحتاج إلى تحديد يدوي من المشرف"
+    ),
+    "vehicle_value_unavailable": (
+        "تعذر الحصول على القيمة السوقية لهذه المركبة "),
+    "incomplete_cost_estimate": (
+        "تقدير التكلفة غير مكتمل لبعض الأضرار، ويحتاج إلى مراجعة وإكمال يدوي"
+    ),
+    "image_cost_failed": "تعذر حساب تكلفة إحدى صور الضرر بسبب خطأ تقني أثناء المعالجة",
+    "wheel_position_ambiguous_fallback": (
+        "لم يتحدد موضع الإطار المتضرر (أمامي/خلفي) بدقة، فتم استخدام متوسط تقديري"
+    ),
+    "glass_no_part_support": "لم يتم تأكيد موقع الجزء الزجاجي المتضرر بثقة كافية",
+    "glass_ambiguous_part": "هناك أكثر من موقع محتمل لكسر الزجاج المكتشف في هذه الصورة",
+    "centroid_fallback": "تم تحديد الجزء المتضرر بطريقة تقريبية وليس بتحليل دقيق",
+}
+
+
+def _review_reason_label_ar(raw: str) -> str:
+    mapped = REVIEW_REASON_LABELS_AR.get(raw)
+    if mapped:
+        return mapped
+    if raw.startswith("prior case"):
+        return "يوجد ضرر مشابه مسجّل في حالة سابقة لنفس المالك والمركبة"
+    return raw
 
 
 def _empty_image_stage(img_ref):
@@ -594,7 +685,9 @@ def _stage_image(img_doc, wheel_position_hint, f_veh, f_paint, bucket, review_re
         )
 
         if sev_flag:
-            built = build_line_items(lines, price=False, extra_flags=[sev_flag])
+            built = build_line_items(
+                lines, price=False, extra_flags=[sev_flag], damages=damages,
+            )
             stage["items"] = built["items"]
             stage["unpriced"] = True
             _append_reason(review_reasons, sev_flag)
@@ -604,7 +697,9 @@ def _stage_image(img_doc, wheel_position_hint, f_veh, f_paint, bucket, review_re
             return stage
 
         f_sev_img = get_severity_factor(sev)
-        built = build_line_items(lines, f_sev_img * f_veh * f_paint)
+        built = build_line_items(
+            lines, f_sev_img * f_veh * f_paint, severity=sev, damages=damages,
+        )
         stage["items"] = built["items"]
         stage["update"]["estimatedLaborCostSar"] = round(built["cost_sar"], 2)
         stage["update"]["severityFactorApplied"] = f_sev_img
@@ -645,10 +740,7 @@ async def add_admin_damage(
     case_doc = case_ref.get()
 
     if not case_doc.exists:
-        return {
-            "status": "error",
-            "message": "Case not found",
-        }
+        raise CostEstimationAbort("لم يتم العثور على الحالة")
 
     case = case_doc.to_dict() or {}
 
@@ -661,19 +753,14 @@ async def add_admin_damage(
     if (
         current_status in LOCKED_STATUSES or case.get("reportId")
     ) and not has_objection_edit_access:
-        return {
-            "status": "error",
-            "message": "This case can no longer be modified",
-        }
+        raise CostEstimationAbort("لم يعد بالإمكان تعديل هذه الحالة")
+
     image_ref = case_ref.collection("images").document(image_id)
 
     image_doc = image_ref.get()
 
     if not image_doc.exists:
-        return {
-            "status": "error",
-            "message": "Image not found",
-        }
+        raise CostEstimationAbort("لم يتم العثور على الصورة")
 
     damage_key = ADMIN_DAMAGE_TYPES.get(
         str(damage_type or "").strip().lower()
@@ -686,22 +773,13 @@ async def add_admin_damage(
     severity_key = str(severity or "").strip().lower()
 
     if damage_key is None:
-        return {
-            "status": "error",
-            "message": "Invalid damage type",
-        }
+        raise CostEstimationAbort("نوع الضرر غير صالح")
 
     if lookup_key is None:
-        return {
-            "status": "error",
-            "message": "Invalid vehicle part",
-        }
+        raise CostEstimationAbort("الجزء المحدد غير صالح")
 
     if severity_key not in VALID_SEVERITIES:
-        return {
-            "status": "error",
-            "message": "Invalid severity",
-        }
+        raise CostEstimationAbort("درجة الشدة غير صالحة")
 
     najm = case.get("najimReport", {}) or {}
     damage_location = najm.get("damageLocation", "")
@@ -715,10 +793,9 @@ async def add_admin_damage(
     )
 
     if hours is None:
-        return {
-            "status": "error",
-            "message": "No labor-hour value exists for this damage and part combination",
-        }
+        raise CostEstimationAbort(
+            "لا توجد قيمة ساعات عمل لهذا النوع من الضرر مع الجزء المحدد"
+        )
 
     cost_factors = case.get("costFactors", {}) or {}
 
@@ -726,10 +803,7 @@ async def add_admin_damage(
     paint_factor = cost_factors.get("paint")
 
     if vehicle_factor is None or paint_factor is None:
-        return {
-            "status": "error",
-            "message": "Case cost factors are not available",
-        }
+        raise CostEstimationAbort("عوامل حساب التكلفة غير متوفرة لهذه الحالة")
 
     severity_factor = float(get_severity_factor(severity_key))
 
@@ -822,7 +896,7 @@ async def update_admin_damage(
     case_snap = case_ref.get()
 
     if not case_snap.exists:
-        raise CostEstimationAbort("Case not found")
+        raise CostEstimationAbort("لم يتم العثور على الحالة")
 
     case = case_snap.to_dict() or {}
 
@@ -836,7 +910,7 @@ async def update_admin_damage(
     current_status in LOCKED_STATUSES or case.get("reportId")
     ) and not has_objection_edit_access:
         raise CostEstimationAbort(
-        "This case can no longer be modified"
+        "لم يعد بالإمكان تعديل هذه الحالة"
         )
 
     damage_type = str(damage_type or "").strip().lower()
@@ -844,7 +918,7 @@ async def update_admin_damage(
     severity = str(severity or "").strip().lower()
 
     if severity not in VALID_SEVERITIES:
-        raise CostEstimationAbort("Invalid severity")
+        raise CostEstimationAbort("درجة الشدة غير صالحة")
 
     valid_damage_types = {
         "dent",
@@ -856,19 +930,19 @@ async def update_admin_damage(
     }
 
     if damage_type not in valid_damage_types:
-        raise CostEstimationAbort("Invalid damage type")
+        raise CostEstimationAbort("نوع الضرر غير صالح")
 
     image_ref = case_ref.collection("images").document(image_id)
     image_snap = image_ref.get()
 
     if not image_snap.exists:
-        raise CostEstimationAbort("Image not found")
+        raise CostEstimationAbort("لم يتم العثور على الصورة")
 
     item_ref = image_ref.collection("costItems").document(item_id)
     item_snap = item_ref.get()
 
     if not item_snap.exists:
-        raise CostEstimationAbort("Damage item not found")
+        raise CostEstimationAbort("لم يتم العثور على عنصر الضرر")
 
     old_item = item_snap.to_dict() or {}
 
@@ -888,7 +962,7 @@ async def update_admin_damage(
 
     if hours is None:
         raise CostEstimationAbort(
-            "No labor-hours value exists for this part and damage type"
+            "لا توجد قيمة ساعات عمل لهذا الجزء ونوع الضرر"
         )
 
     # Use the same factors already calculated for this case.
@@ -921,6 +995,20 @@ async def update_admin_damage(
         "adminEditedAt": firestore.SERVER_TIMESTAMP,
     }
 
+    # Snapshot the model's prediction exactly once, the first time an
+    # AI-produced item is corrected — never on a re-edit of an already-
+    # edited item (that would overwrite the true original with an
+    # intermediate admin value), and never for an admin-added item (it
+    # never had a model prediction to preserve).
+    if not old_item.get("adminAdded") and "originalDamageType" not in old_item:
+        update_data.update({
+            "originalDamageType": old_item.get("damageType"),
+            "originalPart": old_item.get("part"),
+            "originalSeverity": old_item.get("severity"),
+            "originalHours": old_item.get("hours"),
+            "originalLineCostSar": old_item.get("lineCostSar"),
+        })
+
     item_ref.update(update_data)
 
     totals = _recalculate_admin_totals(
@@ -952,7 +1040,7 @@ async def delete_admin_damage(
     case_snap = case_ref.get()
 
     if not case_snap.exists:
-        raise CostEstimationAbort("Case not found")
+        raise CostEstimationAbort("لم يتم العثور على الحالة")
 
     case = case_snap.to_dict() or {}
 
@@ -966,20 +1054,32 @@ async def delete_admin_damage(
         current_status in LOCKED_STATUSES or case.get("reportId")
     ) and not has_objection_edit_access:
         raise CostEstimationAbort(
-        "This case can no longer be modified"
+        "لم يعد بالإمكان تعديل هذه الحالة"
         )
 
     image_ref = case_ref.collection("images").document(image_id)
 
     if not image_ref.get().exists:
-        raise CostEstimationAbort("Image not found")
+        raise CostEstimationAbort("لم يتم العثور على الصورة")
 
     item_ref = image_ref.collection("costItems").document(item_id)
+    item_snap = item_ref.get()
 
-    if not item_ref.get().exists:
-        raise CostEstimationAbort("Damage item not found")
+    if not item_snap.exists:
+        raise CostEstimationAbort("لم يتم العثور على عنصر الضرر")
 
-    item_ref.delete()
+    if (item_snap.to_dict() or {}).get("removedByAdmin"):
+        raise CostEstimationAbort("تم حذف عنصر الضرر مسبقًا")
+
+    # Soft delete: the model's (or admin's) prediction stays in Firestore for
+    # audit — "the admin should be able to see what the model predicted even
+    # if he decides to make any type of change" extends to removals too.
+    # removedByAdmin is checked by _recalculate_admin_totals to exclude it
+    # from the cost sum without erasing the record.
+    item_ref.update({
+        "removedByAdmin": True,
+        "removedAt": firestore.SERVER_TIMESTAMP,
+    })
 
     totals = _recalculate_admin_totals(
         case_ref=case_ref,
@@ -1004,6 +1104,8 @@ def _recalculate_admin_totals(case_ref, image_ref) -> dict:
 
     for item_doc in image_ref.collection("costItems").stream():
         item = item_doc.to_dict() or {}
+        if item.get("removedByAdmin"):
+            continue
         cost = item.get("lineCostSar")
 
         if isinstance(cost, (int, float)):
@@ -1112,12 +1214,13 @@ async def process_cost_estimation(case_id: str) -> dict:
 
         total = round(subtotal, 2)
         airbag_deployed = detect_airbag(damage_location)
-        prior_accident_same_location, prior_note = _find_prior_accident(
+        # The note (case id + matched part/damage) is not surfaced on its own —
+        # assess_confidence() below turns the same prior_accident_same_location
+        # signal into one clear, already-explained Arabic reason instead.
+        prior_accident_same_location, _prior_note = _find_prior_accident(
             db, case_id, vehicle["vehicleId"], case.get("ownerId"),
             all_items, current_created_at=case.get("createdAt"),
         )
-        if prior_note:
-            _append_reason(review_reasons, prior_note)
 
         conf = assess_confidence(
             vehicle_year=int(year) if year else None,
@@ -1128,25 +1231,35 @@ async def process_cost_estimation(case_id: str) -> dict:
             prior_accident_same_location=prior_accident_same_location,
         )
         if low_conf:
-            conf.setdefault("reasons_ar", []).append("قيمة المركبة تقديرية (ثقة منخفضة)")
-
-        if conf.get("requires_admin_review"):
-            _append_reason(review_reasons, "low_cost_confidence")
+            conf["reasons_ar"].append(
+                "القيمة السوقية المستخدمة لهذه المركبة تقديرية وذات موثوقية منخفضة، "
+                "لذا يُفضّل التحقق منها يدويًا"
+            )
+            conf["requires_admin_review"] = True
 
         incomplete = any_failed or any_unpriced
         cost_state = "partial" if incomplete else "complete"
-        needs_review = bool(review_reasons) or incomplete
         if incomplete:
             _append_reason(review_reasons, "incomplete_cost_estimate")
+
+        needs_review = bool(review_reasons) or incomplete or conf["requires_admin_review"]
+
+        # One unified, backend-owned, already-Arabic list of reasons an admin
+        # would need to review this case — no numeric score anywhere. The app
+        # renders this list as-is instead of translating flags client-side.
+        admin_review_reasons_ar = list(conf["reasons_ar"])
+        for flag in review_reasons:
+            label = _review_reason_label_ar(flag)
+            if label not in admin_review_reasons_ar:
+                admin_review_reasons_ar.append(label)
 
         case_update = {
             "status": "تم حساب التكلفة",
             "costState": cost_state,
             "estimatedCostSar": total,
             "costFactors": {"paint": f_paint, "vehicle": f_veh, "rateSar": RATE_SAR},
-            "costConfidence": conf,
-            "costConfidenceScore": conf.get("confidence_score"),
             "needsAdminReview": needs_review,
+            "adminReviewReasonsAr": admin_review_reasons_ar,
             "reviewReasons": review_reasons,
             "costEstimateComplete": not incomplete,
         }
@@ -1165,8 +1278,8 @@ async def process_cost_estimation(case_id: str) -> dict:
             "costState": cost_state,
             "costRevision": revision,
             "estimatedCostSar": total,
-            "confidence": conf.get("confidence_score"),
             "needsAdminReview": needs_review,
+            "adminReviewReasonsAr": admin_review_reasons_ar,
             "reviewReasons": review_reasons,
             "lineItems": all_items,
         }

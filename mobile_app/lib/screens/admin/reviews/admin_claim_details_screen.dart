@@ -21,7 +21,7 @@ class AdminClaimDetailsScreen extends StatefulWidget {
 }
 
 class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
-  static const String _backendUrl = 'http://192.168.0.239:8000';
+  static const String _backendUrl = 'http://192.168.0.13:8000';
 
   static const Color _pageBg = Color(0xFFF7FAFF);
   static const Color _textDark = Color(0xFF071A3D);
@@ -88,38 +88,20 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
       );
   }
 
-  Widget _sectionCard({required String title, required List<Widget> children}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8EEF7)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.035),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            title,
-            textDirection: TextDirection.rtl,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: _textDark,
-            ),
-          ),
-          const SizedBox(height: 14),
-          ...children,
-        ],
-      ),
+  // Same accordion treatment as CaseAssessmentView's cards: collapsed by
+  // default with a one-line `subtitle` preview, tap to expand the full
+  // content — kept consistent across both screens now that the case-details
+  // cards below (CaseAssessmentView) already work this way.
+  Widget _sectionCard({
+    required String title,
+    String? subtitle,
+    required List<Widget> children,
+  }) {
+    return _CollapsibleCard(
+      title: title,
+      subtitle: subtitle,
+      initiallyExpanded: false,
+      children: children,
     );
   }
 
@@ -595,7 +577,44 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
   Widget _actionButtons(String resolvedCaseId, String objectionStatus) {
     if (objectionStatus == 'تم قبول الاعتراض' ||
         objectionStatus == 'تم رفض الاعتراض') {
-      return const SizedBox.shrink();
+      final bool accepted = objectionStatus == 'تم قبول الاعتراض';
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: accepted ? const Color(0xFFDCFCE7) : const Color(0xFFFFEEF0),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: (accepted ? Colors.green : Colors.red).withOpacity(0.35),
+          ),
+        ),
+        child: Row(
+          textDirection: TextDirection.rtl,
+          children: [
+            Icon(
+              accepted
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.gpp_bad_outlined,
+              color: accepted ? Colors.green : Colors.red,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                accepted
+                    ? 'تم اعتماد هذا الاعتراض بالفعل — لا حاجة لأي إجراء إضافي.'
+                    : 'تم رفض هذا الاعتراض بالفعل — لا حاجة لأي إجراء إضافي.',
+                textDirection: TextDirection.rtl,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: accepted ? Colors.green.shade800 : Colors.red,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
     }
     if (objectionStatus == 'قيد تعديل الحالة') {
       return Row(
@@ -620,6 +639,7 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                 ),
                 child: const Text(
                   'تعديل الحالة',
+                  textDirection: TextDirection.rtl,
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -849,6 +869,7 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                   children: [
                     _sectionCard(
                       title: 'معلومات الاعتراض',
+                      subtitle: status.isEmpty ? null : status,
                       children: [
                         _infoRow(
                           title: 'رقم الاعتراض',
@@ -870,6 +891,7 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
                     const SizedBox(height: 16),
                     _sectionCard(
                       title: 'وصف الاعتراض',
+                      subtitle: reason.trim().isEmpty ? null : reason.trim(),
                       children: [
                         Container(
                           width: double.infinity,
@@ -905,6 +927,113 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+/// Same collapsible card shell as CaseAssessmentView's `_CollapsibleCard`
+/// (kept as its own private copy per this codebase's convention — see
+/// case_assessment_view.dart's file doc comment). Collapsed by default,
+/// shows a one-line [subtitle] preview, tap to expand [children].
+class _CollapsibleCard extends StatefulWidget {
+  final String title;
+  final String? subtitle;
+  final bool initiallyExpanded;
+  final List<Widget> children;
+
+  const _CollapsibleCard({
+    required this.title,
+    this.subtitle,
+    required this.initiallyExpanded,
+    required this.children,
+  });
+
+  @override
+  State<_CollapsibleCard> createState() => _CollapsibleCardState();
+}
+
+class _CollapsibleCardState extends State<_CollapsibleCard> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool showSubtitle =
+        !_expanded &&
+        widget.subtitle != null &&
+        widget.subtitle!.trim().isNotEmpty;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8EEF7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.035),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Row(
+              textDirection: TextDirection.rtl,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        widget.title,
+                        textDirection: TextDirection.rtl,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: _AdminClaimDetailsScreenState._textDark,
+                        ),
+                      ),
+                      if (showSubtitle) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.subtitle!,
+                          textDirection: TextDirection.rtl,
+                          textAlign: TextAlign.right,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _AdminClaimDetailsScreenState._textMuted,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  _expanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  color: _AdminClaimDetailsScreenState._textMuted,
+                ),
+              ],
+            ),
+          ),
+          if (_expanded) ...[
+            const SizedBox(height: 14),
+            ...widget.children,
+          ],
+        ],
       ),
     );
   }

@@ -37,15 +37,20 @@ class _EditSingleDamageScreenState extends State<EditSingleDamageScreen> {
   static const Color textDark = Color(0xFF142A4A);
   static const Color borderColor = Color(0xFFD7E0EC);
   static const Color pageBg = Color(0xFFF7FAFF);
+  // Matches the app's established button language (see _primaryBlue /
+  // _confirmDialog in Case_Details_Screen.dart, admin_case_review_screen.dart)
+  // — buttons on this screen previously used darkBlue/primaryBlue above,
+  // neither of which matches the rest of the app's buttons.
+  static const Color buttonPrimary = Color(0xFF1E3A6E);
+  static const Color buttonSecondary = Color(0xFFEDEDED);
 
-  static const String backendUrl = 'http://192.168.0.2:8000';
+  static const String backendUrl = 'http://192.168.0.13:8000';
 
   late String _selectedDamageType;
   late String _selectedPart;
   late String _selectedSeverity;
 
   bool _isSaving = false;
-  
 
   final Map<String, String> _damageLabels = const {
     'dent': 'انبعاج',
@@ -191,11 +196,12 @@ class _EditSingleDamageScreenState extends State<EditSingleDamageScreen> {
                         child: ElevatedButton(
                           onPressed: _isSaving ? null : _saveChanges,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: darkBlue,
+                            backgroundColor: buttonPrimary,
+                            disabledBackgroundColor: const Color(0xFF93C5FD),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(30),
                             ),
                           ),
                           child: _isSaving
@@ -223,17 +229,18 @@ class _EditSingleDamageScreenState extends State<EditSingleDamageScreen> {
                     Expanded(
                       child: SizedBox(
                         height: 54,
-                        child: OutlinedButton(
+                        child: ElevatedButton(
                           onPressed: _isSaving
                               ? null
                               : () {
                                   Navigator.pop(context);
                                 },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: textDark,
-                            side: const BorderSide(color: borderColor),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: buttonSecondary,
+                            foregroundColor: Colors.black87,
+                            elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(30),
                             ),
                           ),
                           child: const Text(
@@ -381,40 +388,45 @@ class _EditSingleDamageScreenState extends State<EditSingleDamageScreen> {
     required Map<String, String> items,
     required ValueChanged<String?> onChanged,
   }) {
-    return DropdownButtonFormField<String>(
-      value: items.containsKey(value) ? value : null,
-      isExpanded: true,
-      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: darkBlue),
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 15,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: borderColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primaryBlue, width: 1.5),
-        ),
-      ),
-      items: items.entries.map((entry) {
-        return DropdownMenuItem<String>(
-          value: entry.key,
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              entry.value,
-              textDirection: TextDirection.rtl,
-              style: const TextStyle(color: textDark, fontSize: 15),
-            ),
+    // ClipRect clips the sub-pixel RenderFlex overflow that
+    // DropdownButtonFormField's internal layout occasionally produces for
+    // some Arabic option widths.
+    return ClipRect(
+      child: DropdownButtonFormField<String>(
+        value: items.containsKey(value) ? value : null,
+        isExpanded: true,
+        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: darkBlue),
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 15,
           ),
-        );
-      }).toList(),
-      onChanged: onChanged,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: borderColor),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: primaryBlue, width: 1.5),
+          ),
+        ),
+        items: items.entries.map((entry) {
+          return DropdownMenuItem<String>(
+            value: entry.key,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                entry.value,
+                textDirection: TextDirection.rtl,
+                style: const TextStyle(color: textDark, fontSize: 15),
+              ),
+            ),
+          );
+        }).toList(),
+        onChanged: onChanged,
+      ),
     );
   }
 
@@ -534,32 +546,96 @@ class _EditSingleDamageScreenState extends State<EditSingleDamageScreen> {
     }
   }
 
+  // Same responsive shape as add_damage_screen.dart's error dialog: a
+  // width-constrained Dialog with an Icon + Expanded(Text) header and a
+  // full-width pill button, instead of a plain AlertDialog with a bare
+  // TextButton — keeps this dialog visually consistent with the rest of
+  // the app's buttons regardless of how long `message` is.
   Future<void> _showErrorDialog(String message) async {
     await showDialog(
       context: context,
       builder: (dialogContext) {
+        final double screenWidth = MediaQuery.of(dialogContext).size.width;
         return Directionality(
           textDirection: TextDirection.rtl,
-          child: AlertDialog(
+          child: Dialog(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(20),
             ),
-            title: const Text('تعذر إكمال العملية', textAlign: TextAlign.right),
-            content: Text(message, textAlign: TextAlign.right),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                },
-                child: const Text('حسنًا'),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: screenWidth > 600 ? 400 : screenWidth * 0.85,
               ),
-            ],
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.all(screenWidth * 0.06),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        textDirection: TextDirection.rtl,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.error_outline_rounded,
+                            color: Colors.red,
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'تعذر إكمال العملية',
+                              textDirection: TextDirection.rtl,
+                              style: TextStyle(
+                                color: textDark,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 17,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        message,
+                        textDirection: TextDirection.rtl,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          color: Color(0xFF475569),
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: buttonPrimary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'حسنًا',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         );
       },
     );
   }
-
 
   Future<void> _showSuccessDialog() async {
     await showDialog(
@@ -624,11 +700,11 @@ class _EditSingleDamageScreenState extends State<EditSingleDamageScreen> {
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryBlue,
+                      backgroundColor: buttonPrimary,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(11),
+                        borderRadius: BorderRadius.circular(30),
                       ),
                     ),
                     child: const Text(

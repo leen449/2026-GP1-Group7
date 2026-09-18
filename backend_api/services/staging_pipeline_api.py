@@ -72,8 +72,7 @@ except ImportError:
     try:
         from services.confidence_service import assess_confidence
     except ImportError:
-        def assess_confidence(**k): return {"confidence_score": None, "level": "unknown",
-                                            "requires_admin_review": None, "reasons_ar": []}
+        def assess_confidence(**k): return {"requires_admin_review": None, "reasons_ar": []}
 
 # ---- lazy model loaders -----------------------------------------------------------
 _damage_model = None

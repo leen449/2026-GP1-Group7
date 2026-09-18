@@ -145,38 +145,20 @@ class CaseAssessmentView extends StatelessWidget {
     );
   }
 
-  Widget _sectionCard({required String title, required List<Widget> children}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8EEF7)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.035),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            title,
-            textDirection: TextDirection.rtl,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: _textDark,
-            ),
-          ),
-          const SizedBox(height: 14),
-          ...children,
-        ],
-      ),
+  // Every section on this page is an accordion card: collapsed by default,
+  // showing only the title plus a short one-line `subtitle` preview so the
+  // reviewer can scan the whole case (status, name, plate, total cost, ...)
+  // without opening every card, then tap to expand the one they need.
+  Widget _sectionCard({
+    required String title,
+    String? subtitle,
+    required List<Widget> children,
+  }) {
+    return _CollapsibleCard(
+      title: title,
+      subtitle: subtitle,
+      initiallyExpanded: false,
+      children: children,
     );
   }
 
@@ -273,6 +255,7 @@ class CaseAssessmentView extends StatelessWidget {
     final String status = caseData['status']?.toString() ?? '';
     return _sectionCard(
       title: 'ملخص الطلب',
+      subtitle: status.isEmpty ? null : status,
       children: [
         _infoBox('رقم الطلب', caseId, ltr: true),
         _infoBox('حالة الطلب ', status),
@@ -287,8 +270,10 @@ class CaseAssessmentView extends StatelessWidget {
         final data = snap.hasData && snap.data!.exists
             ? snap.data!.data() as Map<String, dynamic>
             : <String, dynamic>{};
+        final String name = data['name']?.toString() ?? '';
         return _sectionCard(
           title: 'البيانات الشخصية',
+          subtitle: name.isEmpty ? null : name,
           children: [
             _infoBox('الاسم', data['name'] ?? '-'),
             _infoBox('رقم الهوية', data['nationalID'] ?? '-', ltr: true),
@@ -309,8 +294,15 @@ class CaseAssessmentView extends StatelessWidget {
         final data = snap.hasData && snap.data!.exists
             ? snap.data!.data() as Map<String, dynamic>
             : <String, dynamic>{};
+        final String make = data['make']?.toString() ?? '';
+        final String model = data['model']?.toString() ?? '';
+        final String vehicleSubtitle = [
+          make,
+          model,
+        ].where((s) => s.isNotEmpty).join(' ');
         return _sectionCard(
           title: 'معلومات المركبة',
+          subtitle: vehicleSubtitle.isEmpty ? null : vehicleSubtitle,
           children: [
             _infoBox('ماركة المركبة', data['make'] ?? '-'),
             _infoBox('طراز المركبة', data['model'] ?? '-'),
@@ -328,8 +320,11 @@ class CaseAssessmentView extends StatelessWidget {
   }
 
   Widget _najmCard(Map<String, dynamic> najmReport) {
+    final String damageLocation =
+        najmReport['damageLocation']?.toString() ?? '';
     return _sectionCard(
       title: 'تقرير نجم',
+      subtitle: damageLocation.isEmpty ? null : damageLocation,
       children: [
         _infoBox(
           'رقم الحادث',
@@ -360,6 +355,7 @@ class CaseAssessmentView extends StatelessWidget {
         if (images.isEmpty) {
           return _sectionCard(
             title: 'نتائج تحليل الأضرار',
+            subtitle: 'لا توجد صور مرفوعة',
             children: const [
               Center(
                 child: Padding(
@@ -378,10 +374,20 @@ class CaseAssessmentView extends StatelessWidget {
           );
         }
 
+        final String? overallSeverity = caseData['overallSeverity'] as String?;
+        final String severityLabel = overallSeverity == null
+            ? ''
+            : (_severityLabelAr[overallSeverity] ?? '');
+        final String imagesSubtitle = [
+          '${images.length} صور',
+          if (severityLabel.isNotEmpty) severityLabel,
+        ].join(' — ');
+
         return _sectionCard(
           title: 'نتائج تحليل الأضرار',
+          subtitle: imagesSubtitle,
           children: [
-            _overallSeverityBox(caseData['overallSeverity'] as String?),
+            _overallSeverityBox(overallSeverity),
             ...images.asMap().entries.map(
               (entry) => _imageBlock(context, entry.value, entry.key + 1),
             ),
@@ -467,50 +473,64 @@ class CaseAssessmentView extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    
                     Row(
-  children: [
-    if (onEditImage != null && hasDamage)
-      SizedBox(
-        width: 28,
-        height: 28,
-        child: IconButton(
-          tooltip: 'تعديل أضرار الصورة',
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-          onPressed: () {
-            onEditImage!(
-              imageId,
-              originalImageUrl.isNotEmpty
-                  ? originalImageUrl
-                  : url,
-              imageNumber,
-            );
-          },
-          icon: const Icon(
-            Icons.edit_outlined,
-            color: Color(0xFF1E3A6E),
-            size: 20,
-          ),
-        ),
-      ),
-
-    const Spacer(),
-
-    Text(
-      hasDamage ? 'ضرر مكتشف' : 'سليمة',
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.bold,
-        color: hasDamage ? Colors.red : Colors.green,
-      ),
-    ),
-
-    const SizedBox(width: 8),
-
-    _severityChip(severity),
-  ],
-),
+                      // pen, then spacer, then the severity chip — explicit
+                      // rtl so the pen (listed first) reliably lands on the
+                      // RIGHT regardless of screen width. This app has no
+                      // app-wide RTL (no locale/supportedLocales configured
+                      // in main.dart), so this must be stated here rather
+                      // than assumed from ambient direction.
+                      textDirection: TextDirection.rtl,
+                      children: [
+                        if (onEditImage != null && hasDamage)
+                          SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: IconButton(
+                              tooltip: 'تعديل أضرار الصورة',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () {
+                                onEditImage!(
+                                  imageId,
+                                  originalImageUrl.isNotEmpty
+                                      ? originalImageUrl
+                                      : url,
+                                  imageNumber,
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.edit_outlined,
+                                color: Color(0xFF1E3A6E),
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        const Spacer(),
+                        // No-damage indicator only — the "ضرر مكتشف" label
+                        // was intentionally removed; severity is null for
+                        // undamaged images so the chip renders nothing here,
+                        // leaving this as the only content. Flexible keeps
+                        // it safe at any width, matching the rest of the row.
+                        if (!hasDamage)
+                          const Flexible(
+                            child: Text(
+                              'سليمة',
+                              textDirection: TextDirection.rtl,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ),
+                        // severityChip already ellipsizes internally, so
+                        // it's safe standalone at any width.
+                        _severityChip(severity),
+                      ],
+                    ),
                     if (severityConfidence is num) ...[
                       const SizedBox(height: 4),
                       Text(
@@ -523,18 +543,7 @@ class CaseAssessmentView extends StatelessWidget {
                         ),
                       ),
                     ],
-                    if (laborCost is num) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'تكلفة الصورة: $laborCost ريال',
-                        textDirection: TextDirection.rtl,
-                        style: const TextStyle(
-                          color: _textDark,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
+                    if (laborCost is num) ...[const SizedBox(height: 4)],
                   ],
                 ),
               ),
@@ -544,80 +553,12 @@ class CaseAssessmentView extends StatelessWidget {
             const SizedBox(height: 10),
             const Divider(height: 1, color: Color(0xFFE8EEF7)),
             const SizedBox(height: 8),
-            _mutedCaption('الأضرار المكتشفة'),
-            _detectionsList(imageDoc.reference),
-            const SizedBox(height: 10),
             _mutedCaption('الأجزاء المتضررة والتكلفة'),
             _costItemsList(imageDoc.reference),
             const SizedBox(height: 4),
           ],
         ],
       ),
-    );
-  }
-
-  Widget _detectionsList(DocumentReference imageRef) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: imageRef.collection('detections').snapshots(),
-      builder: (context, snap) {
-        final docs = List<QueryDocumentSnapshot>.from(snap.data?.docs ?? []);
-        if (docs.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.only(bottom: 6),
-            child: Text(
-              'لا توجد أضرار مسجلة',
-              textDirection: TextDirection.rtl,
-              style: TextStyle(color: _textMuted, fontSize: 12),
-            ),
-          );
-        }
-        docs.sort((a, b) {
-          final ca = (a.data() as Map<String, dynamic>)['confidence'];
-          final cb = (b.data() as Map<String, dynamic>)['confidence'];
-          final da = ca is num ? ca.toDouble() : 0.0;
-          final db = cb is num ? cb.toDouble() : 0.0;
-          return db.compareTo(da);
-        });
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: docs.map((doc) {
-            final d = doc.data() as Map<String, dynamic>;
-            final String label = d['label']?.toString() ?? '-';
-            final dynamic confidence = d['confidence'];
-            final String confText = confidence is num
-                ? '${(confidence * 100).round()}%'
-                : '-';
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                textDirection: TextDirection.rtl,
-                children: [
-                  Expanded(
-                    child: Text(
-                      label,
-                      textDirection: TextDirection.rtl,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        color: _textDark,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    'ثقة: $confText',
-                    style: const TextStyle(
-                      color: _textMuted,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        );
-      },
     );
   }
 
@@ -636,69 +577,220 @@ class CaseAssessmentView extends StatelessWidget {
             ),
           );
         }
+
+        // Grouped by origin instead of tagging every single line — with
+        // several damages in the same state on one image, repeating the
+        // same badge on every line is just noise. One caption per group
+        // says it once.
+        final removedDocs = <QueryDocumentSnapshot>[];
+        final addedDocs = <QueryDocumentSnapshot>[];
+        final editedDocs = <QueryDocumentSnapshot>[];
+        // One fixed, always-present list of every damage the model ever
+        // detected (part/type/cost as originally predicted) — untouched,
+        // edited, or removed alike. This replaces having a separate
+        // "أضرار من النموذج" group for untouched items: since an untouched
+        // item's current values already equal its original ones, it only
+        // needs to appear here, not in a second list saying the same thing.
+        // adminAdded items are excluded: they never had a model prediction.
+        final originalDocs = <QueryDocumentSnapshot>[];
+        for (final doc in docs) {
+          final item = doc.data() as Map<String, dynamic>;
+          if (item['removedByAdmin'] == true) {
+            removedDocs.add(doc);
+          } else if (item['adminAdded'] == true) {
+            addedDocs.add(doc);
+          } else if (item['adminEdited'] == true) {
+            editedDocs.add(doc);
+          }
+          if (item['adminAdded'] != true && item['originalDamageType'] != null) {
+            originalDocs.add(doc);
+          }
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.end,
-          children: docs.map((doc) {
-            final item = doc.data() as Map<String, dynamic>;
-            final String partKey = item['part']?.toString() ?? '';
-            final String damageKey = item['damageType']?.toString() ?? '';
-            final String partLabel =
-                _partLabelAr[partKey] ??
-                (partKey.isEmpty ? 'غير محدد' : partKey);
-            final String damageLabel =
-                _damageTypeLabelAr[damageKey] ??
-                (damageKey.isEmpty ? 'غير محدد' : damageKey);
-            final dynamic cost = item['lineCostSar'];
-            final List<dynamic> flags = (item['flags'] as List?) ?? const [];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(
-                    textDirection: TextDirection.rtl,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '$partLabel — $damageLabel',
-                          textDirection: TextDirection.rtl,
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            color: _textDark,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        cost is num ? '$cost ريال' : 'لم يتم تسعيرها',
-                        style: TextStyle(
-                          color: cost is num ? _textDark : Colors.red,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (flags.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        flags
-                            .map((f) => _costFactorLabel(f.toString()))
-                            .join('، '),
-                        textDirection: TextDirection.rtl,
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(color: Colors.red, fontSize: 10),
-                      ),
-                    ),
-                ],
+          children: [
+            if (originalDocs.isNotEmpty) ...[
+              _mutedCaption('جميع أضرار النموذج الأصلية'),
+              ...originalDocs.map(
+                (doc) => _originalDetectionTile(
+                  doc.data() as Map<String, dynamic>,
+                ),
               ),
-            );
-          }).toList(),
+            ],
+            if (editedDocs.isNotEmpty) ...[
+              _mutedCaption('أضرار عدّلها المشرف'),
+              ...editedDocs.map(
+                (doc) => _costItemTile(doc.data() as Map<String, dynamic>),
+              ),
+            ],
+            if (addedDocs.isNotEmpty) ...[
+              _mutedCaption('أضرار أضافها المشرف'),
+              ...addedDocs.map(
+                (doc) => _costItemTile(doc.data() as Map<String, dynamic>),
+              ),
+            ],
+            if (removedDocs.isNotEmpty) ...[
+              _mutedCaption('أضرار أزالها المشرف من التسعير'),
+              ...removedDocs.map(
+                (doc) => _costItemTile(doc.data() as Map<String, dynamic>),
+              ),
+            ],
+          ],
         );
       },
+    );
+  }
+
+  Widget _costItemTile(Map<String, dynamic> item) {
+    final bool removed = item['removedByAdmin'] == true;
+
+    final String partKey = item['part']?.toString() ?? '';
+    final String damageKey = item['damageType']?.toString() ?? '';
+    final String partLabel =
+        _partLabelAr[partKey] ?? (partKey.isEmpty ? 'غير محدد' : partKey);
+    final String damageLabel =
+        _damageTypeLabelAr[damageKey] ??
+        (damageKey.isEmpty ? 'غير محدد' : damageKey);
+    final dynamic cost = item['lineCostSar'];
+    final List<dynamic> flags = (item['flags'] as List?) ?? const [];
+
+    // The model's original prediction for this item (if any) is shown
+    // separately in the independent "جميع أضرار النموذج الأصلية" section
+    // above instead of repeated here — showing it again per-item would be
+    // the same information twice.
+
+    // Two independent model confidences, shown together instead of in a
+    // separate "raw detections" list: how sure the damage detector was
+    // about the damage type, and how sure the segmentation step was about
+    // the part it matched it to. Either can be absent — part confidence in
+    // particular isn't a real measured value for lamp/tire (fixed, not
+    // detected) or unassigned lines (no match was made at all).
+    final dynamic damageConfidence = item['damageConfidence'];
+    final dynamic partConfidence = item['partConfidence'];
+    final List<String> confidenceParts = [
+      if (damageConfidence is num)
+        'ثقة الكشف: ${(damageConfidence * 100).round()}%',
+      if (partConfidence is num)
+        'ثقة تحديد الجزء: ${(partConfidence * 100).round()}%',
+    ];
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: removed
+          ? BoxDecoration(
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(8),
+            )
+          : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Row(
+            textDirection: TextDirection.rtl,
+            children: [
+              Expanded(
+                child: Text(
+                  '$partLabel — $damageLabel',
+                  textDirection: TextDirection.rtl,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: removed ? _textMuted : _textDark,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    decoration: removed ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                removed
+                    ? 'غير محتسبة'
+                    : (cost is num ? '$cost ريال' : 'لم يتم تسعيرها'),
+                style: TextStyle(
+                  color: removed
+                      ? _textMuted
+                      : (cost is num ? _textDark : Colors.red),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                  decoration: removed ? TextDecoration.lineThrough : null,
+                ),
+              ),
+            ],
+          ),
+          if (confidenceParts.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                confidenceParts.join(' • '),
+                textDirection: TextDirection.rtl,
+                textAlign: TextAlign.right,
+                style: const TextStyle(color: _textMuted, fontSize: 11),
+              ),
+            ),
+          if (flags.isNotEmpty && !removed)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                flags.map((f) => _costFactorLabel(f.toString())).join('، '),
+                textDirection: TextDirection.rtl,
+                textAlign: TextAlign.right,
+                style: const TextStyle(color: Colors.red, fontSize: 10),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Independent, read-only row for the "جميع أضرار النموذج الأصلية" section —
+  // always renders from original* fields, never from the item's current
+  // (possibly edited/removed) state, so it stays a fixed record of what the
+  // model actually detected regardless of anything the admin does to the
+  // item elsewhere on this list.
+  Widget _originalDetectionTile(Map<String, dynamic> item) {
+    final String partKey = item['originalPart']?.toString() ?? '';
+    final String damageKey = item['originalDamageType']?.toString() ?? '';
+    final dynamic cost = item['originalLineCostSar'];
+
+    final String partLabel =
+        _partLabelAr[partKey] ?? (partKey.isEmpty ? 'غير محدد' : partKey);
+    final String damageLabel =
+        _damageTypeLabelAr[damageKey] ??
+        (damageKey.isEmpty ? 'غير محدد' : damageKey);
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        textDirection: TextDirection.rtl,
+        children: [
+          Expanded(
+            child: Text(
+              '$partLabel — $damageLabel',
+              textDirection: TextDirection.rtl,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: _textDark,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            cost is num ? '$cost ريال' : 'لم يتم تسعيرها',
+            style: const TextStyle(
+              color: _textDark,
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -709,126 +801,110 @@ class CaseAssessmentView extends StatelessWidget {
     if (totalRaw is! num) {
       return const SizedBox.shrink();
     }
-    final costConfidence =
-        (caseData['costConfidence'] as Map<String, dynamic>?) ?? {};
-    final String? levelAr = costConfidence['level_ar'] as String?;
-    final String? recommendationAr =
-        costConfidence['recommendation_ar'] as String?;
 
     return _sectionCard(
       title: 'التكلفة التقديرية',
-      children: [
-        _infoBox('الإجمالي التقديري', '$totalRaw ريال'),
-        if (levelAr != null && levelAr.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              (recommendationAr != null && recommendationAr.isNotEmpty)
-                  ? 'مستوى ثقة التقدير: $levelAr — $recommendationAr'
-                  : 'مستوى ثقة التقدير: $levelAr',
-              textDirection: TextDirection.rtl,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: _textMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-      ],
+      subtitle: '$totalRaw ريال',
+      children: [_infoBox('الإجمالي التقديري', '$totalRaw ريال')],
     );
   }
 
-  // ── Section 7: confidence detail ─────────────────────────────────────────
+  // ── Section 7: admin review reasons ──────────────────────────────────────
+  // No numeric confidence score or level here on purpose — an admin either
+  // needs to look at this case or doesn't, and the only useful thing to show
+  // is the plain-language reason list the backend already explains in
+  // full sentences (see confidence_service.py / cost_estimation_services.py).
 
   Widget _confidenceDetailCard(Map<String, dynamic> caseData) {
-    final costConfidence =
-        (caseData['costConfidence'] as Map<String, dynamic>?) ?? {};
-    if (costConfidence.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final dynamic score = costConfidence['confidence_score'];
-    final String? levelAr = costConfidence['level_ar'] as String?;
-    final bool requiresReview =
-        costConfidence['requires_admin_review'] == true ||
-        caseData['needsAdminReview'] == true;
-    final List<dynamic> deductions =
-        (costConfidence['deductions'] as List?) ?? const [];
-    final List<dynamic> reviewReasons =
-        (caseData['reviewReasons'] as List?) ?? const [];
+    final bool requiresReview = caseData['needsAdminReview'] == true;
+    final List<dynamic> reasons =
+        (caseData['adminReviewReasonsAr'] as List?) ?? const [];
 
     return _sectionCard(
-      title: 'تفاصيل الثقة',
+      title: 'مراجعة الإدارة',
+      subtitle: requiresReview ? 'تحتاج إلى مراجعة' : 'لا تحتاج إلى مراجعة',
       children: [
-        if (score is num) _infoBox('درجة الثقة', '$score / 100'),
-        if (levelAr != null && levelAr.isNotEmpty)
-          _infoBox('مستوى الثقة', levelAr),
-        if (requiresReview)
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF7ED),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: const Color(0xFFEA580C).withOpacity(0.4),
-              ),
-            ),
-            child: const Text(
-              'يتطلب مراجعة الإدارة',
-              textDirection: TextDirection.rtl,
-              style: TextStyle(
-                color: Color(0xFFEA580C),
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
-              ),
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: requiresReview
+                ? const Color(0xFFFFF7ED)
+                : const Color(0xFFF0FDF4),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color:
+                  (requiresReview
+                          ? const Color(0xFFEA580C)
+                          : const Color(0xFF16A34A))
+                      .withOpacity(0.4),
             ),
           ),
-        if (deductions.isNotEmpty) ...[
-          _mutedCaption('أسباب تخفيض الثقة'),
-          ...deductions.map((d) {
-            final m = d as Map<String, dynamic>;
-            final reasonAr = m['reason_ar']?.toString() ?? '-';
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Text(
-                reasonAr,
-                textDirection: TextDirection.rtl,
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  color: _textDark,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+          child: Row(
+            textDirection: TextDirection.rtl,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                requiresReview
+                    ? Icons.error_outline_rounded
+                    : Icons.check_circle_outline_rounded,
+                size: 18,
+                color: requiresReview
+                    ? const Color(0xFFEA580C)
+                    : const Color(0xFF16A34A),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  requiresReview
+                      ? 'تحتاج هذه الحالة إلى مراجعة إضافية من المشرف قبل اعتمادها'
+                      : 'لا توجد أسباب تستدعي مراجعة إضافية من المشرف لهذه الحالة',
+                  textDirection: TextDirection.rtl,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: requiresReview
+                        ? const Color(0xFFEA580C)
+                        : const Color(0xFF15803D),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
                 ),
+              ),
+            ],
+          ),
+        ),
+        if (requiresReview && reasons.isNotEmpty) ...[
+          _mutedCaption('أسباب طلب المراجعة'),
+          ...reasons.map((r) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                textDirection: TextDirection.rtl,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Icon(Icons.circle, size: 5, color: _textMuted),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      r.toString(),
+                      textDirection: TextDirection.rtl,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        color: _textDark,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             );
           }),
-          const SizedBox(height: 6),
-        ],
-        if (reviewReasons.isNotEmpty) ...[
-          _mutedCaption('عوامل التكلفة'),
-          Wrap(
-            alignment: WrapAlignment.end,
-            spacing: 6,
-            runSpacing: 6,
-            children: reviewReasons.map((r) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _pageBg,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE8EEF7)),
-                ),
-                child: Text(
-                  _costFactorLabel(r.toString()),
-                  textDirection: TextDirection.rtl,
-                  style: const TextStyle(color: _textMuted, fontSize: 10),
-                ),
-              );
-            }).toList(),
-          ),
         ],
       ],
     );
@@ -891,6 +967,115 @@ class CaseAssessmentView extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// The card shell every top-level section (`ملخص الطلب`, `التكلفة التقديرية`,
+/// etc.) is built from. Collapsed by default so the reviewer sees the whole
+/// case as a stack of one-line headers first — each header keeps a short
+/// [subtitle] preview of that section's content (e.g. the status, the total
+/// cost) so nothing important is hidden without a tap. Tapping the header
+/// swaps the subtitle for the full [children] content, same as before.
+class _CollapsibleCard extends StatefulWidget {
+  final String title;
+  final String? subtitle;
+  final bool initiallyExpanded;
+  final List<Widget> children;
+
+  const _CollapsibleCard({
+    required this.title,
+    this.subtitle,
+    required this.initiallyExpanded,
+    required this.children,
+  });
+
+  @override
+  State<_CollapsibleCard> createState() => _CollapsibleCardState();
+}
+
+class _CollapsibleCardState extends State<_CollapsibleCard> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool showSubtitle =
+        !_expanded &&
+        widget.subtitle != null &&
+        widget.subtitle!.trim().isNotEmpty;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8EEF7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.035),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Row(
+              textDirection: TextDirection.rtl,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        widget.title,
+                        textDirection: TextDirection.rtl,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: CaseAssessmentView._textDark,
+                        ),
+                      ),
+                      if (showSubtitle) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.subtitle!,
+                          textDirection: TextDirection.rtl,
+                          textAlign: TextAlign.right,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: CaseAssessmentView._textMuted,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  _expanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  color: CaseAssessmentView._textMuted,
+                ),
+              ],
+            ),
+          ),
+          if (_expanded) ...[
+            const SizedBox(height: 14),
+            ...widget.children,
+          ],
+        ],
+      ),
     );
   }
 }

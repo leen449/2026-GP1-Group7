@@ -19,14 +19,21 @@ class EditDamagesScreen extends StatelessWidget {
     required this.imageUrl,
     required this.imageNumber,
     this.isObjectionFlow = false,
-
   });
 
   static const Color primaryBlue = Color(0xFF173F7A);
   static const Color borderColor = Color(0xFFD7E0EC);
   static const Color textDark = Color(0xFF142A4A);
+  // Matches the app's established button language (see _primaryBlue /
+  // _confirmDialog in Case_Details_Screen.dart, admin_case_review_screen.dart)
+  // — the buttons below previously used primaryBlue above (and, in one case,
+  // a border color that didn't even match it), neither consistent with the
+  // rest of the app's buttons.
+  static const Color buttonPrimary = Color(0xFF1E3A6E);
+  static const Color buttonSecondary = Color(0xFFEDEDED);
+  static const Color buttonDanger = Color(0xFFDC2626);
 
-  static const String backendUrl = 'http://192.168.0.239:8000';
+  static const String backendUrl = 'http://192.168.0.13:8000';
 
   static const Map<String, String> damageLabels = {
     'dent': 'انبعاج',
@@ -100,7 +107,14 @@ class EditDamagesScreen extends StatelessWidget {
               return const Center(child: Text('تعذر تحميل الأضرار.'));
             }
 
-            final docs = snapshot.data?.docs ?? [];
+            // Soft-deleted items (removedByAdmin) stay in Firestore for
+            // audit on the review pages, but must not appear as still-active
+            // here — otherwise they'd double count against the case total,
+            // which already excludes them server-side (see
+            // _recalculate_admin_totals in cost_estimation_services.py).
+            final docs = (snapshot.data?.docs ?? [])
+                .where((doc) => doc.data()['removedByAdmin'] != true)
+                .toList();
 
             double imageTotal = 0;
 
@@ -152,7 +166,7 @@ class EditDamagesScreen extends StatelessWidget {
 
                   SizedBox(
                     height: 54,
-                    child: OutlinedButton.icon(
+                    child: ElevatedButton.icon(
                       //open AddDamageScreen with this image preselected.
                       onPressed: () {
                         Navigator.push(
@@ -176,11 +190,12 @@ class EditDamagesScreen extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: primaryBlue,
-                        side: const BorderSide(color: Color(0xFF2563EB)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: buttonPrimary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(30),
                         ),
                       ),
                     ),
@@ -525,11 +540,11 @@ class EditDamagesScreen extends StatelessWidget {
                       Navigator.pop(dialogContext, true);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF2E2E),
+                      backgroundColor: buttonDanger,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(30),
                       ),
                     ),
                     child: const Text(
@@ -547,15 +562,16 @@ class EditDamagesScreen extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   height: 52,
-                  child: TextButton(
+                  child: ElevatedButton(
                     onPressed: () {
                       Navigator.pop(dialogContext, false);
                     },
-                    style: TextButton.styleFrom(
-                      backgroundColor: const Color(0xFFF2F4F7),
-                      foregroundColor: textDark,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: buttonSecondary,
+                      foregroundColor: Colors.black87,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(30),
                       ),
                     ),
                     child: const Text(
