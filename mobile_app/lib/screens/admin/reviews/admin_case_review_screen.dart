@@ -368,8 +368,7 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
                           maxLines: 4,
                           textAlign: TextAlign.right,
                           textDirection: TextDirection.rtl,
-                          onChanged: (_) =>
-                              setDialogState(() => error = null),
+                          onChanged: (_) => setDialogState(() => error = null),
                           decoration: InputDecoration(
                             hintText: systemReasons.isEmpty
                                 ? 'اكتب سبب الإحالة هنا...'
@@ -639,53 +638,90 @@ class _AdminCaseReviewScreenState extends State<AdminCaseReviewScreen> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(18, 14, 18, bottomPad + 120),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            CaseAssessmentView(
-              caseId: widget.caseId,
-              onEditImage: (imageId, imageUrl, imageNumber) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => EditDamagesScreen(
-                      caseId: widget.caseId,
-                      imageId: imageId,
-                      imageUrl: imageUrl,
-                      imageNumber: imageNumber,
-                    ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            Row(
-              textDirection: TextDirection.rtl,
+      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection('accidentCase')
+            .doc(widget.caseId)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return const Center(
+              child: Text(
+                'لم يتم العثور على الحالة',
+                textDirection: TextDirection.rtl,
+              ),
+            );
+          }
+
+          final caseData = snapshot.data!.data() ?? {};
+          final status = caseData['status']?.toString().trim() ?? '';
+
+          final bool isLocked =
+              status == 'تمت المراجعة' || status == _referredStatus;
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(18, 14, 18, bottomPad + 120),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Expanded(
-                  child: _actionButton(
-                    label: 'تاكيد الحالة',
-                    backgroundColor: _primaryBlue,
-                    onPressed: _handleApprove,
-                  ),
+                CaseAssessmentView(
+                  caseId: widget.caseId,
+
+                  // Editing is available only while the case is still under review.
+                  onEditImage: isLocked
+                      ? null
+                      : (imageId, imageUrl, imageNumber) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EditDamagesScreen(
+                                caseId: widget.caseId,
+                                imageId: imageId,
+                                imageUrl: imageUrl,
+                                imageNumber: imageNumber,
+                              ),
+                            ),
+                          );
+                        },
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _actionButton(
-                    label: 'إحالة لشيخ المعارض',
-                    backgroundColor: _referColor,
-                    foregroundColor: _referTextColor,
-                    disabledBackgroundColor: _referColor,
-                    spinnerColor: _referTextColor,
-                    onPressed: _handleReferToSpecialist,
+
+                if (!isLocked) ...[
+                  const SizedBox(height: 20),
+
+                  Row(
+                    textDirection: TextDirection.rtl,
+                    children: [
+                      Expanded(
+                        child: _actionButton(
+                          label: 'تاكيد الحالة',
+                          backgroundColor: _primaryBlue,
+                          onPressed: _handleApprove,
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      Expanded(
+                        child: _actionButton(
+                          label: 'إحالة لشيخ المعارض',
+                          backgroundColor: _referColor,
+                          foregroundColor: _referTextColor,
+                          disabledBackgroundColor: _referColor,
+                          spinnerColor: _referTextColor,
+                          onPressed: _handleReferToSpecialist,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                ],
               ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
