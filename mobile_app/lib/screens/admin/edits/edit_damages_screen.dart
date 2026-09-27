@@ -33,7 +33,7 @@ class EditDamagesScreen extends StatelessWidget {
   static const Color buttonSecondary = Color(0xFFEDEDED);
   static const Color buttonDanger = Color(0xFFDC2626);
 
-  static const String backendUrl = 'http://192.168.0.239:8000';
+  static const String backendUrl = 'http://192.168.0.13:8000';
 
   static const Map<String, String> damageLabels = {
     'dent': 'انبعاج',

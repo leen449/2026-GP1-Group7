@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../reviews/admin_case_review_screen.dart';
 
 enum _CaseFilter { all, needsProcessing, processed }
+
 enum _CaseSort { newestFirst, oldestFirst }
 
 class _CaseListItem {
@@ -76,48 +77,49 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
   }
 
   void _listenToCases() {
-    _subscription = _firestore.collection('accidentCase').snapshots().listen(
-      (snapshot) async {
-        final currentLoad = ++_loadVersion;
-        if (mounted) {
-          setState(() {
-            _isLoading = true;
-            _errorMessage = null;
-          });
-        }
+    _subscription = _firestore
+        .collection('accidentCase')
+        .snapshots()
+        .listen(
+          (snapshot) async {
+            final currentLoad = ++_loadVersion;
+            if (mounted) {
+              setState(() {
+                _isLoading = true;
+                _errorMessage = null;
+              });
+            }
 
-        try {
-          final submittedDocs = snapshot.docs.where((doc) {
-            final data = doc.data();
-            return data['isSubmitted'] == true;
-          }).toList();
+            try {
+              final submittedDocs = snapshot.docs.where((doc) {
+                final data = doc.data();
+                return data['isSubmitted'] == true;
+              }).toList();
 
-          final result = await Future.wait(
-            submittedDocs.map(_hydrateCase),
-          );
+              final result = await Future.wait(submittedDocs.map(_hydrateCase));
 
-          if (!mounted || currentLoad != _loadVersion) return;
+              if (!mounted || currentLoad != _loadVersion) return;
 
-          setState(() {
-            _items = result;
-            _isLoading = false;
-          });
-        } catch (error) {
-          if (!mounted || currentLoad != _loadVersion) return;
-          setState(() {
-            _isLoading = false;
-            _errorMessage = 'تعذر تحميل الحالات.';
-          });
-        }
-      },
-      onError: (_) {
-        if (!mounted) return;
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'تعذر تحميل الحالات.';
-        });
-      },
-    );
+              setState(() {
+                _items = result;
+                _isLoading = false;
+              });
+            } catch (error) {
+              if (!mounted || currentLoad != _loadVersion) return;
+              setState(() {
+                _isLoading = false;
+                _errorMessage = 'تعذر تحميل الحالات.';
+              });
+            }
+          },
+          onError: (_) {
+            if (!mounted) return;
+            setState(() {
+              _isLoading = false;
+              _errorMessage = 'تعذر تحميل الحالات.';
+            });
+          },
+        );
   }
 
   Future<_CaseListItem> _hydrateCase(
@@ -135,7 +137,10 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
 
     if (ownerId.isNotEmpty) {
       try {
-        final userSnap = await _firestore.collection('users').doc(ownerId).get();
+        final userSnap = await _firestore
+            .collection('users')
+            .doc(ownerId)
+            .get();
         final user = userSnap.data();
         if (user != null) {
           final rawName = (user['name'] ?? '').toString().trim();
@@ -148,8 +153,10 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
 
     if (vehicleId.isNotEmpty) {
       try {
-        final vehicleSnap =
-            await _firestore.collection('vehicles').doc(vehicleId).get();
+        final vehicleSnap = await _firestore
+            .collection('vehicles')
+            .doc(vehicleId)
+            .get();
         final vehicle = vehicleSnap.data();
         if (vehicle != null) {
           final make = (vehicle['make'] ?? '').toString().trim();
@@ -157,8 +164,9 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
           final combined = '$make $model'.trim();
           if (combined.isNotEmpty) carName = combined;
 
-          final arabicPlate =
-              (vehicle['arabicPlateNumber'] ?? '').toString().trim();
+          final arabicPlate = (vehicle['arabicPlateNumber'] ?? '')
+              .toString()
+              .trim();
           final normalPlate = (vehicle['plateNumber'] ?? '').toString().trim();
           if (arabicPlate.isNotEmpty) {
             plateNumber = arabicPlate;
@@ -170,8 +178,9 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
     }
 
     final rawCaseId = (data['caseID'] ?? '').toString().trim();
-    final displayId =
-        rawCaseId.isNotEmpty ? _withHash(rawCaseId) : _shortId(doc.id, 'C');
+    final displayId = rawCaseId.isNotEmpty
+        ? _withHash(rawCaseId)
+        : _shortId(doc.id, 'C');
 
     return _CaseListItem(
       caseDocId: doc.id,
@@ -191,8 +200,7 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
     return null;
   }
 
-  String _withHash(String value) =>
-      value.startsWith('#') ? value : '#$value';
+  String _withHash(String value) => value.startsWith('#') ? value : '#$value';
 
   String _shortId(String id, String prefix) {
     final clean = id.trim();
@@ -337,28 +345,34 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
     return Row(
       children: [
         Expanded(
+          // Unequal flex, roughly proportional to each label's length —
+          // "بانتظار المراجعة" is nearly 4x longer than "الكل", so splitting
+          // the row into equal thirds (the previous layout) left it almost
+          // no room: the fixed-size icon + count badge ate most of an
+          // already-narrow third, forcing FittedBox to crush the text down
+          // to an unreadable size no matter what font size was set on it.
+          flex: 2,
           child: _tab(
             value: _CaseFilter.all,
             title: 'الكل',
-            icon: Icons.layers_outlined,
             count: _items.length,
           ),
         ),
         SizedBox(width: 8 * s),
         Expanded(
+          flex: 4,
           child: _tab(
             value: _CaseFilter.needsProcessing,
             title: 'بانتظار المراجعة',
-            icon: Icons.schedule_rounded,
             count: _needsProcessingCount,
           ),
         ),
         SizedBox(width: 8 * s),
         Expanded(
+          flex: 3,
           child: _tab(
             value: _CaseFilter.processed,
             title: 'تمت المراجعة',
-            icon: Icons.check_circle_outline_rounded,
             count: _processedCount,
           ),
         ),
@@ -369,7 +383,6 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
   Widget _tab({
     required _CaseFilter value,
     required String title,
-    required IconData icon,
     required int count,
   }) {
     final s = _scale(context);
@@ -385,19 +398,14 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
         decoration: BoxDecoration(
           color: active ? _buttonPrimary : Colors.white,
           borderRadius: BorderRadius.circular(15 * s),
-          border: Border.all(
-            color: active ? _buttonPrimary : _borderColor,
-          ),
+          border: Border.all(color: active ? _buttonPrimary : _borderColor),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 17 * s,
-              color: active ? Colors.white : _textDark,
-            ),
-            SizedBox(width: 5 * s),
+            // The icon was dropped (not just shrunk) — with three filter
+            // labels sharing one row, every dp matters more than a
+            // decorative icon that isn't needed to understand a text tab.
             Flexible(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
@@ -406,23 +414,18 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
                   maxLines: 1,
                   style: TextStyle(
                     color: active ? Colors.white : _textDark,
-                    fontSize: _font(context, 11.5),
+                    fontSize: _font(context, 14),
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
             ),
-            SizedBox(width: 5 * s),
+            SizedBox(width: 6 * s),
             Container(
-              constraints: BoxConstraints(minWidth: 27 * s),
-              padding: EdgeInsets.symmetric(
-                horizontal: 7 * s,
-                vertical: 4 * s,
-              ),
+              constraints: BoxConstraints(minWidth: 24 * s),
+              padding: EdgeInsets.symmetric(horizontal: 6 * s, vertical: 4 * s),
               decoration: BoxDecoration(
-                color: active
-                    ? Colors.white.withOpacity(.14)
-                    : _softBlue,
+                color: active ? Colors.white.withOpacity(.14) : _softBlue,
                 borderRadius: BorderRadius.circular(20 * s),
               ),
               child: Text(
@@ -544,9 +547,7 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
             ),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(24 * s),
-              ),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24 * s)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -607,16 +608,11 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
       borderRadius: BorderRadius.circular(14 * s),
       onTap: () => Navigator.pop(sheetContext, value),
       child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: 13 * s,
-          vertical: 12 * s,
-        ),
+        padding: EdgeInsets.symmetric(horizontal: 13 * s, vertical: 12 * s),
         decoration: BoxDecoration(
           color: active ? _pendingBg : _pageBg,
           borderRadius: BorderRadius.circular(14 * s),
-          border: Border.all(
-            color: active ? _primaryBlue : _borderColor,
-          ),
+          border: Border.all(color: active ? _primaryBlue : _borderColor),
         ),
         child: Row(
           children: [
@@ -648,9 +644,7 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
     if (_isLoading) {
       return const Padding(
         padding: EdgeInsets.only(top: 80),
-        child: Center(
-          child: CircularProgressIndicator(color: _primaryBlue),
-        ),
+        child: Center(child: CircularProgressIndicator(color: _primaryBlue)),
       );
     }
 
@@ -679,10 +673,7 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
     );
   }
 
-  Widget _messageCard({
-    required IconData icon,
-    required String title,
-  }) {
+  Widget _messageCard({required IconData icon, required String title}) {
     final s = _scale(context);
 
     return Container(
@@ -725,18 +716,13 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => AdminCaseReviewScreen(
-                  caseId: item.caseDocId,
-                ),
+                builder: (_) => AdminCaseReviewScreen(caseId: item.caseDocId),
               ),
             );
           },
           child: Container(
             width: double.infinity,
-            padding: EdgeInsets.symmetric(
-              horizontal: 12 * s,
-              vertical: 11 * s,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: 12 * s, vertical: 11 * s),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(18 * s),
@@ -749,9 +735,7 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
                 ),
               ],
             ),
-            child: compact
-                ? _compactCardContent(item)
-                : _wideCardContent(item),
+            child: compact ? _compactCardContent(item) : _wideCardContent(item),
           ),
         );
       },
@@ -827,11 +811,7 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
             color: _softBlue,
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            Icons.person_rounded,
-            color: _textMuted,
-            size: 27 * s,
-          ),
+          child: Icon(Icons.person_rounded, color: _textMuted, size: 27 * s),
         ),
         SizedBox(width: 7 * s),
         Expanded(
@@ -893,15 +873,9 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
           ),
         ),
         SizedBox(height: 4 * s),
-        _iconText(
-          Icons.directions_car_outlined,
-          item.carName,
-        ),
+        _iconText(Icons.directions_car_outlined, item.carName),
         SizedBox(height: 3 * s),
-        _iconText(
-          Icons.credit_card_outlined,
-          item.plateNumber,
-        ),
+        _iconText(Icons.credit_card_outlined, item.plateNumber),
       ],
     );
   }
@@ -926,11 +900,7 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
           ),
         ),
         SizedBox(width: 5 * s),
-        Icon(
-          icon,
-          color: _textMuted,
-          size: 15 * s,
-        ),
+        Icon(icon, color: _textMuted, size: 15 * s),
       ],
     );
   }
@@ -951,10 +921,7 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: 8 * s,
-            vertical: 6 * s,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: 8 * s, vertical: 6 * s),
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(20 * s),

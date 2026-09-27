@@ -482,12 +482,19 @@ class CaseAssessmentView extends StatelessWidget {
                       // than assumed from ambient direction.
                       textDirection: TextDirection.rtl,
                       children: [
-                        if (onEditImage != null && hasDamage)
+                        // Shown regardless of hasDamage — a "سليمة"
+                        // prediction can be a false negative (e.g. a blurry
+                        // photo, see CLAUDE.local.md), and gating this on
+                        // hasDamage left the admin with no way to reach
+                        // EditDamagesScreen and add the missed damage.
+                        if (onEditImage != null)
                           SizedBox(
                             width: 28,
                             height: 28,
                             child: IconButton(
-                              tooltip: 'تعديل أضرار الصورة',
+                              tooltip: hasDamage
+                                  ? 'تعديل أضرار الصورة'
+                                  : 'إضافة ضرر لهذه الصورة',
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               onPressed: () {

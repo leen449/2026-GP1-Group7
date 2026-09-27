@@ -91,8 +91,17 @@ def _assert_current_cost_snapshot(case_reference, case_data: dict[str, Any]) -> 
     any_items = False
     for image_snapshot in case_reference.collection("images").stream():
         for item_snapshot in image_snapshot.reference.collection("costItems").stream():
-            any_items = True
             item = item_snapshot.to_dict() or {}
+            # Soft-deleted items stay in Firestore for audit (see
+            # delete_admin_damage) but never count toward estimatedCostSar
+            # (see _recalculate_admin_totals) — this check must agree with
+            # that exclusion, or a case with any admin-removed damage would
+            # always fail here with a false "sum mismatch"/"unpriced lines"/
+            # "revision mismatch" error over data that was never supposed to
+            # count in the first place.
+            if item.get("removedByAdmin"):
+                continue
+            any_items = True
             if item.get("costRevision") != revision:
                 raise HTTPException(
                     status_code=422,

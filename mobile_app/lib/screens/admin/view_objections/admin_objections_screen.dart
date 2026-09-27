@@ -391,28 +391,34 @@ class _AdminObjectionsScreenState extends State<AdminObjectionsScreen> {
     return Row(
       children: [
         Expanded(
+          // Unequal flex, roughly proportional to each label's length —
+          // "بانتظار المراجعة" is nearly 4x longer than "الكل", so splitting
+          // the row into equal thirds (the previous layout) left it almost
+          // no room: the fixed-size icon + count badge ate most of an
+          // already-narrow third, forcing FittedBox to crush the text down
+          // to an unreadable size no matter what font size was set on it.
+          flex: 2,
           child: _tab(
             value: _ObjectionFilter.all,
             title: 'الكل',
-            icon: Icons.layers_outlined,
             count: _items.length,
           ),
         ),
         SizedBox(width: 8 * s),
         Expanded(
+          flex: 4,
           child: _tab(
             value: _ObjectionFilter.needsProcessing,
             title: 'بانتظار المراجعة',
-            icon: Icons.schedule_rounded,
             count: _needsProcessingCount,
           ),
         ),
         SizedBox(width: 8 * s),
         Expanded(
+          flex: 3,
           child: _tab(
             value: _ObjectionFilter.processed,
             title: 'تمت المراجعة',
-            icon: Icons.check_circle_outline_rounded,
             count: _processedCount,
           ),
         ),
@@ -423,7 +429,6 @@ class _AdminObjectionsScreenState extends State<AdminObjectionsScreen> {
   Widget _tab({
     required _ObjectionFilter value,
     required String title,
-    required IconData icon,
     required int count,
   }) {
     final s = _scale(context);
@@ -446,12 +451,9 @@ class _AdminObjectionsScreenState extends State<AdminObjectionsScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 17 * s,
-              color: active ? Colors.white : _textDark,
-            ),
-            SizedBox(width: 5 * s),
+            // The icon was dropped (not just shrunk) — with three filter
+            // labels sharing one row, every dp matters more than a
+            // decorative icon that isn't needed to understand a text tab.
             Flexible(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
@@ -460,17 +462,17 @@ class _AdminObjectionsScreenState extends State<AdminObjectionsScreen> {
                   maxLines: 1,
                   style: TextStyle(
                     color: active ? Colors.white : _textDark,
-                    fontSize: _font(context, 11.5),
+                    fontSize: _font(context, 14),
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
             ),
-            SizedBox(width: 5 * s),
+            SizedBox(width: 6 * s),
             Container(
-              constraints: BoxConstraints(minWidth: 27 * s),
+              constraints: BoxConstraints(minWidth: 24 * s),
               padding: EdgeInsets.symmetric(
-                horizontal: 7 * s,
+                horizontal: 6 * s,
                 vertical: 4 * s,
               ),
               decoration: BoxDecoration(
