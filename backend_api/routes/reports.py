@@ -247,8 +247,16 @@ def _read_damage_items(
             )
 
             for cost_item_snapshot in cost_item_snapshots:
-                any_cost_items_seen = True
                 cost_item_data = cost_item_snapshot.to_dict() or {}
+
+                if cost_item_data.get("removedByAdmin"):
+                    # Soft-deleted items stay in Firestore for audit (see
+                    # delete_admin_damage) but never count toward the report,
+                    # matching the same exclusion already applied by
+                    # _assert_current_cost_snapshot and _recalculate_admin_totals.
+                    continue
+
+                any_cost_items_seen = True
 
                 severity = _severity_label(
                     cost_item_data.get("severity")
