@@ -857,7 +857,6 @@ async def add_admin_damage(
             case_ref,
             {
                 "estimatedCostSar": firestore.Increment(line_cost),
-                "needsAdminReview": True,
                 "adminReviewUpdatedAt": firestore.SERVER_TIMESTAMP,
             },
         )

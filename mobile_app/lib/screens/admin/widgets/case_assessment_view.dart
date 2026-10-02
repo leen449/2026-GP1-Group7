@@ -152,11 +152,13 @@ class CaseAssessmentView extends StatelessWidget {
   Widget _sectionCard({
     required String title,
     String? subtitle,
+    bool needsAttention = false,
     required List<Widget> children,
   }) {
     return _CollapsibleCard(
       title: title,
       subtitle: subtitle,
+      needsAttention: needsAttention,
       initiallyExpanded: false,
       children: children,
     );
@@ -830,6 +832,7 @@ class CaseAssessmentView extends StatelessWidget {
     return _sectionCard(
       title: 'مراجعة الإدارة',
       subtitle: requiresReview ? 'تحتاج إلى مراجعة' : 'لا تحتاج إلى مراجعة',
+      needsAttention: requiresReview && reasons.isNotEmpty,
       children: [
         Container(
           width: double.infinity,
@@ -987,12 +990,14 @@ class CaseAssessmentView extends StatelessWidget {
 class _CollapsibleCard extends StatefulWidget {
   final String title;
   final String? subtitle;
+  final bool needsAttention;
   final bool initiallyExpanded;
   final List<Widget> children;
 
   const _CollapsibleCard({
     required this.title,
     this.subtitle,
+    this.needsAttention = false,
     required this.initiallyExpanded,
     required this.children,
   });
@@ -1040,14 +1045,28 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        widget.title,
+                      Row(
                         textDirection: TextDirection.rtl,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: CaseAssessmentView._textDark,
-                        ),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.title,
+                            textDirection: TextDirection.rtl,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: CaseAssessmentView._textDark,
+                            ),
+                          ),
+                          if (widget.needsAttention) ...[
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.priority_high_rounded,
+                              size: 18,
+                              color: Color(0xFFEA580C),
+                            ),
+                          ],
+                        ],
                       ),
                       if (showSubtitle) ...[
                         const SizedBox(height: 4),
