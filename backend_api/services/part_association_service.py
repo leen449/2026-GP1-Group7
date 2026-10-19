@@ -27,7 +27,7 @@ from typing import List, Optional
 
 import numpy as np
 
-IOA_THRESHOLD = 0.20
+IOA_THRESHOLD = 0.40
 
 PANELS = {
     "door", "front_bumper", "back_bumper", "fender", "hood", "trunk", "roof",
