@@ -65,21 +65,34 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
     _casesSubscription = _firestore
         .collection('accidentCase')
         .snapshots()
-        .listen((_) {
-          if (mounted) {
-            _loadEligibleCases();
-          }
-        });
+        .listen(
+          (_) {
+            if (mounted) {
+              _loadEligibleCases();
+            }
+          },
+          onError: (_) {
+            // Swallows transient Firestore errors (e.g. permission-denied
+            // right after logout, while this screen is still alive in the
+            // background IndexedStack tab) instead of crashing as an
+            // unhandled exception.
+          },
+        );
 
     // Automatically refresh when objections change
     _objectionsSubscription = _firestore
         .collection('objection')
         .snapshots()
-        .listen((_) {
-          if (mounted) {
-            _loadEligibleCases();
-          }
-        });
+        .listen(
+          (_) {
+            if (mounted) {
+              _loadEligibleCases();
+            }
+          },
+          onError: (_) {
+            // Same as above — see _casesSubscription.
+          },
+        );
   }
 
   @override

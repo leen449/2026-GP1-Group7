@@ -34,6 +34,7 @@ from services.part_segmentation_service import segment_parts
 from services.part_association_service import associate
 from services.labor_hours_lookup import get_hours, get_unmapped_hours
 from services.severity_factor_services import get_severity_factor
+from services.severity_service import aggregate_case_severity
 from services.vehicle_factor_services import get_vehicle_factor
 from services.paint_factor_services import get_paint_factor
 from services.confidence_service import assess_confidence
@@ -863,6 +864,12 @@ async def add_admin_damage(
 
     _add_damage(transaction)
 
+    # The transaction above only increments cost totals; overallSeverity
+    # needs the full MAX-over-costItems recompute (see
+    # _recalculate_case_severity) since the new item's severity may now be
+    # the case's worst.
+    overall_severity = _recalculate_case_severity(case_ref)
+
     return {
         "status": "success",
         "message": "Damage added successfully",
@@ -875,6 +882,7 @@ async def add_admin_damage(
             "hours": float(hours),
             "lineCostSar": line_cost,
         },
+        "overallSeverity": overall_severity,
     }
     
 async def update_admin_damage(
@@ -1021,6 +1029,7 @@ async def update_admin_damage(
         "lineCostSar": line_cost,
         "imageTotalSar": totals["imageTotalSar"],
         "caseTotalSar": totals["caseTotalSar"],
+        "overallSeverity": totals["overallSeverity"],
     }
 
 
@@ -1090,13 +1099,42 @@ async def delete_admin_damage(
         "deletedItemId": item_id,
         "imageTotalSar": totals["imageTotalSar"],
         "caseTotalSar": totals["caseTotalSar"],
+        "overallSeverity": totals["overallSeverity"],
     }
+
+
+def _recalculate_case_severity(case_ref) -> str | None:
+    """
+    Recompute accidentCase.overallSeverity from every active (non-removed)
+    costItem across all of the case's images, using the same MAX-over-images
+    rule damage_detection.py used for the original AI pass (see
+    severity_service.aggregate_case_severity).
+
+    costItems are the admin's source of truth once a case is under review —
+    the same assumption _recalculate_admin_totals already makes for cost —
+    so this keeps the report's single severity badge in sync with whatever
+    the admin last approved, instead of the stale AI-only value.
+    """
+    severities = []
+
+    for image_doc in case_ref.collection("images").stream():
+        for item_doc in image_doc.reference.collection("costItems").stream():
+            item = item_doc.to_dict() or {}
+            if not item.get("removedByAdmin"):
+                severities.append(item.get("severity"))
+
+    overall_severity = aggregate_case_severity(severities)
+
+    case_ref.update({"overallSeverity": overall_severity})
+
+    return overall_severity
 
 
 def _recalculate_admin_totals(case_ref, image_ref) -> dict:
     """
-    Recalculate the selected image total and then the complete case total.
-    Existing costItems remain the source of truth.
+    Recalculate the selected image total, the complete case total, and the
+    case's overall severity. Existing costItems remain the source of truth
+    for all three.
     """
 
     image_total = 0.0
@@ -1131,6 +1169,8 @@ def _recalculate_admin_totals(case_ref, image_ref) -> dict:
 
     case_total = round(case_total, 2)
 
+    overall_severity = _recalculate_case_severity(case_ref)
+
     case_ref.update({
         "estimatedCostSar": case_total,
         "adminModified": True,
@@ -1140,6 +1180,7 @@ def _recalculate_admin_totals(case_ref, image_ref) -> dict:
     return {
         "imageTotalSar": image_total,
         "caseTotalSar": case_total,
+        "overallSeverity": overall_severity,
     }
 
 async def process_cost_estimation(case_id: str) -> dict:

@@ -21,7 +21,7 @@ class AdminClaimDetailsScreen extends StatefulWidget {
 }
 
 class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
-  static const String _backendUrl = 'http://192.168.0.13:8000';
+  static const String _backendUrl = 'http://192.168.0.11:8000';
 
   static const Color _pageBg = Color(0xFFF7FAFF);
   static const Color _textDark = Color(0xFF071A3D);
@@ -1029,10 +1029,7 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
               ],
             ),
           ),
-          if (_expanded) ...[
-            const SizedBox(height: 14),
-            ...widget.children,
-          ],
+          if (_expanded) ...[const SizedBox(height: 14), ...widget.children],
         ],
       ),
     );
