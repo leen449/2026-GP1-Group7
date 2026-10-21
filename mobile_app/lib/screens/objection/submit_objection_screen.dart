@@ -116,7 +116,14 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       final currentUser = _auth.currentUser;
 
       if (currentUser == null) {
-        throw Exception('يجب تسجيل الدخول أولًا.');
+        // Logged out (e.g. this tab is still alive in the background
+        // IndexedStack right after sign-out) — nothing to load, and not
+        // an error worth surfacing to the user.
+        setState(() {
+          _isLoading = false;
+        });
+
+        return;
       }
 
       debugPrint('[objDebug] currentUser.uid = ${currentUser.uid}');
@@ -292,6 +299,14 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
       setState(() {
         _isLoading = false;
       });
+
+      if (error.code == 'permission-denied') {
+        // Same race as _casesSubscription/_objectionsSubscription's onError:
+        // sign-out can revoke access while this screen's queries are still
+        // in flight (or still alive in the background IndexedStack tab).
+        // Not a real error — nothing to show the user.
+        return;
+      }
 
       _showMessage(
         error.message ?? 'حدث خطأ أثناء تحميل الحالات.',
