@@ -11,23 +11,45 @@ Rules:
      damage box by IoA >= IOA_THRESHOLD. Duplicate masks of the same canonical part are
      billed once, using the best-IoA instance.
   2. If no panel clears the threshold, a mask containing the damage centroid may be used.
-  3. Glass is priced only when exactly one distinct glass cost bucket clears the IoA
-     threshold: windshield, window/door glass, or trunk. Missing/conflicting evidence is
-     left unpriced for review; generic door masks are not evidence of broken door glass.
+  3. Glass buckets (windshield, window/door glass, trunk) are matched against the damage
+     box by containment (see `containment_box_mask`), not plain IoA, since glass-shatter
+     boxes are often looser/larger than the true break and would otherwise unfairly
+     exclude an accurate, well-fitted part mask. When exactly one bucket clears the
+     threshold, it's priced normally. When more than one does, their masks are compared
+     against EACH OTHER: if they substantially overlap, they're one real break with a
+     labeling disagreement, so hours are averaged across the candidates (flagged
+     `glass_part_ambiguous_fallback`, same precedent as the wheel front/rear average
+     below); if they're spatially distinct, they're genuinely separate damaged parts and
+     each is billed, same as the panel multi-part rule above. No supported bucket at all
+     is left unpriced for review; generic door masks are not evidence of broken door glass.
   4. Lamp and tire-flat detections use their location-independent expert values once per
      damage-model detection. Their part masks do not change the price.
 
-IoA = |damage_box ∩ part_mask| / |damage_box|.
+IoA = |damage_box ∩ part_mask| / |damage_box|. Used for panel matching (rule 1) and as
+the admission threshold's VALUE for glass (rule 3), though glass measures containment
+(IoA with the smaller of the two regions as the denominator) rather than plain IoA.
 
 ⚠️ STAGING: real-domain segmentation accuracy remains under evaluation. Ambiguous visual
-assignments fail visibly instead of selecting a cost row from Najm.
+assignments either average across a confirmed single spot or bill every confirmed
+distinct part — never guess a single cost row from Najm.
 """
 from dataclasses import dataclass, field
 from typing import List, Optional
 
 import numpy as np
 
+from services.labor_hours_lookup import get_hours
+
 IOA_THRESHOLD = 0.40
+
+# When more than one glass bucket clears IOA_THRESHOLD, this decides whether the
+# competing candidates are the same physical spot (one real break, segmentation
+# just disagreed on its label -> average their hours, same precedent as the wheel
+# front/rear fallback in labor_hours_lookup.py) or genuinely different spots (both
+# billed, same precedent as the panel-damage multi-part path below). Chosen from a
+# single real example (two duplicate masks of one window measured at 0.978) — not
+# independently tuned. Revisit once more glass-ambiguous cases have been observed.
+GLASS_SAME_SPOT_OVERLAP = 0.60
 
 PANELS = {
     "door", "front_bumper", "back_bumper", "fender", "hood", "trunk", "roof",
@@ -78,6 +100,9 @@ class CostLine:
     part_conf: float = 0.0
     flags: List[str] = field(default_factory=list)
     wheel_position: Optional[str] = None
+    # Set only for the glass same-spot-average fallback, where no single lookup_key
+    # applies. When present, the cost step uses this instead of looking up hours.
+    hours_override: Optional[float] = None
 
 
 def _norm(s: str) -> str:
@@ -94,6 +119,44 @@ def ioa_box_mask(box, mask) -> float:
     if area <= 0:
         return 0.0
     return float(mask[y1:y2, x1:x2].sum()) / float(area)
+
+
+def containment_box_mask(box, mask) -> float:
+    """
+    Intersection over the SMALLER of {damage box, part mask} (Szymkiewicz-Simpson
+    overlap coefficient), instead of always over the damage box. A loose/oversized
+    damage box (common for glass-shatter detections) otherwise unfairly penalizes an
+    accurate, well-fitted part mask just for being smaller than the box — see
+    docs/cost_estimation.md's glass-association notes.
+
+    Mathematically >= ioa_box_mask always, and identical to it whenever the damage
+    box is the smaller region (the normal case for dent/scratch panel damage), so
+    this only changes behavior for the oversized-box glass case it targets.
+    """
+    x1, y1, x2, y2 = [int(v) for v in box]
+    x1, y1 = max(0, x1), max(0, y1)
+    x2 = min(mask.shape[1], x2)
+    y2 = min(mask.shape[0], y2)
+    box_area = (x2 - x1) * (y2 - y1)
+    mask_area = int(mask.sum())
+    smaller = min(box_area, mask_area)
+    if smaller <= 0:
+        return 0.0
+    intersection = float(mask[y1:y2, x1:x2].sum())
+    return intersection / float(smaller)
+
+
+def _mask_pair_overlap(mask_a, mask_b) -> float:
+    """Overlap coefficient between two part masks themselves (not vs. a damage box).
+    High value -> the two masks describe essentially the same physical region
+    (duplicate/disagreeing labels for one spot). Low value -> genuinely distinct
+    regions that both happen to sit inside one (likely oversized) damage box."""
+    area_a, area_b = int(mask_a.sum()), int(mask_b.sum())
+    smaller = min(area_a, area_b)
+    if smaller <= 0:
+        return 0.0
+    intersection = int((mask_a & mask_b).sum())
+    return intersection / float(smaller)
 
 
 def _wheel_position_from_label(label: str) -> Optional[str]:
@@ -136,44 +199,90 @@ def _wheel_fields(damage_type: str, visual_position: Optional[str],
     return position, []
 
 
-def _glass_line(damage_index, damage_type, damage, parts, ioa_threshold):
-    """Build one glass line from one unambiguous segmentation cost bucket."""
+def _glass_line(damage_index, damage_type, damage, parts, ioa_threshold) -> List[CostLine]:
+    """Build glass line(s) from the segmentation cost buckets that clear threshold."""
     hits = {}
     for segmented in parts:
         bucket = _GLASS_BUCKETS.get(_norm(segmented.get("label")))
         if bucket is None:
             continue
-        ioa = ioa_box_mask(damage["bbox"], segmented["mask"])
-        if ioa < ioa_threshold:
+        containment = containment_box_mask(damage["bbox"], segmented["mask"])
+        if containment < ioa_threshold:
             continue
         part, lookup_key = bucket
         current = hits.get(part)
+        # Among duplicate instances of the SAME bucket label, containment is a poor
+        # tiebreaker once it's saturated near 1.0 for most candidates (the usual
+        # state once a damage box is oversized enough to trigger this branch at
+        # all) -- comparing confidence between same-label guesses is apples-to-apples
+        # and meaningfully informative here, unlike comparing confidence ACROSS
+        # different bucket labels (see the same-spot check below, which never trusts
+        # confidence across labels for exactly that reason).
         if (
             current is None
-            or ioa > current[1]
+            or segmented.get("confidence", 0.0) > current[0].get("confidence", 0.0)
             or (
-                ioa == current[1]
-                and segmented.get("confidence", 0.0) > current[0].get("confidence", 0.0)
+                segmented.get("confidence", 0.0) == current[0].get("confidence", 0.0)
+                and containment > current[1]
             )
         ):
-            hits[part] = (segmented, ioa, lookup_key)
+            hits[part] = (segmented, containment, lookup_key)
 
     if not hits:
-        return CostLine(
+        return [CostLine(
             damage_index, damage_type, None, None, "unassigned",
             flags=["glass_no_part_support"],
-        )
-    if len(hits) > 1:
-        return CostLine(
+        )]
+
+    if len(hits) == 1:
+        part, (segmented, containment, lookup_key) = next(iter(hits.items()))
+        return [CostLine(
+            damage_index, damage_type, part, lookup_key, "seg_ioa",
+            ioa=containment, part_conf=float(segmented.get("confidence", 0.0)),
+        )]
+
+    # More than one bucket cleared threshold. Check whether the candidates'
+    # masks substantially overlap EACH OTHER (not the damage box): if so, they're
+    # one real spot that segmentation disagreed on how to label -> average, same
+    # precedent as the wheel front/rear fallback. If the masks are spatially
+    # distinct, they're genuinely separate damaged parts -> bill each, same
+    # precedent as the panel-damage multi-part path further below.
+    entries = list(hits.values())
+    same_spot = all(
+        _mask_pair_overlap(a[0]["mask"], b[0]["mask"]) >= GLASS_SAME_SPOT_OVERLAP
+        for i, a in enumerate(entries) for b in entries[i + 1:]
+    )
+
+    if same_spot:
+        hour_values = [
+            h for h in (
+                get_hours(lookup_key, damage_type) for _, _, lookup_key in entries
+            ) if h is not None
+        ]
+        if hour_values:
+            avg_hours = round(sum(hour_values) / len(hour_values), 2)
+            avg_conf = sum(s.get("confidence", 0.0) for s, _, _ in entries) / len(entries)
+            return [CostLine(
+                damage_index, damage_type, "glass_ambiguous", None,
+                "glass_part_ambiguous_fallback",
+                part_conf=float(avg_conf),
+                flags=["glass_part_ambiguous_fallback"],
+                hours_override=avg_hours,
+            )]
+        # None of the candidate buckets had configured hours (shouldn't happen for
+        # windshield/door_glass/trunk) -- fall through to the conservative refusal.
+        return [CostLine(
             damage_index, damage_type, None, None, "unassigned",
             flags=["glass_ambiguous_part"],
-        )
+        )]
 
-    part, (segmented, ioa, lookup_key) = next(iter(hits.items()))
-    return CostLine(
-        damage_index, damage_type, part, lookup_key, "seg_ioa",
-        ioa=ioa, part_conf=float(segmented.get("confidence", 0.0)),
-    )
+    return [
+        CostLine(
+            damage_index, damage_type, part, lookup_key, "seg_ioa",
+            ioa=containment, part_conf=float(segmented.get("confidence", 0.0)),
+        )
+        for part, (segmented, containment, lookup_key) in hits.items()
+    ]
 
 
 def associate(damages, parts, image_hw, najm_zone: Optional[str] = None,
@@ -194,7 +303,7 @@ def associate(damages, parts, image_hw, najm_zone: Optional[str] = None,
         category = _CATEGORY.get(damage_type, "panel")
 
         if category == "glass":
-            lines.append(_glass_line(
+            lines.extend(_glass_line(
                 damage_index, damage_type, damage, parts, ioa_threshold,
             ))
             continue

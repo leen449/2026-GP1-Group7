@@ -128,6 +128,8 @@ def _wheel_position_from_najm(damage_location: str):
 
 
 def _hours_for(line):
+    if getattr(line, "hours_override", None) is not None:
+        return line.hours_override
     if line.lookup_key is None:
         return None
     h = get_hours(
@@ -486,6 +488,10 @@ REVIEW_REASON_LABELS_AR = {
     ),
     "glass_no_part_support": "لم يتم تأكيد موقع الجزء الزجاجي المتضرر بثقة كافية",
     "glass_ambiguous_part": "هناك أكثر من موقع محتمل لكسر الزجاج المكتشف في هذه الصورة",
+    "glass_part_ambiguous_fallback": (
+        "لم يتحدد موقع كسر الزجاج بدقة بين أكثر من جزء محتمل لنفس المكان، "
+        "فتم استخدام متوسط تقديري لساعات العمل"
+    ),
     "centroid_fallback": "تم تحديد الجزء المتضرر بطريقة تقريبية وليس بتحليل دقيق",
 }
 
