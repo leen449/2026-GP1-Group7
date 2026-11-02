@@ -40,6 +40,11 @@ from services.paint_factor_services import get_paint_factor
 from services.confidence_service import assess_confidence
 from services.vehicle_valuation_services import get_vehicle_value
 from services.confidence_signals import detect_airbag, parse_zone
+from services.damage_mask_service import segment_damages
+# Live severity path: mask-based fusion (production, validated on the 31 real photos --
+# see services/severity_fusion_mask.py's docstring). The box-based services.severity_fusion
+# stays in the repo but is no longer imported here.
+from services.severity_fusion_mask import fused_image_severity
 
 RATE_SAR = 165.0
 BUCKET = "crashlens-233bf.firebasestorage.app"
@@ -703,6 +708,40 @@ def _stage_image(img_doc, wheel_position_hint, f_veh, f_paint, bucket, review_re
                     _append_reason(review_reasons, flag)
             return stage
 
+        # [NEW] Mask-based severity fusion (services/severity_fusion_mask.py, production):
+        # raise the full-image ResNet grade to the worse of itself and a geometry signal
+        # -- damage-segmentation MASK area over associated-part mask area -- whenever a
+        # panel/glass damage was linked to a part. This is a SEPARATE, parallel pass: the
+        # damage-seg model (services/damage_mask_service.py) runs on the same downloaded
+        # image purely to get masks, and its own instances are associated to the SAME
+        # `parts` via the SAME, unchanged associate() (IOA_THRESHOLD=0.40) used for cost
+        # above -- it does not touch `damages`/`lines`/billing in any way. tire/lamp
+        # damage_class lines and unassigned lines carry no part_mask_area, so they are
+        # naturally excluded, same as before. Picks, per distinct seg damage, only the
+        # single best-IoA/containment line (ln.ioa), same "best part for that damage"
+        # rule as before.
+        raw_sev = sev  # the stored ResNet-only label, before fusion -- kept for audit below
+        ordinal = img.get("ordinalProbabilities") or {}
+        p_ge_moderate = ordinal.get("greaterThanMinor")
+        p_ge_severe = ordinal.get("greaterThanModerate")
+        if p_ge_moderate is not None and p_ge_severe is not None:
+            seg_damages = segment_damages(temp_path)
+            seg_lines = associate(seg_damages, parts, (H, W)) if seg_damages else []
+
+            best_by_seg_damage = {}
+            for ln in seg_lines:
+                if ln.part_mask_area is None:
+                    continue
+                current = best_by_seg_damage.get(ln.damage_index)
+                if current is None or ln.ioa > current.ioa:
+                    best_by_seg_damage[ln.damage_index] = ln
+
+            fusion_damages = [
+                (int(seg_damages[ln.damage_index]["mask"].sum()), ln.part_mask_area)
+                for ln in best_by_seg_damage.values()
+            ]
+            sev = fused_image_severity(p_ge_moderate, p_ge_severe, fusion_damages)
+
         f_sev_img = get_severity_factor(sev)
         built = build_line_items(
             lines, f_sev_img * f_veh * f_paint, severity=sev, damages=damages,
@@ -710,6 +749,13 @@ def _stage_image(img_doc, wheel_position_hint, f_veh, f_paint, bucket, review_re
         stage["items"] = built["items"]
         stage["update"]["estimatedLaborCostSar"] = round(built["cost_sar"], 2)
         stage["update"]["severityFactorApplied"] = f_sev_img
+        # [NEW] The fused value becomes the image's authoritative severity -- the
+        # same field the mobile/admin views and report already read -- not just an
+        # internal pricing input. The original ResNet-only label is preserved
+        # alongside it (never overwritten elsewhere) so the fusion's effect stays
+        # auditable instead of silently replacing what the model actually said.
+        stage["update"]["severity"] = sev
+        stage["update"]["resnetSeverity"] = raw_sev
         for item in built["items"]:
             for flag in item["flags"]:
                 _append_reason(review_reasons, flag)

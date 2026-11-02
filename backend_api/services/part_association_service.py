@@ -103,6 +103,13 @@ class CostLine:
     # Set only for the glass same-spot-average fallback, where no single lookup_key
     # applies. When present, the cost step uses this instead of looking up hours.
     hours_override: Optional[float] = None
+    # Pixel area (mask.sum()) of the single part this line's damage was associated
+    # to. None whenever there is no single resolved part mask behind the line
+    # (lamp/tire damage_class rows, unassigned rows, and the glass same-spot
+    # average, which has no one mask to point to). Consumed by the severity
+    # fusion layer (services/severity_fusion.py) as the denominator of its
+    # damage-box/part-mask extent ratio; does not affect pricing.
+    part_mask_area: Optional[int] = None
 
 
 def _norm(s: str) -> str:
@@ -239,6 +246,7 @@ def _glass_line(damage_index, damage_type, damage, parts, ioa_threshold) -> List
         return [CostLine(
             damage_index, damage_type, part, lookup_key, "seg_ioa",
             ioa=containment, part_conf=float(segmented.get("confidence", 0.0)),
+            part_mask_area=int(segmented["mask"].sum()),
         )]
 
     # More than one bucket cleared threshold. Check whether the candidates'
@@ -280,6 +288,7 @@ def _glass_line(damage_index, damage_type, damage, parts, ioa_threshold) -> List
         CostLine(
             damage_index, damage_type, part, lookup_key, "seg_ioa",
             ioa=containment, part_conf=float(segmented.get("confidence", 0.0)),
+            part_mask_area=int(segmented["mask"].sum()),
         )
         for part, (segmented, containment, lookup_key) in hits.items()
     ]
@@ -351,6 +360,7 @@ def associate(damages, parts, image_hw, najm_zone: Optional[str] = None,
                     part_conf=float(segmented.get("confidence", 0.0)),
                     flags=flags,
                     wheel_position=wheel_position,
+                    part_mask_area=int(segmented["mask"].sum()),
                 ))
             continue
 
@@ -381,6 +391,7 @@ def associate(damages, parts, image_hw, najm_zone: Optional[str] = None,
                 part_conf=float(segmented.get("confidence", 0.0)),
                 flags=flags,
                 wheel_position=wheel_position,
+                part_mask_area=int(segmented["mask"].sum()),
             ))
         else:
             lines.append(CostLine(
