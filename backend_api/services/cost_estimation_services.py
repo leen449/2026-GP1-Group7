@@ -870,6 +870,14 @@ async def add_admin_damage(
         2,
     )
 
+    # [FIX] add_admin_damage updates estimatedCostSar via a transactional Increment
+    # (unlike update/delete_admin_damage, which go through _recalculate_admin_totals)
+    # -- it was never recomputing calibratedEstimatedCostSar, leaving it stale after
+    # every manually-added damage. Computed from the pre-transaction read + this
+    # line's cost, same tolerance the Increment-based raw total already has.
+    current_raw_total = float(case.get("estimatedCostSar") or 0.0)
+    new_calibrated_total = round(calibrate_total(round(current_raw_total + line_cost, 2)), 2)
+
     cost_item_ref = image_ref.collection("costItems").document()
 
     item_data = {
@@ -911,6 +919,7 @@ async def add_admin_damage(
             case_ref,
             {
                 "estimatedCostSar": firestore.Increment(line_cost),
+                "calibratedEstimatedCostSar": new_calibrated_total,
                 "adminReviewUpdatedAt": firestore.SERVER_TIMESTAMP,
             },
         )
@@ -935,9 +944,11 @@ async def add_admin_damage(
             "hours": float(hours),
             "lineCostSar": line_cost,
         },
+        "caseTotalSar": round(current_raw_total + line_cost, 2),
+        "calibratedCaseTotalSar": new_calibrated_total,
         "overallSeverity": overall_severity,
     }
-    
+
 async def update_admin_damage(
     case_id: str,
     image_id: str,
@@ -1082,6 +1093,7 @@ async def update_admin_damage(
         "lineCostSar": line_cost,
         "imageTotalSar": totals["imageTotalSar"],
         "caseTotalSar": totals["caseTotalSar"],
+        "calibratedCaseTotalSar": totals["calibratedCaseTotalSar"],
         "overallSeverity": totals["overallSeverity"],
     }
 
@@ -1152,6 +1164,7 @@ async def delete_admin_damage(
         "deletedItemId": item_id,
         "imageTotalSar": totals["imageTotalSar"],
         "caseTotalSar": totals["caseTotalSar"],
+        "calibratedCaseTotalSar": totals["calibratedCaseTotalSar"],
         "overallSeverity": totals["overallSeverity"],
     }
 
