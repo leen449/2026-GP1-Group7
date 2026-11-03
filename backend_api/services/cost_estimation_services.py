@@ -1221,23 +1221,24 @@ def _recalculate_admin_totals(case_ref, image_ref) -> dict:
             case_total += float(image_cost)
 
     case_total = round(case_total, 2)
-    # [NEW] Same case-total calibration as process_cost_estimation, applied here too so
-    # an admin edit never silently reverts the displayed estimate back to the raw figure.
+    # [PAUSED] Same as process_cost_estimation: estimatedCostSar stays the raw total for
+    # now (see the case_update comment there for why) -- calibratedEstimatedCostSar is
+    # still recomputed and stored on every admin edit, so it never goes stale.
     calibrated_case_total = round(calibrate_total(case_total), 2)
 
     overall_severity = _recalculate_case_severity(case_ref)
 
     case_ref.update({
-        "estimatedCostSar": calibrated_case_total,
-        "rawEstimatedCostSar": case_total,
+        "estimatedCostSar": case_total,
+        "calibratedEstimatedCostSar": calibrated_case_total,
         "adminModified": True,
         "adminModifiedAt": firestore.SERVER_TIMESTAMP,
     })
 
     return {
         "imageTotalSar": image_total,
-        "caseTotalSar": calibrated_case_total,
-        "rawCaseTotalSar": case_total,
+        "caseTotalSar": case_total,
+        "calibratedCaseTotalSar": calibrated_case_total,
         "overallSeverity": overall_severity,
     }
 
@@ -1359,8 +1360,15 @@ async def process_cost_estimation(case_id: str) -> dict:
         case_update = {
             "status": "تم حساب التكلفة",
             "costState": cost_state,
-            "estimatedCostSar": calibrated_total,
-            "rawEstimatedCostSar": total,
+            # [PAUSED] estimatedCostSar is the raw rule-engine total again, pending team
+            # discussion on how to present calibration (see services/cost_calibration.py's
+            # docstring) -- a linear calibration regresses every case toward the sample
+            # mean, so it can make an already-correct case WORSE, and the admin's only
+            # edit tools (severity/damage/part) can't fix that kind of error since it's
+            # not a classification problem. calibratedEstimatedCostSar is still computed
+            # and stored so re-enabling it later is a one-line change, not a re-derivation.
+            "estimatedCostSar": total,
+            "calibratedEstimatedCostSar": calibrated_total,
             "costFactors": {"paint": f_paint, "vehicle": f_veh, "rateSar": RATE_SAR},
             "needsAdminReview": needs_review,
             "adminReviewReasonsAr": admin_review_reasons_ar,
@@ -1381,8 +1389,8 @@ async def process_cost_estimation(case_id: str) -> dict:
             "status": "success",
             "costState": cost_state,
             "costRevision": revision,
-            "estimatedCostSar": calibrated_total,
-            "rawEstimatedCostSar": total,
+            "estimatedCostSar": total,
+            "calibratedEstimatedCostSar": calibrated_total,
             "needsAdminReview": needs_review,
             "adminReviewReasonsAr": admin_review_reasons_ar,
             "reviewReasons": review_reasons,
