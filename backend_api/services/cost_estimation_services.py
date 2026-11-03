@@ -41,6 +41,7 @@ from services.confidence_service import assess_confidence
 from services.vehicle_valuation_services import get_vehicle_value
 from services.confidence_signals import detect_airbag, parse_zone
 from services.damage_mask_service import segment_damages
+from services.cost_calibration import calibrate_total
 # Live severity path: mask-based fusion (production, validated on the 31 real photos --
 # see services/severity_fusion_mask.py's docstring). The box-based services.severity_fusion
 # stays in the repo but is no longer imported here.
@@ -1220,18 +1221,23 @@ def _recalculate_admin_totals(case_ref, image_ref) -> dict:
             case_total += float(image_cost)
 
     case_total = round(case_total, 2)
+    # [NEW] Same case-total calibration as process_cost_estimation, applied here too so
+    # an admin edit never silently reverts the displayed estimate back to the raw figure.
+    calibrated_case_total = round(calibrate_total(case_total), 2)
 
     overall_severity = _recalculate_case_severity(case_ref)
 
     case_ref.update({
-        "estimatedCostSar": case_total,
+        "estimatedCostSar": calibrated_case_total,
+        "rawEstimatedCostSar": case_total,
         "adminModified": True,
         "adminModifiedAt": firestore.SERVER_TIMESTAMP,
     })
 
     return {
         "imageTotalSar": image_total,
-        "caseTotalSar": case_total,
+        "caseTotalSar": calibrated_case_total,
+        "rawCaseTotalSar": case_total,
         "overallSeverity": overall_severity,
     }
 
@@ -1305,6 +1311,11 @@ async def process_cost_estimation(case_id: str) -> dict:
             any_unpriced = any_unpriced or stage["unpriced"]
 
         total = round(subtotal, 2)
+        # [NEW] Case-total calibration (services/cost_calibration.py): assess_confidence
+        # below runs on the RAW rule-engine total unchanged -- calibration is a late
+        # display-only post-process, not a change to confidence/review logic. The raw
+        # figure is kept on the case (rawEstimatedCostSar) for transparency/admin view.
+        calibrated_total = round(calibrate_total(total), 2)
         airbag_deployed = detect_airbag(damage_location)
         # The note (case id + matched part/damage) is not surfaced on its own —
         # assess_confidence() below turns the same prior_accident_same_location
@@ -1348,7 +1359,8 @@ async def process_cost_estimation(case_id: str) -> dict:
         case_update = {
             "status": "تم حساب التكلفة",
             "costState": cost_state,
-            "estimatedCostSar": total,
+            "estimatedCostSar": calibrated_total,
+            "rawEstimatedCostSar": total,
             "costFactors": {"paint": f_paint, "vehicle": f_veh, "rateSar": RATE_SAR},
             "needsAdminReview": needs_review,
             "adminReviewReasonsAr": admin_review_reasons_ar,
@@ -1369,7 +1381,8 @@ async def process_cost_estimation(case_id: str) -> dict:
             "status": "success",
             "costState": cost_state,
             "costRevision": revision,
-            "estimatedCostSar": total,
+            "estimatedCostSar": calibrated_total,
+            "rawEstimatedCostSar": total,
             "needsAdminReview": needs_review,
             "adminReviewReasonsAr": admin_review_reasons_ar,
             "reviewReasons": review_reasons,
