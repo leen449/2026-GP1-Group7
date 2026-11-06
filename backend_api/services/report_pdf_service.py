@@ -65,6 +65,14 @@ _PART_LABEL_AR = {
     "door_glass": "زجاج الباب",
     "lamp": "المصباح",
     "wheel": "الإطار",
+    # Cost rule v2 identity labels (2026-11-07) -- "window" is the real segmented
+    # part cost_v2 shows for a door-glass break (same concept door_glass already
+    # names above; v2 just uses the real part name instead of the legacy v1
+    # billing-key name). "glass_ambiguous" is v2's honest label for a glass break
+    # whose exact bucket couldn't be resolved (see cost_estimation_services.py's
+    # _V1_GLASS_IDENTITY_LABEL comment) -- never fabricated as a specific part.
+    "window": "زجاج الباب",
+    "glass_ambiguous": "زجاج (الموقع غير مؤكد)",
 }
 
 
@@ -564,6 +572,27 @@ def _draw_total_section(
         padding=2,
     )
 
+    # Cost rule v2 footer (2026-11-07, see DECISION_cost_rule_v2.md section 7-8):
+    # labour-only scope note, shown only for a v2-priced report. Squeezed into this
+    # existing cell's own spare vertical room (28pt top padding already leaves
+    # space below the label) rather than adding a new box, so the approved total-
+    # section geometry is untouched. insert_htmlbox (inside _html_box) raises if
+    # this doesn't fit, so a layout problem fails loudly instead of overflowing
+    # silently.
+    footer_html = ""
+    if not is_referral_report and getattr(record, "cost_source", "v1") == "v2":
+        rate = record.cost_rate_sar
+        rate_text = f"{rate:g}" if isinstance(rate, (int, float)) else "—"
+        table_text = record.cost_table or "—"
+        version_text = record.cost_rule_version or "—"
+        footer_html = (
+            '<div class="ar" style="font-size:5.6pt;font-weight:500;'
+            'text-align:right;margin-top:2pt">'
+            f"عمالة فقط (هيكل وصبغ) — {_e(rate_text)} ريال/ساعة — "
+            f"جدول {_e(table_text)} — نسخة {_e(version_text)}"
+            "</div>"
+        )
+
     _html_box(
         page,
         fitz.Rect(
@@ -575,6 +604,7 @@ def _draw_total_section(
         (
             '<div style="padding-top: 28pt;">'
             f'{_bilingual("إجمالي التكلفة التقديرية", "Total Estimated Cost (SAR)", strong=True)}'
+            f"{footer_html}"
             "</div>"
         ),
         font_size=8.0,

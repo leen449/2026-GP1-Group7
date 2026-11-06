@@ -131,6 +131,55 @@ def _assert_current_cost_snapshot(case_reference, case_data: dict[str, Any]) -> 
         )
 
 
+def _part_from_panel_id(panel_id: str) -> str:
+    """cost_v2 panel_id is "{case_id}:{part_label}" or, for the per-image identity
+    fallback (no overlapping part found), "{case_id}:{table_key}:{image_id}" -- see
+    services/cost_v2/run_offline.py's PANEL IDENTITY docs. Either way the part/
+    hours-key name is the SECOND colon-separated segment."""
+    parts = str(panel_id or "").split(":")
+    return parts[1] if len(parts) >= 2 else str(panel_id or "")
+
+
+def _read_damage_items_from_v2(case_data: dict[str, Any]) -> list[DamageItem]:
+    """
+    Cost rule v2 display path (2026-11-07, see
+    services/cost_v2/spec/DECISION_cost_rule_v2.md section 7-8): build the report's
+    damage rows from the case's own costV2Lines (already the final, priced lines --
+    no Firestore subcollection read needed, unlike the v1 path below).
+    """
+    lines = case_data.get("costV2Lines") or []
+    damages: list[DamageItem] = []
+
+    for line in lines:
+        if not isinstance(line, dict):
+            continue
+        damage_type = line.get("damage")
+        if damage_type is None or not str(damage_type).strip():
+            continue
+        line_sar = line.get("line_sar")
+        if line_sar is None:
+            continue  # not priced -- same "leave it off the report" rule as v1
+        damages.append(
+            DamageItem(
+                type=str(damage_type).strip(),
+                part=_part_from_panel_id(line.get("panel_id")) or None,
+                severity=_severity_label(line.get("severity")),
+                cost_sar=float(line_sar),
+            )
+        )
+
+    if not damages:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Cost rule v2 produced no priced line items for this case. "
+                "Resolve this administratively before generating the report."
+            ),
+        )
+
+    return damages
+
+
 def _vehicle_year(vehicle_data: dict[str, Any]) -> int:
     raw_year = vehicle_data.get("year")
 
@@ -399,11 +448,40 @@ def _build_report_input(
         ),
     )
 
-    damages = _read_damage_items(
-        case_reference,
-        case_data,
-        require_pricing=not is_referral_report,
+    # Cost rule v2 display switch (2026-11-07): a referral report never carries
+    # real cost figures regardless of displayCostSource, so it always takes the
+    # existing v1-shaped path (require_pricing=False already suppresses the
+    # rendered cost there) -- only a normal report can show the v2 breakdown.
+    use_v2 = (
+        not is_referral_report
+        and str(case_data.get("displayCostSource") or "").strip() == "v2"
     )
+
+    if use_v2:
+        # The v1 cost-snapshot integrity gate still applies: v2 is computed FROM
+        # these same costItems (see _compute_cost_v2_shadow), so an incomplete/
+        # incoherent v1 snapshot is just as disqualifying for a v2-displayed
+        # report as it already is for a v1-displayed one.
+        if not is_referral_report:
+            _assert_current_cost_snapshot(case_reference, case_data)
+        damages = _read_damage_items_from_v2(case_data)
+        display_total = case_data.get("displayCostSar")
+        total_override = float(display_total) if isinstance(display_total, (int, float)) else None
+        cost_config = case_data.get("costV2Config") or {}
+        cost_kwargs = dict(
+            total_cost_sar_override=total_override,
+            cost_source="v2",
+            cost_rule_version=cost_config.get("rule_version"),
+            cost_table=cost_config.get("table"),
+            cost_rate_sar=cost_config.get("rate"),
+        )
+    else:
+        damages = _read_damage_items(
+            case_reference,
+            case_data,
+            require_pricing=not is_referral_report,
+        )
+        cost_kwargs = {}
 
     # Single case-level severity (MAX over images, written by
     # damage_detection.py as accidentCase.overallSeverity) — shown once on
@@ -424,6 +502,7 @@ def _build_report_input(
         overall_severity=overall_severity,
         is_referral_report=is_referral_report,
         referral_reasons=referral_reasons,
+        **cost_kwargs,
     )
 
 

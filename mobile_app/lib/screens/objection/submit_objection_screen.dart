@@ -252,6 +252,9 @@ class _SubmitObjectionScreenState extends State<SubmitObjectionScreen> {
 
         final num? estimatedCost =
             totalCost ??
+            (caseData['displayCostSar'] is num
+                ? caseData['displayCostSar'] as num
+                : null) ??
             (caseData['estimatedCostSar'] is num
                 ? caseData['estimatedCostSar'] as num
                 : null);

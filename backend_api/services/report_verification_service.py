@@ -91,7 +91,11 @@ def format_report_number(seq: int, when: Optional[datetime.date] = None) -> str:
 def build_report_record(data: ReportInput, report_id: str, report_number: str) -> ReportRecord:
     """Assemble + sign a record. `report_id` (unguessable UUID) and
     `report_number` (human-friendly) are allocated by the caller."""
-    total = round(sum(d.cost_sar for d in data.damages), 2)
+    total = (
+        round(data.total_cost_sar_override, 2)
+        if data.total_cost_sar_override is not None
+        else round(sum(d.cost_sar for d in data.damages), 2)
+    )
     record = ReportRecord(
         report_id=report_id,
         report_number=report_number,
@@ -106,6 +110,10 @@ def build_report_record(data: ReportInput, report_id: str, report_number: str) -
         status="valid",
         report_kind="referral_preliminary" if data.is_referral_report else "final",
         referral_reasons=data.referral_reasons,
+        cost_source=data.cost_source,
+        cost_rule_version=data.cost_rule_version,
+        cost_table=data.cost_table,
+        cost_rate_sar=data.cost_rate_sar,
     )
     record.signature = sign_record(record)
     return record
@@ -206,6 +214,10 @@ _PART_LABEL_AR = {
     "door_glass": "زجاج الباب",
     "lamp": "المصباح",
     "wheel": "الإطار",
+    # Cost rule v2 identity labels -- see report_pdf_service.py's _PART_LABEL_AR
+    # comment, same two additions, same reasoning.
+    "window": "زجاج الباب",
+    "glass_ambiguous": "زجاج (الموقع غير مؤكد)",
 }
 
 _PAGE = Template(r"""<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
@@ -281,6 +293,9 @@ _PAGE = Template(r"""<!doctype html><html lang="ar" dir="rtl"><head><meta charse
    </div>
  </div>
  <div class="total"><span>إجمالي التكلفة التقديرية</span><span>{% if r.report_kind == 'referral_preliminary' %}لا يوجد تقدير — قيد التقييم اليدوي{% else %}{{ "%.0f"|format(r.total_cost_sar) }} ريال{% endif %}</span></div>
+ {% if r.report_kind != 'referral_preliminary' and r.cost_source == 'v2' %}
+ <div class="foot">عمالة فقط (هيكل وصبغ) — {{ r.cost_rate_sar if r.cost_rate_sar is not none else '—' }} ريال/ساعة — جدول {{ r.cost_table or '—' }} — نسخة {{ r.cost_rule_version or '—' }}</div>
+ {% endif %}
  <div class="foot{% if not valid %} bad{% endif %}">
    {% if valid %}تم التحقق من هذا التقرير إلكترونيًا، ولم تُعدَّل بياناته منذ إصداره من قِبل CrashLens.
    {% else %}تنبيه: تعذّر التحقق من هذا التقرير. قد تكون بياناته معدَّلة أو أنه لم يصدر عن CrashLens.{% endif %}

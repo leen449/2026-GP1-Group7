@@ -53,6 +53,23 @@ class ReportInput(BaseModel):
     # caller/test unaffected.
     is_referral_report: bool = False
     referral_reasons: Optional[List[str]] = None
+    # Cost rule v2 display switch (2026-11-07, see
+    # backend_api/services/cost_v2/spec/DECISION_cost_rule_v2.md section 7-8).
+    # When the case's authoritative total (displayCostSar) was computed by cost_v2,
+    # routes/reports.py passes it here explicitly rather than letting the record
+    # re-derive total_cost_sar by summing `damages` -- v2's per-LINE sar (line_sar)
+    # can round differently than the engine's own single hours*rate-then-round total
+    # (see cost_v2/engine.py's docstring), so summing the lines could be a cent or
+    # two off from the real displayCostSar. Default None preserves every existing
+    # caller's behavior exactly (sum(damages), as before).
+    total_cost_sar_override: Optional[float] = None
+    # "v1" (default, unchanged) | "v2". Only changes whether the PDF/verify page
+    # show the cost_v2 footer below -- never changes how total_cost_sar itself
+    # was computed (that's total_cost_sar_override above).
+    cost_source: str = "v1"
+    cost_rule_version: Optional[str] = None
+    cost_table: Optional[str] = None
+    cost_rate_sar: Optional[float] = None
 
 
 class ReportRecord(BaseModel):
@@ -72,4 +89,12 @@ class ReportRecord(BaseModel):
     # time and included in the signature. final | referral_preliminary.
     report_kind: str = "final"
     referral_reasons: Optional[List[str]] = None
+    # Cost rule v2 display switch -- see ReportInput's fields of the same name.
+    # Carried onto the signed record (not just the PDF) so the public verify page
+    # shows the same footer the PDF does, and so it's part of the immutable
+    # issued facts like everything else here.
+    cost_source: str = "v1"
+    cost_rule_version: Optional[str] = None
+    cost_table: Optional[str] = None
+    cost_rate_sar: Optional[float] = None
     signature: Optional[str] = None   # base64 Ed25519 signature over the issued facts

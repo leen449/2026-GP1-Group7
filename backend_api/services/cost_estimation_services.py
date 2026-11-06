@@ -46,6 +46,12 @@ from services.cost_calibration import calibrate_total
 # see services/severity_fusion_mask.py's docstring). The box-based services.severity_fusion
 # stays in the repo but is no longer imported here.
 from services.severity_fusion_mask import fused_image_severity
+# Cost rule v2 -- SHADOW MODE ONLY (approved 2026-11-07 with the exp04 part model, see
+# services/cost_v2/spec/DECISION_cost_rule_v2.md, section 7-8). Imported, not duplicated -- see
+# _v2_detection_from_item()/_compute_cost_v2_shadow() below for the only new logic.
+from services.cost_v2.engine import estimate as cost_v2_estimate, CostV2Error
+from services.cost_v2.run_offline import map_detection as cost_v2_map_detection, MappingError as CostV2MappingError
+from services.cost_v2.tables import VERSION as COST_V2_VERSION
 
 RATE_SAR = 165.0
 BUCKET = "crashlens-233bf.firebasestorage.app"
@@ -932,6 +938,13 @@ async def add_admin_damage(
     # the case's worst.
     overall_severity = _recalculate_case_severity(case_ref)
 
+    # Cost rule v2 -- the admin just added a damage, so v2 (and whichever total is
+    # actually displayed) must be recomputed from the CURRENT items, same as
+    # _recalculate_admin_totals does for update/delete_admin_damage.
+    new_raw_total = round(current_raw_total + line_cost, 2)
+    display_fields = _recompute_display_cost_for_case(case_ref, new_raw_total)
+    case_ref.update(display_fields)
+
     return {
         "status": "success",
         "message": "Damage added successfully",
@@ -944,9 +957,11 @@ async def add_admin_damage(
             "hours": float(hours),
             "lineCostSar": line_cost,
         },
-        "caseTotalSar": round(current_raw_total + line_cost, 2),
+        "caseTotalSar": new_raw_total,
         "calibratedCaseTotalSar": new_calibrated_total,
         "overallSeverity": overall_severity,
+        "displayCostSar": display_fields.get("displayCostSar"),
+        "displayCostSource": display_fields.get("displayCostSource"),
     }
 
 async def update_admin_damage(
@@ -1234,18 +1249,25 @@ def _recalculate_admin_totals(case_ref, image_ref) -> dict:
             case_total += float(image_cost)
 
     case_total = round(case_total, 2)
-    # [PAUSED] Same as process_cost_estimation: estimatedCostSar stays the raw total for
-    # now (see the case_update comment there for why) -- calibratedEstimatedCostSar is
-    # still recomputed and stored on every admin edit, so it never goes stale.
+    # RETIRED from display 2026-11-07 (see the case_update comment in
+    # process_cost_estimation for why) -- calibratedEstimatedCostSar is still
+    # recomputed and stored on every admin edit so it never goes stale, but display
+    # now follows displayCostSar/displayCostSource (resolved below), not this field.
     calibrated_case_total = round(calibrate_total(case_total), 2)
 
     overall_severity = _recalculate_case_severity(case_ref)
+
+    # Cost rule v2 -- an admin edit just changed this case's costItems, so v2 (and
+    # whichever total is actually displayed) must be recomputed from the CURRENT
+    # items, not left stale from whenever process_cost_estimation last ran.
+    display_fields = _recompute_display_cost_for_case(case_ref, case_total)
 
     case_ref.update({
         "estimatedCostSar": case_total,
         "calibratedEstimatedCostSar": calibrated_case_total,
         "adminModified": True,
         "adminModifiedAt": firestore.SERVER_TIMESTAMP,
+        **display_fields,
     })
 
     return {
@@ -1253,7 +1275,204 @@ def _recalculate_admin_totals(case_ref, image_ref) -> dict:
         "caseTotalSar": case_total,
         "calibratedCaseTotalSar": calibrated_case_total,
         "overallSeverity": overall_severity,
+        "displayCostSar": display_fields.get("displayCostSar"),
+        "displayCostSource": display_fields.get("displayCostSource"),
     }
+
+# ---------------------------------------------------------------------------------------
+# Cost rule v2 -- SHADOW MODE (integration step 1-2 only). Computes v2 per case alongside
+# the existing cost and writes ONLY the costV2* fields merged into case_update below.
+# Never changes estimatedCostSar/calibratedEstimatedCostSar, the admin view, the PDF
+# report, or the app. See services/cost_v2/spec/DECISION_cost_rule_v2.md, section 7-8.
+
+# lamp/tire costItems carry part="lamp"/"wheel" -- a generic damage-class category name
+# from part_association_service.py's "damage_class" source, not a real segmented part.
+# Passing that through as cost_v2's part_label would wrongly collapse every lamp/tire in
+# a case into one shared panel_id ("case:lamp"/"case:wheel"); treating it as "no
+# overlapping part" instead lets run_offline.py's own per-image fallback identity apply
+# (documented there as an intentional over-count rather than a silent under-count).
+_V1_SOURCE_HAS_NO_PART_IDENTITY = {"damage_class"}
+
+# part_association_service.py's _GLASS_BUCKETS maps the real segmented part class
+# "window" to v1's internal BILLING key "door_glass" -- a legacy labor_hours_lookup.py
+# name, not a real part name. That is NOT the same thing as cost_v2's part_label, which
+# must be the real part for IDENTITY/display, so "door_glass" needs two SEPARATE
+# translations that must not be conflated into a single rename (that was the 2026-11-07
+# bug -- it showed "door" on the admin/PDF for what is actually a window break):
+#   - IDENTITY (what the admin/PDF displays, what panel_id de-dup keys on): the REAL
+#     part name, "window". "windshield" and "trunk" already match their own real part
+#     name 1:1 in v1 (no translation needed).
+#   - HOURS ROUTING (which table_key v2 looks hours up under): still "door", so a
+#     door-glass break keeps pricing off the door's own glass cell (unchanged behaviour)
+#     instead of regressing to the generic glass row once identity stops being "door".
+_V1_GLASS_IDENTITY_LABEL = {"door_glass": "window"}
+_V1_GLASS_HOURS_TABLE_KEY_OVERRIDE = {"door_glass": "door"}
+
+# "glass_ambiguous" (part_association_service.py's same-spot averaging fallback, e.g.
+# when a windshield-labeled mask and a window-labeled mask overlap ~100% and the model
+# can't tell which label is right) is a GENUINE data loss, not fixable here: the stored
+# CostLine keeps only the averaged hours, never which two buckets tied. Confidence is
+# not a safe tie-break either (checked on a real case: the wrong bucket had the higher
+# confidence). Left as "glass_ambiguous" on purpose -- see CLAUDE.local.md for the
+# separate ticket on richer CostLine data if this needs to display a specific part.
+
+
+def _v2_detection_from_item(item: dict, case_id: str, image_id: str):
+    """One v1 costItem dict -> (cost_v2 raw detection dict, hours_table_key_override).
+    The override is applied to map_detection()'s result AFTER identity is built from the
+    real part name -- see the _V1_GLASS_* comment above for why these can't be merged
+    into one rename."""
+    part_label = item.get("part")
+    hours_override = None
+    if item.get("source") in _V1_SOURCE_HAS_NO_PART_IDENTITY:
+        part_label = None
+    elif item.get("damageType") == "glass":
+        hours_override = _V1_GLASS_HOURS_TABLE_KEY_OVERRIDE.get(part_label)
+        part_label = _V1_GLASS_IDENTITY_LABEL.get(part_label, part_label)
+    raw = {
+        "case_id": case_id,
+        "image_id": image_id,
+        "part_label": part_label,
+        "damage_class": item.get("damageType"),
+        "severity": item.get("severity"),
+    }
+    return raw, hours_override
+
+
+def _compute_cost_v2_shadow(all_items_by_image, case_id: str) -> dict:
+    """
+    all_items_by_image: list of (image_id, items) pairs -- items are the SAME per-image
+    costItem dicts build_line_items() already produces, so the same physical panel seen
+    across two images of one case collapses to one v2 line (D5).
+
+    Returns the costV2* field dict. Raises on failure -- the caller
+    (_safe_cost_v2_shadow) is responsible for the try/except contract.
+    """
+    raw_detections = []
+    warnings = []
+    used_image_level_severity = False
+
+    for image_id, items in all_items_by_image:
+        for item in items:
+            raw, hours_table_key_override = _v2_detection_from_item(item, case_id, image_id)
+            if raw["severity"] is not None:
+                # Today every item in an image carries that image's single fused
+                # severity (see build_line_items()'s `severity=sev` parameter) -- there
+                # is no true per-detection severity yet, so "per-detection" and
+                # "image-level" are the same value. Logged once per case, not per item.
+                used_image_level_severity = True
+            try:
+                detection, warning = cost_v2_map_detection(raw)
+            except CostV2MappingError as e:
+                warnings.append(f"unassigned (image {image_id}): {e}")
+                continue
+            if hours_table_key_override:
+                # Identity (panel_id, already built above from the REAL part name) is
+                # untouched -- only the hours-lookup key changes, so a door-glass break
+                # still prices off the door's own glass cell. See _v2_detection_from_item.
+                detection["table_key"] = hours_table_key_override
+            if warning:
+                warnings.append(warning)
+            raw_detections.append(detection)
+
+    result = cost_v2_estimate(raw_detections, table="A_100", aggregation="one_panel")
+
+    lines = [
+        {
+            "panel_id": l["panel_id"], "table_key": l["table_key"], "damage": l["damage"],
+            "hours": l["hours"], "severity": l["severity"], "factor": l["factor"],
+            "line_sar": l["line_sar"],
+        }
+        for l in result["lines"]
+    ]
+
+    return {
+        "costV2Sar": result["cost_sar"],
+        "costV2Lines": lines,
+        "costV2Hours": result["hours"],
+        "costV2Config": {
+            "rule_version": COST_V2_VERSION,
+            "table": result["table"],
+            "rate": result["rate"],
+            "aggregation": result["aggregation"],
+            "part_model": "exp04",
+            "severity_source": "image_level" if used_image_level_severity else "none",
+        },
+        "costV2Warnings": warnings,
+    }
+
+
+def _safe_cost_v2_shadow(all_items_by_image, case_id: str) -> dict:
+    """Never raises -- a v2 failure must never break the existing cost (shadow-mode
+    contract). Returns {} on failure so case_update.update(...) is a no-op that turn."""
+    try:
+        return _compute_cost_v2_shadow(all_items_by_image, case_id)
+    except Exception as v2_err:
+        print(f"⚠️ cost v2 shadow computation failed for case {case_id}: {v2_err}")
+        return {}
+
+
+# ---------------------------------------------------------------------------------------
+# Display switch (integration step 2; approved 2026-11-07, see DECISION_cost_rule_v2.md
+# section 7-8). ONE config value controls what estimatedCostSar-reading screens show --
+# default "v2"; set env COST_DISPLAY_SOURCE=v1 to restore today's behaviour exactly, no
+# code change needed. Does NOT rename/delete estimatedCostSar/calibratedEstimatedCostSar
+# -- both stay stored and correct; this only decides which number is surfaced as
+# displayCostSar/displayCostSource, the two NEW fields every display reader should use
+# (falling back to estimatedCostSar for old cases that predate this field).
+COST_DISPLAY_SOURCE = os.environ.get("COST_DISPLAY_SOURCE", "v2").strip().lower()
+if COST_DISPLAY_SOURCE not in ("v1", "v2"):
+    COST_DISPLAY_SOURCE = "v2"
+
+
+def _resolve_display_cost(v1_total: float, v2_fields: dict) -> dict:
+    """
+    v1_total: the already-computed, unaffected v1 case total (estimatedCostSar).
+    v2_fields: whatever _safe_cost_v2_shadow returned for this case (possibly {}).
+
+    Returns {displayCostSar, displayCostSource, ...} to merge into the same update
+    as v1's fields. Falls back to v1 whenever COST_DISPLAY_SOURCE="v1", OR v2 is the
+    configured source but failed/produced nothing for this specific case -- a v2
+    failure must never leave displayCostSar missing or wrong (shadow-mode contract).
+    """
+    if COST_DISPLAY_SOURCE == "v2" and v2_fields.get("costV2Sar") is not None:
+        return {"displayCostSar": v2_fields["costV2Sar"], "displayCostSource": "v2"}
+
+    fallback_warning = []
+    if COST_DISPLAY_SOURCE == "v2":
+        fallback_warning = ["cost_v2_unavailable_display_fallback_to_v1"]
+
+    return {
+        "displayCostSar": v1_total,
+        "displayCostSource": "v1",
+        **({"displayCostFallbackReason": fallback_warning} if fallback_warning else {}),
+    }
+
+
+def _recompute_display_cost_for_case(case_ref, v1_total: float) -> dict:
+    """
+    Used by admin-edit paths (add/update/delete_admin_damage) where the case's
+    costItems just changed: v1_total is the caller's already-correct, freshly
+    recomputed v1 total (unchanged math); this re-derives v2 from the CURRENT
+    (post-edit) non-removed costItems across every image, using the exact same
+    adapter process_cost_estimation uses, then resolves display the same way.
+
+    Returns the costV2*/displayCostSar/displayCostSource fields to merge into the
+    same case_ref.update(...) the caller already does -- never raises.
+    """
+    all_items_by_image = []
+    for image_doc in case_ref.collection("images").stream():
+        items = [
+            item_doc.to_dict() or {}
+            for item_doc in image_doc.reference.collection("costItems").stream()
+            if not (item_doc.to_dict() or {}).get("removedByAdmin")
+        ]
+        all_items_by_image.append((image_doc.id, items))
+
+    v2_fields = _safe_cost_v2_shadow(all_items_by_image, case_ref.id)
+    display_fields = _resolve_display_cost(v1_total, v2_fields)
+    return {**v2_fields, **display_fields}
+
 
 async def process_cost_estimation(case_id: str) -> dict:
     cost_run_id = None
@@ -1373,13 +1592,14 @@ async def process_cost_estimation(case_id: str) -> dict:
         case_update = {
             "status": "تم حساب التكلفة",
             "costState": cost_state,
-            # [PAUSED] estimatedCostSar is the raw rule-engine total again, pending team
-            # discussion on how to present calibration (see services/cost_calibration.py's
-            # docstring) -- a linear calibration regresses every case toward the sample
-            # mean, so it can make an already-correct case WORSE, and the admin's only
-            # edit tools (severity/damage/part) can't fix that kind of error since it's
-            # not a classification problem. calibratedEstimatedCostSar is still computed
-            # and stored so re-enabling it later is a one-line change, not a re-derivation.
+            # RETIRED from display 2026-11-07 (supervisor decision, see
+            # services/cost_v2/spec/DECISION_cost_rule_v2.md section 7-8): calibration
+            # is superseded by cost rule v2, not re-enabled. estimatedCostSar stays the
+            # raw v1 rule-engine total -- unchanged, still computed and stored exactly
+            # as before -- and calibratedEstimatedCostSar below is still computed/stored
+            # too (nothing here is deleted), but neither is what any screen should show
+            # once COST_DISPLAY_SOURCE="v2": that's displayCostSar/displayCostSource,
+            # resolved below after the v2 shadow computation.
             "estimatedCostSar": total,
             "calibratedEstimatedCostSar": calibrated_total,
             "costFactors": {"paint": f_paint, "vehicle": f_veh, "rateSar": RATE_SAR},
@@ -1388,6 +1608,20 @@ async def process_cost_estimation(case_id: str) -> dict:
             "reviewReasons": review_reasons,
             "costEstimateComplete": not incomplete,
         }
+
+        # Cost rule v2 -- SHADOW MODE (step 1). Adds costV2* fields alongside the
+        # existing ones above; never overwrites them. See _safe_cost_v2_shadow()'s
+        # docstring for the try/except contract.
+        all_items_by_image = [
+            (image_id, staged_images[image_id]["items"]) for image_id in claimed_image_ids
+        ]
+        v2_fields = _safe_cost_v2_shadow(all_items_by_image, case_id)
+        case_update.update(v2_fields)
+
+        # Display switch (step 2). displayCostSar/displayCostSource are the ONLY new
+        # fields any screen should read going forward -- estimatedCostSar above is
+        # untouched and keeps being computed exactly as before.
+        case_update.update(_resolve_display_cost(total, v2_fields))
 
         revision = _finalize_cost_snapshot(
             db,
@@ -1404,6 +1638,8 @@ async def process_cost_estimation(case_id: str) -> dict:
             "costRevision": revision,
             "estimatedCostSar": total,
             "calibratedEstimatedCostSar": calibrated_total,
+            "displayCostSar": case_update.get("displayCostSar"),
+            "displayCostSource": case_update.get("displayCostSource"),
             "needsAdminReview": needs_review,
             "adminReviewReasonsAr": admin_review_reasons_ar,
             "reviewReasons": review_reasons,

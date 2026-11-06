@@ -140,7 +140,19 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
     'door_glass': 'زجاج الباب',
     'lamp': 'المصباح',
     'wheel': 'الإطار',
+    // Cost rule v2 identity labels (2026-11-07) -- see
+    // backend_api/services/report_pdf_service.py's _PART_LABEL_AR comment.
+    'window': 'زجاج الباب',
+    'glass_ambiguous': 'زجاج (الموقع غير مؤكد)',
   };
+
+  /// Mirrors routes/reports.py's _part_from_panel_id: cost_v2's panel_id is
+  /// "{caseId}:{part}" (or "{caseId}:{tableKey}:{imageId}" for the per-image
+  /// identity fallback) -- either way the part name is the second segment.
+  static String _partFromPanelId(String? panelId) {
+    final parts = (panelId ?? '').split(':');
+    return parts.length >= 2 ? parts[1] : (panelId ?? '');
+  }
 
   Widget _severityChip(String? severity) {
     if (severity == null || !_severityLabelAr.containsKey(severity)) {
@@ -220,10 +232,20 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
   // deliberately pins status back to 'تم الفحص' regardless of whether the cost
   // step succeeded, so status alone can't tell us whether an estimate exists.
   Widget _costSection(Map<String, dynamic> caseData) {
-    final dynamic totalRaw = caseData['estimatedCostSar'];
+    final dynamic displayRaw = caseData['displayCostSar'];
+    final dynamic totalRaw = displayRaw is num
+        ? displayRaw
+        : caseData['estimatedCostSar'];
     if (totalRaw is! num) {
       return const SizedBox.shrink();
     }
+    final bool isV2 =
+        displayRaw is num && caseData['displayCostSource'] == 'v2';
+    final List<dynamic> v2Lines =
+        isV2 ? ((caseData['costV2Lines'] as List?) ?? const []) : const [];
+    final Map<String, dynamic> v2Config = isV2
+        ? ((caseData['costV2Config'] as Map<String, dynamic>?) ?? const {})
+        : const {};
 
     final costConfidence =
         (caseData['costConfidence'] as Map<String, dynamic>?) ?? {};
@@ -280,9 +302,83 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        _costLineItemsList(),
+        if (isV2)
+          ..._costV2LineTiles(v2Lines, v2Config)
+        else
+          _costLineItemsList(),
       ],
     );
+  }
+
+  // v2's lines are a CASE-level breakdown already collapsed by panel across
+  // all images (cost_v2's aggregation="one_panel"), unlike the v1 per-image
+  // costItems stream below -- so these render directly from the case
+  // document, no per-image subscription needed.
+  List<Widget> _costV2LineTiles(
+    List<dynamic> lines,
+    Map<String, dynamic> config,
+  ) {
+    if (lines.isEmpty) return const [];
+
+    final rate = config['rate'];
+    final String table = config['table']?.toString() ?? '—';
+    final String version = config['rule_version']?.toString() ?? '—';
+    final String rateText = rate is num ? '$rate' : '—';
+
+    return [
+      ...lines.map((raw) {
+        final line = raw as Map<String, dynamic>;
+        final String partKey = _partFromPanelId(line['panel_id']?.toString());
+        final String damageKey = line['damage']?.toString() ?? '';
+        final String partLabel = _partLabelAr[partKey] ?? partKey;
+        final String damageLabel =
+            _damageTypeLabelAr[damageKey] ?? damageKey;
+        final dynamic cost = line['line_sar'];
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            textDirection: TextDirection.rtl,
+            children: [
+              Expanded(
+                child: Text(
+                  '$partLabel — $damageLabel',
+                  textDirection: TextDirection.rtl,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: _textDark,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                cost is num ? '$cost ريال' : 'لم يتم تسعيرها',
+                style: TextStyle(
+                  color: cost is num ? _textDark : Colors.red,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+      Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          'عمالة فقط (هيكل وصبغ) — $rateText ريال/ساعة — جدول $table — نسخة $version',
+          textDirection: TextDirection.rtl,
+          textAlign: TextAlign.right,
+          style: const TextStyle(
+            color: _textMuted,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    ];
   }
 
   // Per-damage breakdown, alongside the total — lets the user see WHAT the

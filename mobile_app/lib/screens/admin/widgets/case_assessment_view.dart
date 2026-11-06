@@ -71,7 +71,20 @@ class CaseAssessmentView extends StatelessWidget {
     'door_glass': 'زجاج الباب',
     'lamp': 'المصباح',
     'wheel': 'الإطار',
+    // Cost rule v2 identity labels (2026-11-07) -- see
+    // backend_api/services/report_pdf_service.py's _PART_LABEL_AR comment.
+    'window': 'زجاج الباب',
+    'glass_ambiguous': 'زجاج (الموقع غير مؤكد)',
   };
+
+  /// cost_v2's panel_id is "{caseId}:{part}" or, for the per-image identity
+  /// fallback, "{caseId}:{tableKey}:{imageId}" -- either way the part/hours-
+  /// key name is the second colon-separated segment. Mirrors
+  /// routes/reports.py's _part_from_panel_id exactly.
+  static String _partFromPanelId(String? panelId) {
+    final parts = (panelId ?? '').split(':');
+    return parts.length >= 2 ? parts[1] : (panelId ?? '');
+  }
 
   // Internal English flags the backend attaches to unresolved/uncertain
   // pricing decisions (see cost_estimation_services.py / part_association_
@@ -385,13 +398,22 @@ class CaseAssessmentView extends StatelessWidget {
           if (severityLabel.isNotEmpty) severityLabel,
         ].join(' — ');
 
+        final bool isV2Display =
+            caseData['displayCostSar'] is num &&
+            caseData['displayCostSource'] == 'v2';
+
         return _sectionCard(
           title: 'نتائج تحليل الأضرار',
           subtitle: imagesSubtitle,
           children: [
             _overallSeverityBox(overallSeverity),
             ...images.asMap().entries.map(
-              (entry) => _imageBlock(context, entry.value, entry.key + 1),
+              (entry) => _imageBlock(
+                context,
+                entry.value,
+                entry.key + 1,
+                isV2Display,
+              ),
             ),
           ],
         );
@@ -403,6 +425,7 @@ class CaseAssessmentView extends StatelessWidget {
     BuildContext context,
     QueryDocumentSnapshot imageDoc,
     int imageNumber,
+    bool isV2Display,
   ) {
     final item = imageDoc.data() as Map<String, dynamic>;
     final String imageId = imageDoc.id;
@@ -562,7 +585,15 @@ class CaseAssessmentView extends StatelessWidget {
             const SizedBox(height: 10),
             const Divider(height: 1, color: Color(0xFFE8EEF7)),
             const SizedBox(height: 8),
-            _mutedCaption('الأجزاء المتضررة والتكلفة'),
+            // When cost rule v2 is the displayed total, these per-item costs
+            // are v1 figures kept only so the admin can review/edit what the
+            // model detected on this image -- they no longer sum to the
+            // total above (see the "تفصيل التكلفة" breakdown in section 6).
+            _mutedCaption(
+              isV2Display
+                  ? 'الأجزاء المتضررة (بيانات النموذج، للتعديل)'
+                  : 'الأجزاء المتضررة والتكلفة',
+            ),
             _costItemsList(imageDoc.reference),
             const SizedBox(height: 4),
           ],
@@ -804,17 +835,138 @@ class CaseAssessmentView extends StatelessWidget {
   }
 
   // ── Section 6: estimated cost total ──────────────────────────────────────
+  //
+  // displayCostSar/displayCostSource (cost rule v2 display switch, see
+  // backend_api/services/cost_v2/spec/DECISION_cost_rule_v2.md §7-8) are what
+  // this card shows; cases predating the switch have neither field, so this
+  // falls back to the old estimatedCostSar field and renders exactly as
+  // before. costV2Lines (when displayCostSource=='v2') is a CASE-level
+  // breakdown already collapsed by panel across all images (cost_v2's
+  // aggregation="one_panel") -- it is not image-scoped like the v1 costItems
+  // list above, so it is shown once here rather than per image.
 
   Widget _costTotalCard(Map<String, dynamic> caseData) {
-    final dynamic totalRaw = caseData['estimatedCostSar'];
+    final dynamic displayRaw = caseData['displayCostSar'];
+    final dynamic totalRaw = displayRaw is num
+        ? displayRaw
+        : caseData['estimatedCostSar'];
     if (totalRaw is! num) {
       return const SizedBox.shrink();
     }
+    final bool isV2 =
+        displayRaw is num && caseData['displayCostSource'] == 'v2';
+    final List<dynamic> v2Lines =
+        isV2 ? ((caseData['costV2Lines'] as List?) ?? const []) : const [];
+    final Map<String, dynamic> v2Config = isV2
+        ? ((caseData['costV2Config'] as Map<String, dynamic>?) ?? const {})
+        : const {};
 
     return _sectionCard(
       title: 'التكلفة التقديرية',
       subtitle: '$totalRaw ريال',
-      children: [_infoBox('الإجمالي التقديري', '$totalRaw ريال')],
+      children: [
+        _infoBox('الإجمالي التقديري', '$totalRaw ريال'),
+        if (isV2 && v2Lines.isNotEmpty) ...[
+          _mutedCaption('تفصيل التكلفة'),
+          ...v2Lines.map(
+            (l) => _costV2LineTile(l as Map<String, dynamic>),
+          ),
+          _costV2Footer(v2Config),
+        ],
+      ],
+    );
+  }
+
+  Widget _costV2LineTile(Map<String, dynamic> line) {
+    final String partKey = _partFromPanelId(line['panel_id']?.toString());
+    final String damageKey = line['damage']?.toString() ?? '';
+    final String? severity = line['severity'] as String?;
+    final dynamic hours = line['hours'];
+    final dynamic factor = line['factor'];
+    final dynamic cost = line['line_sar'];
+
+    final String partLabel =
+        _partLabelAr[partKey] ?? (partKey.isEmpty ? 'غير محدد' : partKey);
+    final String damageLabel =
+        _damageTypeLabelAr[damageKey] ??
+        (damageKey.isEmpty ? 'غير محدد' : damageKey);
+
+    final List<String> detailParts = [
+      if (hours is num) 'الساعات: $hours',
+      if (factor is num) 'عامل الشدة: $factor',
+    ];
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Row(
+            textDirection: TextDirection.rtl,
+            children: [
+              Expanded(
+                child: Text(
+                  '$partLabel — $damageLabel',
+                  textDirection: TextDirection.rtl,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: _textDark,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Row(
+                children: [
+                  _severityChip(severity),
+                  const SizedBox(width: 6),
+                  Text(
+                    cost is num ? '$cost ريال' : 'لم يتم تسعيرها',
+                    style: TextStyle(
+                      color: cost is num ? _textDark : Colors.red,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (detailParts.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                detailParts.join(' • '),
+                textDirection: TextDirection.rtl,
+                textAlign: TextAlign.right,
+                style: const TextStyle(color: _textMuted, fontSize: 11),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _costV2Footer(Map<String, dynamic> config) {
+    final dynamic rate = config['rate'];
+    final String table = config['table']?.toString() ?? '—';
+    final String version = config['rule_version']?.toString() ?? '—';
+    final String rateText = rate is num ? '$rate' : '—';
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 4),
+      child: Text(
+        'عمالة فقط (هيكل وصبغ) — $rateText ريال/ساعة — جدول $table — نسخة $version',
+        textDirection: TextDirection.rtl,
+        textAlign: TextAlign.right,
+        style: const TextStyle(
+          color: _textMuted,
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 
@@ -972,7 +1124,9 @@ class CaseAssessmentView extends StatelessWidget {
             _imagesAnalysisCard(context, caseData),
             const SizedBox(height: 16),
             _costTotalCard(caseData),
-            if (caseData['estimatedCostSar'] is num) const SizedBox(height: 16),
+            if (caseData['displayCostSar'] is num ||
+                caseData['estimatedCostSar'] is num)
+              const SizedBox(height: 16),
             _confidenceDetailCard(caseData),
           ],
         );
