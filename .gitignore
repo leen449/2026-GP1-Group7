@@ -144,3 +144,6 @@ docs/cost_estimation.md
 .claude/
 mobile_app/lib/screens/admin/reviews/admin_debug_entry_screen.dart
 /.vscode 
+backend_api/services/cost_v2/spec/
+backend_api/tests/data/
+backend_api/tests/output/

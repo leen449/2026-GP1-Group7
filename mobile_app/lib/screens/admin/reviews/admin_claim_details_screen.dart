@@ -21,7 +21,7 @@ class AdminClaimDetailsScreen extends StatefulWidget {
 }
 
 class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
-  static const String _backendUrl = 'http://192.168.0.11:8000';
+  static const String _backendUrl = 'http://192.168.0.12:8000';
 
   static const Color _pageBg = Color(0xFFF7FAFF);
   static const Color _textDark = Color(0xFF071A3D);
