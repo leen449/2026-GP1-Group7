@@ -705,6 +705,16 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
                 // Keep the full image visible without cropping.
                 fit: BoxFit.contain,
 
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return const Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                },
                 errorBuilder: (context, error, stackTrace) {
                   return const Center(
                     child: Icon(
@@ -919,6 +929,16 @@ class _AddDamageScreenState extends State<AddDamageScreen> {
                       width: double.infinity,
                       height: 220,
                       fit: BoxFit.contain,
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return const Center(
+                          child: SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        );
+                      },
                       errorBuilder: (context, error, stackTrace) {
                         return const Center(
                           child: Icon(

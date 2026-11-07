@@ -1589,9 +1589,28 @@ async def process_cost_estimation(case_id: str) -> dict:
             if label not in admin_review_reasons_ar:
                 admin_review_reasons_ar.append(label)
 
+        # [FIX] accidentCase.overallSeverity was written once by damage_detection.py
+        # from the pre-fusion ResNet severity and never recomputed after this -- the
+        # mask-based severity fusion above (_stage_image) can raise an image's own
+        # `severity` field past that original grade, but nothing propagated the
+        # change back into the case-level MAX, so overallSeverity (what admin's
+        # overall box and every report read) could silently disagree with the
+        # per-image severity chip (what it's actually fused to) until an admin
+        # edited a damage (the only other path that recomputes it, via
+        # _recalculate_case_severity). Recomputed here, every run, from the SAME
+        # fused per-item severities just staged above -- same MAX rule, same
+        # aggregate_case_severity() as the admin-edit path.
+        overall_severity = aggregate_case_severity(
+            item.get("severity")
+            for stage in staged_images.values()
+            for item in stage["items"]
+            if not item.get("removedByAdmin")
+        )
+
         case_update = {
             "status": "تم حساب التكلفة",
             "costState": cost_state,
+            "overallSeverity": overall_severity,
             # RETIRED from display 2026-11-07 (supervisor decision, see
             # services/cost_v2/spec/DECISION_cost_rule_v2.md section 7-8): calibration
             # is superseded by cost rule v2, not re-enabled. estimatedCostSar stays the

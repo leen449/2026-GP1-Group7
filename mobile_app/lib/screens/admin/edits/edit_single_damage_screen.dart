@@ -280,6 +280,21 @@ class _EditSingleDamageScreenState extends State<EditSingleDamageScreen> {
               width: 100,
               height: 100,
               fit: BoxFit.cover,
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+                return Container(
+                  width: 100,
+                  height: 100,
+                  color: const Color(0xFFF0F3F7),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                );
+              },
               errorBuilder: (_, __, ___) {
                 return Container(
                   width: 100,

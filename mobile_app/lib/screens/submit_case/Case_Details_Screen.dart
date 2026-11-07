@@ -243,9 +243,6 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
         displayRaw is num && caseData['displayCostSource'] == 'v2';
     final List<dynamic> v2Lines =
         isV2 ? ((caseData['costV2Lines'] as List?) ?? const []) : const [];
-    final Map<String, dynamic> v2Config = isV2
-        ? ((caseData['costV2Config'] as Map<String, dynamic>?) ?? const {})
-        : const {};
 
     final costConfidence =
         (caseData['costConfidence'] as Map<String, dynamic>?) ?? {};
@@ -303,7 +300,7 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
         ),
         const SizedBox(height: 8),
         if (isV2)
-          ..._costV2LineTiles(v2Lines, v2Config)
+          ..._costV2LineTiles(v2Lines)
         else
           _costLineItemsList(),
       ],
@@ -314,16 +311,8 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
   // all images (cost_v2's aggregation="one_panel"), unlike the v1 per-image
   // costItems stream below -- so these render directly from the case
   // document, no per-image subscription needed.
-  List<Widget> _costV2LineTiles(
-    List<dynamic> lines,
-    Map<String, dynamic> config,
-  ) {
+  List<Widget> _costV2LineTiles(List<dynamic> lines) {
     if (lines.isEmpty) return const [];
-
-    final rate = config['rate'];
-    final String table = config['table']?.toString() ?? '—';
-    final String version = config['rule_version']?.toString() ?? '—';
-    final String rateText = rate is num ? '$rate' : '—';
 
     return [
       ...lines.map((raw) {
@@ -365,19 +354,6 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
           ),
         );
       }),
-      Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Text(
-          'عمالة فقط (هيكل وصبغ) — $rateText ريال/ساعة — جدول $table — نسخة $version',
-          textDirection: TextDirection.rtl,
-          textAlign: TextAlign.right,
-          style: const TextStyle(
-            color: _textMuted,
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
     ];
   }
 

@@ -259,6 +259,21 @@ class EditDamagesScreen extends StatelessWidget {
                   width: 90,
                   height: 90,
                   fit: BoxFit.cover,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      width: 90,
+                      height: 90,
+                      color: const Color(0xFFF2F4F8),
+                      child: const Center(
+                        child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    );
+                  },
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
                       width: 90,

@@ -430,7 +430,6 @@ class CaseAssessmentView extends StatelessWidget {
     final item = imageDoc.data() as Map<String, dynamic>;
     final String imageId = imageDoc.id;
 
-    final String originalImageUrl = item['downloadUrl']?.toString() ?? '';
     final bool hasDamage = item['hasDamage'] ?? false;
     final String? severity = item['severity'] as String?;
     final dynamic severityConfidence = item['severityConfidence'];
@@ -523,13 +522,17 @@ class CaseAssessmentView extends StatelessWidget {
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               onPressed: () {
-                                onEditImage!(
-                                  imageId,
-                                  originalImageUrl.isNotEmpty
-                                      ? originalImageUrl
-                                      : url,
-                                  imageNumber,
-                                );
+                                // `url` (not originalImageUrl/downloadUrl) --
+                                // this project's Firebase Storage currently
+                                // rejects the downloadUrl token-URL format
+                                // with HTTP 403 in the mobile app context
+                                // (confirmed on-device 2026-11-07), while the
+                                // annotatedImage/GCS-path format `url` already
+                                // prefers loads fine -- same URL the case
+                                // list above already displays successfully.
+                                // See CLAUDE.local.md for the Storage
+                                // Rules/App Check root-cause investigation.
+                                onEditImage!(imageId, url, imageNumber);
                               },
                               icon: const Icon(
                                 Icons.edit_outlined,
@@ -585,16 +588,17 @@ class CaseAssessmentView extends StatelessWidget {
             const SizedBox(height: 10),
             const Divider(height: 1, color: Color(0xFFE8EEF7)),
             const SizedBox(height: 8),
-            // When cost rule v2 is the displayed total, these per-item costs
-            // are v1 figures kept only so the admin can review/edit what the
-            // model detected on this image -- they no longer sum to the
-            // total above (see the "تفصيل التكلفة" breakdown in section 6).
+            // The per-item SAR figure is only meaningful under v1 pricing --
+            // under v2 it's suppressed here entirely (showCost: false) so
+            // there is never a second number on screen that disagrees with
+            // the total above; the real v2 price lives in exactly one place
+            // (section 6's "تفصيل التكلفة"). What was detected (part/damage
+            // type) is still accurate under either pricing scheme, so it's
+            // still shown.
             _mutedCaption(
-              isV2Display
-                  ? 'الأجزاء المتضررة (بيانات النموذج، للتعديل)'
-                  : 'الأجزاء المتضررة والتكلفة',
+              isV2Display ? 'الأجزاء المتضررة' : 'الأجزاء المتضررة والتكلفة',
             ),
-            _costItemsList(imageDoc.reference),
+            _costItemsList(imageDoc.reference, showCost: !isV2Display),
             const SizedBox(height: 4),
           ],
         ],
@@ -602,7 +606,7 @@ class CaseAssessmentView extends StatelessWidget {
     );
   }
 
-  Widget _costItemsList(DocumentReference imageRef) {
+  Widget _costItemsList(DocumentReference imageRef, {required bool showCost}) {
     return StreamBuilder<QuerySnapshot>(
       stream: imageRef.collection('costItems').snapshots(),
       builder: (context, snap) {
@@ -655,25 +659,35 @@ class CaseAssessmentView extends StatelessWidget {
               ...originalDocs.map(
                 (doc) => _originalDetectionTile(
                   doc.data() as Map<String, dynamic>,
+                  showCost: showCost,
                 ),
               ),
             ],
             if (editedDocs.isNotEmpty) ...[
               _mutedCaption('أضرار عدّلها المشرف'),
               ...editedDocs.map(
-                (doc) => _costItemTile(doc.data() as Map<String, dynamic>),
+                (doc) => _costItemTile(
+                  doc.data() as Map<String, dynamic>,
+                  showCost: showCost,
+                ),
               ),
             ],
             if (addedDocs.isNotEmpty) ...[
               _mutedCaption('أضرار أضافها المشرف'),
               ...addedDocs.map(
-                (doc) => _costItemTile(doc.data() as Map<String, dynamic>),
+                (doc) => _costItemTile(
+                  doc.data() as Map<String, dynamic>,
+                  showCost: showCost,
+                ),
               ),
             ],
             if (removedDocs.isNotEmpty) ...[
               _mutedCaption('أضرار أزالها المشرف من التسعير'),
               ...removedDocs.map(
-                (doc) => _costItemTile(doc.data() as Map<String, dynamic>),
+                (doc) => _costItemTile(
+                  doc.data() as Map<String, dynamic>,
+                  showCost: showCost,
+                ),
               ),
             ],
           ],
@@ -682,7 +696,7 @@ class CaseAssessmentView extends StatelessWidget {
     );
   }
 
-  Widget _costItemTile(Map<String, dynamic> item) {
+  Widget _costItemTile(Map<String, dynamic> item, {required bool showCost}) {
     final bool removed = item['removedByAdmin'] == true;
 
     final String partKey = item['part']?.toString() ?? '';
@@ -744,20 +758,22 @@ class CaseAssessmentView extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                removed
-                    ? 'غير محتسبة'
-                    : (cost is num ? '$cost ريال' : 'لم يتم تسعيرها'),
-                style: TextStyle(
-                  color: removed
-                      ? _textMuted
-                      : (cost is num ? _textDark : Colors.red),
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                  decoration: removed ? TextDecoration.lineThrough : null,
+              if (showCost) ...[
+                const SizedBox(width: 8),
+                Text(
+                  removed
+                      ? 'غير محتسبة'
+                      : (cost is num ? '$cost ريال' : 'لم يتم تسعيرها'),
+                  style: TextStyle(
+                    color: removed
+                        ? _textMuted
+                        : (cost is num ? _textDark : Colors.red),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    decoration: removed ? TextDecoration.lineThrough : null,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
           if (confidenceParts.isNotEmpty)
@@ -790,7 +806,10 @@ class CaseAssessmentView extends StatelessWidget {
   // (possibly edited/removed) state, so it stays a fixed record of what the
   // model actually detected regardless of anything the admin does to the
   // item elsewhere on this list.
-  Widget _originalDetectionTile(Map<String, dynamic> item) {
+  Widget _originalDetectionTile(
+    Map<String, dynamic> item, {
+    required bool showCost,
+  }) {
     final String partKey = item['originalPart']?.toString() ?? '';
     final String damageKey = item['originalDamageType']?.toString() ?? '';
     final dynamic cost = item['originalLineCostSar'];
@@ -820,15 +839,17 @@ class CaseAssessmentView extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          Text(
-            cost is num ? '$cost ريال' : 'لم يتم تسعيرها',
-            style: const TextStyle(
-              color: _textDark,
-              fontWeight: FontWeight.w800,
-              fontSize: 13,
+          if (showCost) ...[
+            const SizedBox(width: 8),
+            Text(
+              cost is num ? '$cost ريال' : 'لم يتم تسعيرها',
+              style: const TextStyle(
+                color: _textDark,
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -857,9 +878,6 @@ class CaseAssessmentView extends StatelessWidget {
         displayRaw is num && caseData['displayCostSource'] == 'v2';
     final List<dynamic> v2Lines =
         isV2 ? ((caseData['costV2Lines'] as List?) ?? const []) : const [];
-    final Map<String, dynamic> v2Config = isV2
-        ? ((caseData['costV2Config'] as Map<String, dynamic>?) ?? const {})
-        : const {};
 
     return _sectionCard(
       title: 'التكلفة التقديرية',
@@ -871,7 +889,6 @@ class CaseAssessmentView extends StatelessWidget {
           ...v2Lines.map(
             (l) => _costV2LineTile(l as Map<String, dynamic>),
           ),
-          _costV2Footer(v2Config),
         ],
       ],
     );
@@ -946,26 +963,6 @@ class CaseAssessmentView extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-
-  Widget _costV2Footer(Map<String, dynamic> config) {
-    final dynamic rate = config['rate'];
-    final String table = config['table']?.toString() ?? '—';
-    final String version = config['rule_version']?.toString() ?? '—';
-    final String rateText = rate is num ? '$rate' : '—';
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 4),
-      child: Text(
-        'عمالة فقط (هيكل وصبغ) — $rateText ريال/ساعة — جدول $table — نسخة $version',
-        textDirection: TextDirection.rtl,
-        textAlign: TextAlign.right,
-        style: const TextStyle(
-          color: _textMuted,
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-        ),
       ),
     );
   }
