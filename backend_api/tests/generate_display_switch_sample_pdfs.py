@@ -41,7 +41,7 @@ def _issue_and_render(data: ReportInput, store, label: str) -> Path:
     record = svc.build_report_record(data, report_id, report_number)
     store.save(record)
 
-    url = svc.verify_url("http://192.168.0.12:8000", report_id)
+    url = svc.verify_url("http://192.168.0.11:8000", report_id)
     qr_png = svc.make_qr_png(url)
     pdf_bytes = build_report_pdf(record, qr_png)
 
