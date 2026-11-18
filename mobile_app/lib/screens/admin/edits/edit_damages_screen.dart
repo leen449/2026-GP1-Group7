@@ -33,7 +33,7 @@ class EditDamagesScreen extends StatelessWidget {
   static const Color buttonSecondary = Color(0xFFEDEDED);
   static const Color buttonDanger = Color(0xFFDC2626);
 
-  static const String backendUrl = 'http://192.168.0.12:8000';
+  static const String backendUrl = 'http://192.168.0.6:8000';
 
   static const Map<String, String> damageLabels = {
     'dent': 'انبعاج',
@@ -116,23 +116,12 @@ class EditDamagesScreen extends StatelessWidget {
                 .where((doc) => doc.data()['removedByAdmin'] != true)
                 .toList();
 
-            double imageTotal = 0;
-
-            for (final doc in docs) {
-              final data = doc.data();
-              final cost = data['lineCostSar'];
-
-              if (cost is num) {
-                imageTotal += cost.toDouble();
-              }
-            }
-
             return SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildImageHeader(imageTotal),
+                  _buildImageHeader(),
 
                   const SizedBox(height: 24),
 
@@ -240,7 +229,7 @@ class EditDamagesScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildImageHeader(double total) {
+  Widget _buildImageHeader() {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -305,20 +294,16 @@ class EditDamagesScreen extends StatelessWidget {
 
                     const SizedBox(height: 8),
 
+                    // No price shown here: the priced total comes only from
+                    // cost rule v2's case-level, cross-image panel
+                    // aggregation (see case_assessment_view.dart's
+                    // _costTotalCard), which this per-image v1 damage list
+                    // cannot reproduce — summing this screen's lineCostSar
+                    // values double-counts/mis-prices whenever a panel has
+                    // more than one damage or spans multiple images.
                     const Text(
-                      'تكلفة الأضرار في هذه الصورة',
-                      style: TextStyle(color: Color(0xFF8997AA), fontSize: 13),
-                    ),
-
-                    const SizedBox(height: 3),
-
-                    Text(
-                      '${total.toStringAsFixed(2)} ريال',
-                      style: const TextStyle(
-                        color: textDark,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      'يمكنك تعديل أو حذف الأضرار أدناه. السعر النهائي يظهر في صفحة مراجعة الحالة.',
+                      style: TextStyle(color: Color(0xFF8997AA), fontSize: 12),
                     ),
                   ],
                 ),
@@ -338,7 +323,6 @@ class EditDamagesScreen extends StatelessWidget {
     final damageType = data['damageType']?.toString() ?? '';
     final part = data['part']?.toString() ?? '';
     final severity = data['severity']?.toString();
-    final lineCost = data['lineCostSar'];
 
     final damageLabel = damageLabels[damageType] ?? damageType;
     final partLabel = partLabels[part] ?? part;
@@ -394,9 +378,6 @@ class EditDamagesScreen extends StatelessWidget {
                         damageType: damageType,
                         part: part,
                         severity: severity ?? 'moderate',
-                        lineCostSar: lineCost is num
-                            ? lineCost.toDouble()
-                            : null,
                       ),
                     ),
                   );
@@ -435,32 +416,6 @@ class EditDamagesScreen extends StatelessWidget {
             damageLabel,
             textAlign: TextAlign.right,
             style: const TextStyle(color: Color(0xFF68758A), fontSize: 14),
-          ),
-
-          const SizedBox(height: 15),
-
-          const Divider(height: 1),
-
-          const SizedBox(height: 13),
-
-          Row(
-            children: [
-              const Text(
-                'التكلفة',
-                style: TextStyle(color: Color(0xFF8997AA), fontSize: 13),
-              ),
-
-              const Spacer(),
-
-              Text(
-                lineCost is num ? '${lineCost.toStringAsFixed(2)} ريال' : '-',
-                style: const TextStyle(
-                  color: textDark,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
           ),
         ],
       ),

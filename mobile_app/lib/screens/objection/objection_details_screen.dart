@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../submit_case/Case_Details_Screen.dart';
 
 class ObjectionDetailsScreen extends StatelessWidget {
   final String objectionId;
@@ -125,6 +126,62 @@ class ObjectionDetailsScreen extends StatelessWidget {
                         value: _formatDate(createdAt),
                         icon: Icons.calendar_month_outlined,
                       ),
+                      // Once the objection is accepted, the case itself is
+                      // what actually changed (new report, updated cost) --
+                      // without this, the only way back to it was retyping
+                      // the case id shown as plain text above.
+                      if (_isAccepted(status) && caseId.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        CaseDetailsScreen(caseId: caseId),
+                                  ),
+                                );
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                  vertical: 4,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  textDirection: TextDirection.rtl,
+                                  children: [
+                                    Text(
+                                      'عرض الحالة المحدثة',
+                                      style: TextStyle(
+                                        color: _primaryBlue,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    // Forced into its own LTR scope so the
+                                    // glyph can never be auto-mirrored by the
+                                    // screen's ambient RTL Directionality --
+                                    // it must always draw as "‹", pointing
+                                    // left, regardless of context.
+                                    Directionality(
+                                      textDirection: TextDirection.ltr,
+                                      child: Icon(
+                                        Icons.chevron_left_rounded,
+                                        size: 16,
+                                        color: _primaryBlue,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
 
@@ -367,7 +424,9 @@ class ObjectionDetailsScreen extends StatelessWidget {
       bgColor = const Color(0xFFFFEEF0);
       textColor = Colors.red;
       icon = Icons.gpp_bad_outlined;
-    } else if (s == 'تم اعتماد الاعتراض' || s == 'approved') {
+    } else if (s == 'تم قبول الاعتراض' ||
+        s == 'تم اعتماد الاعتراض' ||
+        s == 'approved') {
       displayStatus = 'مقبول';
       bgColor = const Color(0xFFDCFCE7);
       textColor = Colors.green;
@@ -410,6 +469,17 @@ class ObjectionDetailsScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // Matches admin_claim_details_screen.dart's accepted check -- "تم اعتماد
+  // الاعتراض" is kept as a secondary match for safety, but the real value
+  // the backend writes (routes/reports.py's objection finalization) is
+  // "تم قبول الاعتراض".
+  bool _isAccepted(String status) {
+    final s = status.trim();
+    return s == 'تم قبول الاعتراض' ||
+        s == 'تم اعتماد الاعتراض' ||
+        s == 'approved';
   }
 
   String _formatDate(DateTime? date) {

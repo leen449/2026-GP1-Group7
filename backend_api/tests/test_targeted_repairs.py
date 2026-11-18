@@ -58,7 +58,7 @@ def test_labor_lookup_rejects_partial_remote_table(monkeypatch):
 
     assert loaded == labor.LOOKUP
     assert loaded is not labor.LOOKUP
-    assert loaded["fender"]["hours"]["crack"] == 2.2
+    assert loaded["fender"]["hours"]["crack"] == 7
 
 
 def test_labor_lookup_accepts_complete_copy_and_rejects_bad_hours(monkeypatch):
@@ -135,8 +135,16 @@ def test_glass_rejects_missing_conflicting_and_generic_door_support():
     assert "glass_no_part_support" in missing.flags
     assert door_only.lookup_key is None
     assert "glass_no_part_support" in door_only.flags
+    # "conflicting" no longer refuses outright: the two full-coverage synthetic
+    # masks overlap each other entirely, so the same-spot-average fallback fires
+    # (see part_association_service.py's _glass_line) instead of the old
+    # unconditional refusal. windshield resolves to 3h; door_glass resolves to
+    # its own 2.5h side-average fallback (see labor_hours_lookup.py); averaging
+    # those two candidates gives 2.75h.
     assert conflicting.lookup_key is None
-    assert "glass_ambiguous_part" in conflicting.flags
+    assert conflicting.part == "glass_ambiguous"
+    assert "glass_part_ambiguous_fallback" in conflicting.flags
+    assert conflicting.hours_override == 2.75
 
 
 def test_duplicate_glass_masks_in_same_bucket_are_billed_once():
@@ -181,15 +189,26 @@ def test_wheel_dent_uses_najm_hint_or_flagged_average_fallback():
     assert fallback.wheel_position is None
     assert "wheel_position_ambiguous_fallback" in fallback.flags
 
+    # Values below reflect the 2026-11 25-row Tagdeer sheet (see
+    # labor_hours_lookup.py). All four wheel positions are now equal (1h), so
+    # the front/rear hint no longer changes the result -- the hint mechanism
+    # itself is left in place (harmless no-op) rather than removed. door_glass
+    # is now unresolvable from a generic "door" class because the sheet gives
+    # right-door glass 3h vs left-door glass 2h, and a side-blind class can't
+    # pick between them -- this is the intended never-guess-a-side behavior,
+    # not a regression (see test_glass_rejects_missing_conflicting_and_generic_
+    # door_support's "conflicting" case for the downstream effect of this).
     labor._cache = deepcopy(labor.LOOKUP)
-    assert labor.get_hours("wheel", "dent", wheel_position="front") == 4.5
-    assert labor.get_hours("wheel", "dent", wheel_position="rear") == 4.0
-    assert labor.get_hours("wheel", "dent") == 4.25
-    assert labor.get_hours("wheel", "tire") == 0.5
-    assert labor.get_hours("wheel", "scratch") == 0.5
-    assert labor.get_hours("lamp", "lamp") == 0.5
-    assert labor.get_hours("windshield", "glass") == 2.0
-    assert labor.get_hours("door_glass", "glass") == 0.8
+    assert labor.get_hours("wheel", "dent", wheel_position="front") == 1.0
+    assert labor.get_hours("wheel", "dent", wheel_position="rear") == 1.0
+    assert labor.get_hours("wheel", "dent") == 1.0
+    assert labor.get_hours("wheel", "tire") == 1.0
+    assert labor.get_hours("wheel", "scratch") == 1.0
+    assert labor.get_hours("lamp", "lamp") == 1.0
+    assert labor.get_hours("windshield", "glass") == 3.0
+    # Side-blind door glass can't pick between right (3h) and left (2h), so it
+    # resolves to the 2.5h average -- same fallback precedent as wheel dent above.
+    assert labor.get_hours("door_glass", "glass") == 2.5
     labor._cache = None
 
 

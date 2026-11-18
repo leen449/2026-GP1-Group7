@@ -866,7 +866,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
         bgColor = const Color(0xFFFFEEF0);
         textColor = Colors.red;
         icon = Icons.gpp_bad_outlined;
-      } else if (s == 'تم اعتماد الاعتراض' || s == 'approved') {
+      } else if (s == 'تم قبول الاعتراض' ||
+          s == 'تم اعتماد الاعتراض' ||
+          s == 'approved') {
         displayStatus = 'مقبول';
         bgColor = const Color(0xFFDCFCE7);
         textColor = Colors.green;
@@ -934,7 +936,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
         bgColor = const Color(0xFFFFEEF0);
         iconColor = Colors.red;
         icon = Icons.gpp_bad_outlined;
-      } else if (s == 'تم اعتماد الاعتراض' || s == 'approved') {
+      } else if (s == 'تم قبول الاعتراض' ||
+          s == 'تم اعتماد الاعتراض' ||
+          s == 'approved') {
         bgColor = const Color(0xFFDCFCE7);
         iconColor = Colors.green;
         icon = Icons.check_circle_outline_rounded;

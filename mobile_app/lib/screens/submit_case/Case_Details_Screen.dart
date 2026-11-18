@@ -318,10 +318,21 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
       ...lines.map((raw) {
         final line = raw as Map<String, dynamic>;
         final String partKey = _partFromPanelId(line['panel_id']?.toString());
-        final String damageKey = line['damage']?.toString() ?? '';
         final String partLabel = _partLabelAr[partKey] ?? partKey;
-        final String damageLabel =
-            _damageTypeLabelAr[damageKey] ?? damageKey;
+        // "damages" (plural) lists every distinct damage type D3 merged onto
+        // this one priced panel line (e.g. a scratch that lost to a dent on
+        // the same bumper) -- older cases computed before this field existed
+        // only have the single "damage" key, so that's the fallback.
+        final List<dynamic>? damagesList = line['damages'] as List<dynamic>?;
+        final String damageLabel = (damagesList != null && damagesList.isNotEmpty)
+            ? damagesList
+                .map((d) {
+                  final key = d?.toString() ?? '';
+                  return _damageTypeLabelAr[key] ?? key;
+                })
+                .join(' + ')
+            : (_damageTypeLabelAr[line['damage']?.toString() ?? ''] ??
+                (line['damage']?.toString() ?? ''));
         final dynamic cost = line['line_sar'];
 
         return Padding(

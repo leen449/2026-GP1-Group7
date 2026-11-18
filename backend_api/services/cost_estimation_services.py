@@ -33,7 +33,6 @@ from firebase_admin import firestore, credentials, storage
 from services.part_segmentation_service import segment_parts
 from services.part_association_service import associate
 from services.labor_hours_lookup import get_hours, get_unmapped_hours
-from services.severity_factor_services import get_severity_factor
 from services.severity_service import aggregate_case_severity
 from services.vehicle_factor_services import get_vehicle_factor
 from services.paint_factor_services import get_paint_factor
@@ -53,7 +52,12 @@ from services.cost_v2.engine import estimate as cost_v2_estimate, CostV2Error
 from services.cost_v2.run_offline import map_detection as cost_v2_map_detection, MappingError as CostV2MappingError
 from services.cost_v2.tables import VERSION as COST_V2_VERSION
 
-RATE_SAR = 165.0
+# Rate updated to 100 SAR/hr alongside the 2026-11 labor-hours table revision (the
+# 25-row Tagdeer sheet) -- see labor_hours_lookup.py. Severity factor removed from
+# the formula per 2026-11 supervisor decision (see build_line_items / add_admin_damage
+# / update_admin_damage below); severity is still classified and shown to the admin
+# and in the report, it just no longer scales the price.
+RATE_SAR = 100.0
 BUCKET = "crashlens-233bf.firebasestorage.app"
 FIRESTORE_MAX_WRITES = 500
 VALID_SEVERITIES = {"minor", "moderate", "severe"}
@@ -523,7 +527,6 @@ def _empty_image_stage(img_ref):
         "items": [],
         "update": {
             "estimatedLaborCostSar": None,
-            "severityFactorApplied": None,
             "costError": None,
         },
         "failed": False,
@@ -749,13 +752,14 @@ def _stage_image(img_doc, wheel_position_hint, f_veh, f_paint, bucket, review_re
             ]
             sev = fused_image_severity(p_ge_moderate, p_ge_severe, fusion_damages)
 
-        f_sev_img = get_severity_factor(sev)
+        # Severity factor removed from the cost formula (2026-11 supervisor decision).
+        # `sev` is still computed above (mask-fusion) and passed through for display/
+        # report purposes -- it just no longer scales the line cost.
         built = build_line_items(
-            lines, f_sev_img * f_veh * f_paint, severity=sev, damages=damages,
+            lines, f_veh * f_paint, severity=sev, damages=damages,
         )
         stage["items"] = built["items"]
         stage["update"]["estimatedLaborCostSar"] = round(built["cost_sar"], 2)
-        stage["update"]["severityFactorApplied"] = f_sev_img
         # [NEW] The fused value becomes the image's authoritative severity -- the
         # same field the mobile/admin views and report already read -- not just an
         # internal pricing input. The original ResNet-only label is preserved
@@ -865,12 +869,12 @@ async def add_admin_damage(
     if vehicle_factor is None or paint_factor is None:
         raise CostEstimationAbort("عوامل حساب التكلفة غير متوفرة لهذه الحالة")
 
-    severity_factor = float(get_severity_factor(severity_key))
-
+    # Severity factor removed from the cost formula (2026-11 supervisor decision).
+    # severity_key is still stored on the item below for display/report purposes --
+    # it just no longer scales line_cost.
     line_cost = round(
         float(hours)
         * RATE_SAR
-        * severity_factor
         * float(vehicle_factor)
         * float(paint_factor),
         2,
@@ -901,7 +905,6 @@ async def add_admin_damage(
         "lineCostSar": line_cost,
         "flags": [],
         "adminAdded": True,
-        "severityFactorApplied": severity_factor,
         "costRevision": case.get("costRevision"),
         "createdAt": firestore.SERVER_TIMESTAMP,
         "updatedAt": firestore.SERVER_TIMESTAMP,
@@ -1051,19 +1054,26 @@ async def update_admin_damage(
             "لا توجد قيمة ساعات عمل لهذا الجزء ونوع الضرر"
         )
 
-    # Use the same factors already calculated for this case.
+    # Vehicle/paint factors are properties of this case's actual vehicle (value
+    # tier, paint color) -- legitimately reused from what was already calculated
+    # for this case. Rate is NOT case-specific data: it's the single current
+    # formula constant, and must never be read back from a case's own stored
+    # snapshot -- a case computed before a rate change would otherwise silently
+    # keep using the old rate forever, even after the code/table is updated
+    # (this was a real bug: a 2026-11-18 case kept pricing at the pre-2026-11
+    # 165 SAR/hr rate on edit, well after the formula moved to 100 SAR/hr).
     factors = case.get("costFactors") or {}
 
     f_vehicle = float(factors.get("vehicle") or 1.0)
     f_paint = float(factors.get("paint") or 1.0)
-    rate = float(factors.get("rateSar") or RATE_SAR)
+    rate = RATE_SAR
 
-    f_severity = float(get_severity_factor(severity))
-
+    # Severity factor removed from the cost formula (2026-11 supervisor decision).
+    # `severity` is still stored on the item below for display/report purposes --
+    # it just no longer scales line_cost.
     line_cost = round(
         float(hours)
         * rate
-        * f_severity
         * f_vehicle
         * f_paint,
         2,
@@ -1377,9 +1387,24 @@ def _compute_cost_v2_shadow(all_items_by_image, case_id: str) -> dict:
 
     result = cost_v2_estimate(raw_detections, table="A_100", aggregation="one_panel")
 
+    # D3 collapses a panel's detections to ONE priced line (highest-hour damage
+    # wins) -- engine.py's `lines` only keeps that winner, by design, since it's
+    # the pricing output. For DISPLAY, the admin/user/report views must still be
+    # able to show every damage type that was detected on that panel (e.g. a
+    # scratch that lost to a dent on the same bumper), or they look like data
+    # went missing even though the 500 SAR total is correct. Built from
+    # raw_detections (pre-aggregation), not from `result["lines"]`, since the
+    # latter has already thrown the losing damage types away.
+    panel_damages: dict[str, list[str]] = {}
+    for d in raw_detections:
+        seen = panel_damages.setdefault(d["panel_id"], [])
+        if d["damage"] not in seen:
+            seen.append(d["damage"])
+
     lines = [
         {
             "panel_id": l["panel_id"], "table_key": l["table_key"], "damage": l["damage"],
+            "damages": panel_damages.get(l["panel_id"], [l["damage"]]),
             "hours": l["hours"], "severity": l["severity"], "factor": l["factor"],
             "line_sar": l["line_sar"],
         }

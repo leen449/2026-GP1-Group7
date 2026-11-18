@@ -896,22 +896,30 @@ class CaseAssessmentView extends StatelessWidget {
 
   Widget _costV2LineTile(Map<String, dynamic> line) {
     final String partKey = _partFromPanelId(line['panel_id']?.toString());
-    final String damageKey = line['damage']?.toString() ?? '';
     final String? severity = line['severity'] as String?;
-    final dynamic hours = line['hours'];
-    final dynamic factor = line['factor'];
     final dynamic cost = line['line_sar'];
 
     final String partLabel =
         _partLabelAr[partKey] ?? (partKey.isEmpty ? 'غير محدد' : partKey);
-    final String damageLabel =
-        _damageTypeLabelAr[damageKey] ??
-        (damageKey.isEmpty ? 'غير محدد' : damageKey);
-
-    final List<String> detailParts = [
-      if (hours is num) 'الساعات: $hours',
-      if (factor is num) 'عامل الشدة: $factor',
-    ];
+    // "damages" (plural) lists every distinct damage type D3 merged onto this
+    // one priced panel line (e.g. a scratch that lost to a dent on the same
+    // bumper) -- shown together so the line still reads as "both of these are
+    // on this panel" even though only the higher-hour one set the price. Older
+    // cases computed before this field existed only have the single "damage"
+    // key, so that's the fallback.
+    final List<dynamic>? damagesList = line['damages'] as List<dynamic>?;
+    final String damageLabel = (damagesList != null && damagesList.isNotEmpty)
+        ? damagesList
+            .map((d) {
+              final key = d?.toString() ?? '';
+              return _damageTypeLabelAr[key] ?? (key.isEmpty ? 'غير محدد' : key);
+            })
+            .join(' + ')
+        : (() {
+            final String damageKey = line['damage']?.toString() ?? '';
+            return _damageTypeLabelAr[damageKey] ??
+                (damageKey.isEmpty ? 'غير محدد' : damageKey);
+          })();
 
     return Container(
       width: double.infinity,
@@ -952,16 +960,6 @@ class CaseAssessmentView extends StatelessWidget {
               ),
             ],
           ),
-          if (detailParts.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                detailParts.join(' • '),
-                textDirection: TextDirection.rtl,
-                textAlign: TextAlign.right,
-                style: const TextStyle(color: _textMuted, fontSize: 11),
-              ),
-            ),
         ],
       ),
     );

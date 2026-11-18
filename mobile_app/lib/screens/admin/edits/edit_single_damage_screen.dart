@@ -12,7 +12,6 @@ class EditSingleDamageScreen extends StatefulWidget {
   final String damageType;
   final String part;
   final String severity;
-  final double? lineCostSar;
 
   const EditSingleDamageScreen({
     super.key,
@@ -24,7 +23,6 @@ class EditSingleDamageScreen extends StatefulWidget {
     required this.damageType,
     required this.part,
     required this.severity,
-    required this.lineCostSar,
   });
 
   @override
@@ -44,7 +42,7 @@ class _EditSingleDamageScreenState extends State<EditSingleDamageScreen> {
   static const Color buttonPrimary = Color(0xFF1E3A6E);
   static const Color buttonSecondary = Color(0xFFEDEDED);
 
-  static const String backendUrl = 'http://192.168.0.12:8000';
+  static const String backendUrl = 'http://192.168.0.6:8000';
 
   late String _selectedDamageType;
   late String _selectedPart;
@@ -171,10 +169,6 @@ class _EditSingleDamageScreenState extends State<EditSingleDamageScreen> {
                 ),
 
                 const SizedBox(height: 24),
-
-                _buildCostCard(),
-
-                const SizedBox(height: 14),
 
                 const Text(
                   'سيتم إعادة حساب التكلفة بعد حفظ التعديلات.',
@@ -441,64 +435,6 @@ class _EditSingleDamageScreenState extends State<EditSingleDamageScreen> {
           );
         }).toList(),
         onChanged: onChanged,
-      ),
-    );
-  }
-
-  Widget _buildCostCard() {
-    final cost = widget.lineCostSar;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF7FF),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: const BoxDecoration(
-              color: Color(0xFFDCEEFF),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.attach_money_rounded,
-              color: primaryBlue,
-              size: 28,
-            ),
-          ),
-
-          const SizedBox(width: 14),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'التكلفة التقديرية',
-                  style: TextStyle(
-                    color: Color(0xFF4D73A8),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-
-                const SizedBox(height: 5),
-
-                Text(
-                  cost == null ? '-' : '${cost.toStringAsFixed(2)} ريال',
-                  style: const TextStyle(
-                    color: textDark,
-                    fontSize: 21,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

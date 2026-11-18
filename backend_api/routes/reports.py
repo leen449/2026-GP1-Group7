@@ -159,9 +159,19 @@ def _read_damage_items_from_v2(case_data: dict[str, Any]) -> list[DamageItem]:
         line_sar = line.get("line_sar")
         if line_sar is None:
             continue  # not priced -- same "leave it off the report" rule as v1
+        # "damages" (plural, all distinct damage types merged onto this one
+        # priced panel line by D3) is only present on lines computed after this
+        # field was added -- older cases keep showing just the single winning
+        # damage. See _compute_cost_v2_shadow's panel_damages comment.
+        all_damages = line.get("damages")
+        type_label = (
+            " + ".join(str(d).strip() for d in all_damages if str(d).strip())
+            if isinstance(all_damages, list) and all_damages
+            else str(damage_type).strip()
+        )
         damages.append(
             DamageItem(
-                type=str(damage_type).strip(),
+                type=type_label,
                 part=_part_from_panel_id(line.get("panel_id")) or None,
                 severity=_severity_label(line.get("severity")),
                 cost_sar=float(line_sar),
