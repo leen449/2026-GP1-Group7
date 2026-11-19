@@ -48,3 +48,5 @@ app.*.map.json
 # Secret keys
 serviceAccountKey.json
 **/serviceAccountKey.json
+google-services.json
+**/google-services.json

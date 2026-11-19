@@ -147,3 +147,4 @@ mobile_app/lib/screens/admin/reviews/admin_debug_entry_screen.dart
 backend_api/services/cost_v2/spec/
 backend_api/tests/data/
 backend_api/tests/output/
+mobile_app/android/app/google-services.json
