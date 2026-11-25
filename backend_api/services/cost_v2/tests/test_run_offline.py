@@ -121,14 +121,27 @@ def test_panel_damage_still_requires_part_label():
         map_detection({"case_id": "C8", "image_id": "i1", "part_label": None, "damage_class": "dent"})
 
 
-def test_fender_identity_distinct_from_front_fender_hours_key():
+def test_fender_identity_distinct_from_hours_key():
     """Identity must use the raw part_label ('fender'), not the hours key
-    ('front_fender') -- this was the original bug this task fixes."""
+    ('fender_merged') -- this was the original bug this task fixes."""
     mapped, _ = map_detection(
         {"case_id": "C9", "image_id": "i1", "part_label": "fender", "damage_class": "dent"}
     )
     assert mapped["panel_id"] == "C9:fender"
-    assert mapped["table_key"] == "front_fender"
+    assert mapped["table_key"] == "fender_merged"
+
+
+def test_fender_dent_prices_at_merged_average_hours():
+    """2026-11-24: the part model's merged 'fender' class prices at the average of
+    front_fender (5h) and rear_quarter (7.5h) -- 6.25h -- not plain front_fender, so a
+    real rear-quarter dent is no longer silently priced as the cheaper front fender."""
+    mapped, _ = map_detection(
+        {"case_id": "C20", "image_id": "i1", "part_label": "fender", "damage_class": "dent"}
+    )
+    assert mapped["table_key"] == "fender_merged"
+    result = estimate([mapped], table="A_100")
+    assert result["hours"] == pytest.approx(6.25, abs=0.01)
+    assert result["cost_sar"] == pytest.approx(625.0, abs=0.01)
 
 
 def test_wheel_dent_maps_to_wheel_table_key():

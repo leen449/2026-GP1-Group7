@@ -10,13 +10,23 @@ Three assessor tables (D2/D9 of the decision record):
   O_165 (rate 165) -- the original/current in-app table -- kept for sensitivity runs.
 
 Every table carries the fixture's own `_R`/`_L` rear-quarter and door keys unchanged (the
-golden tests check production tables equal the fixture tables key-for-key) PLUS one extra
-production-only key, `rear_quarter`, used because the current part-segmentation model has
-no left/right signal (see DECISION doc, open item O1/O2). `rear_quarter` is NOT in the
-fixture and is therefore not covered by golden-test parity -- it is new, documented here.
+golden tests check production tables equal the fixture tables key-for-key) PLUS extra
+production-only keys not present in the fixture and therefore not covered by golden-test
+parity -- documented here instead:
+  `rear_quarter` -- used because the current part-segmentation model has no left/right
+    signal (see DECISION doc, open item O1/O2).
+  `fender_merged` (A_100 only, added 2026-11-24) -- the deployed part model (exp04) emits
+    one merged `fender` class for both the front fender and the rear quarter panel (see
+    run_offline.py's PART_TO_TABLE_KEY). Pricing every `fender` detection as `front_fender`
+    silently under-prices real rear-quarter damage. `fender_merged` is the average of
+    `front_fender` and `rear_quarter` hours, used ONLY for the model's merged class --
+    `front_fender` itself (used when the true part is known, e.g. golden/reference cases)
+    is untouched, so the "rule with correct damage" reference keeps its existing MAE 125
+    figure. Added only to A_100 (the deployed table) -- B_130/O_165 do not get this row,
+    matching this table's "config, not yet mapped for every sensitivity run" status.
 """
 
-VERSION = "cost_rule_v2-draft-2026-11-06"
+VERSION = "cost_rule_v2-draft-2026-11-24"
 
 SEV_F = {"minor": 0.85, "moderate": 1.0, "severe": 1.25}
 SEV_ORDER = {"minor": 0, "moderate": 1, "severe": 2}
@@ -37,6 +47,11 @@ TABLES = {
             # PROVISIONAL -- team to confirm (R 8/6, L 7/5, or average). Average of R and L
             # used here so production has *a* value until O1/O2 (part-model side split) land.
             "rear_quarter": {"dent": 7.5, "scratch": 5.5, "crack": 25, "lamp": 1},
+            # Added 2026-11-24 -- pricing for the part model's merged "fender" class only
+            # (see module docstring). Average of front_fender and rear_quarter above:
+            # dent (5+7.5)/2=6.25, scratch (5+5.5)/2=5.25, crack (7+25)/2=16, lamp 1 (both
+            # sides already agree on lamp hours, so no averaging changes anything there).
+            "fender_merged": {"dent": 6.25, "scratch": 5.25, "crack": 16, "lamp": 1},
             "trunk": {"dent": 7, "scratch": 5, "glass": 1},
             "roof": {"dent": 10, "scratch": 7, "crack": 25},
             "sill": {"dent": 8, "scratch": 5, "crack": 25},

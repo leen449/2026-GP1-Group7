@@ -52,18 +52,24 @@ DECISION_cost_rule_v2.md's O1 and CLAUDE.local.md's retrain plan):
     roof         -> roof
     sill         -> sill
     door         -> door
-    fender       -> front_fender   TEMPORARY: the part model (exp04) merges Fender and
-                                    Quarter-panel into one canonical `fender` class, so a
-                                    real rear-quarter crack (25h in A_100) is currently
-                                    indistinguishable from a front fender dent (5h) at the
-                                    vision layer. Routing every `fender` detection to
-                                    front_fender is a deliberate, documented
-                                    UNDER-estimate until the retrain (O1) splits the class.
-                                    Once the retrain lands and the model emits a separate
-                                    `quarter_panel` label, add "quarter_panel": "rear_quarter"
-                                    here -- panel IDENTITY already handles the split (it
-                                    uses the raw label), this dict only needs the new hours
-                                    row added.
+    fender       -> fender_merged   UPDATED 2026-11-24 (was front_fender): the part model
+                                    (exp04) merges Fender and Quarter-panel into one
+                                    canonical `fender` class, so a real rear-quarter crack
+                                    (25h in A_100) is indistinguishable from a front fender
+                                    dent (5h) at the vision layer. `fender_merged` prices
+                                    every `fender` detection at the AVERAGE of front_fender
+                                    and rear_quarter hours (tables.py, A_100 only) instead
+                                    of silently assuming front -- still an approximation,
+                                    but no longer biased toward under-pricing rear-quarter
+                                    damage specifically. front_fender itself is untouched
+                                    and still used whenever the true part is known (golden/
+                                    reference cases), so that reference figure is unaffected.
+                                    Once the retrain (O1) lands and the model emits a
+                                    separate `quarter_panel` label, add
+                                    "quarter_panel": "rear_quarter" here and this merged row
+                                    becomes unused -- panel IDENTITY already handles the
+                                    split (it uses the raw label), this dict only needs the
+                                    new hours row added.
 
   damage_class -> engine "damage" key (case/spacing normalization only):
     dent -> dent, scratch -> scratch, crack -> crack
@@ -103,7 +109,9 @@ PANEL IDENTITY (D5 -- the same physical panel across images of one case is charg
     panel_id = f"{case_id}:{normalized part_label}"
     e.g. case:front_door vs case:back_door, case:fender vs case:quarter_panel,
     case:front_bumper -- these are DISTINCT panels even though front_door/back_door both
-    use the "door" hours row, and fender/quarter_panel currently both use "front_fender".
+    use the "door" hours row, and "fender" prices off the merged "fender_merged" row
+    (quarter_panel is a separate forward-compat key not yet emitted by the model, see
+    PART_TO_TABLE_KEY below).
 
   lamp/glass/tire (part_label is OPTIONAL -- it is only ever a bonus identity signal here,
   never required for hours, since hours are forced):
@@ -149,13 +157,13 @@ PART_TO_TABLE_KEY = {
     "roof": "roof",
     "sill": "sill",
     "door": "door",
-    "fender": "front_fender",  # TEMPORARY -- see module docstring
+    "fender": "fender_merged",  # UPDATED 2026-11-24 (was front_fender) -- see module docstring
     # Forward-compat rows: the part model does not emit these labels yet (pre-retrain),
     # but identity (panel_id) already keys off the raw label, not this hours mapping -- so
     # once the O1 retrain starts emitting them, pricing needs no runner change, only this
     # table to already have a row. Side-independent hours (front_door/back_door both price
-    # as "door"; quarter_panel prices as the real "rear_quarter" row, fixing the current
-    # fender->front_fender under-estimate for that specific part once it's distinguishable).
+    # as "door"; quarter_panel prices as the real "rear_quarter" row, making the merged
+    # fender_merged row above unused for that specific part once it's distinguishable).
     "front_door": "door",
     "back_door": "door",
     "quarter_panel": "rear_quarter",
