@@ -444,20 +444,39 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
     );
   }
 
-  Future<void> _handleReject() async {
+  Future<void> _handleReject(String resolvedCaseId) async {
     if (_isSubmitting) return;
     final reason = await _rejectReasonDialog();
     if (reason == null || reason.trim().isEmpty) return;
 
     setState(() => _isSubmitting = true);
     try {
-      await FirebaseFirestore.instance
-          .collection('objection')
-          .doc(widget.objectionId)
-          .update({
-            'objectionStatus': 'تم رفض الاعتراض',
-            'adminFeedback': reason.trim(),
-          });
+      final batch = FirebaseFirestore.instance.batch();
+
+      batch.update(
+        FirebaseFirestore.instance.collection('objection').doc(widget.objectionId),
+        {
+          'objectionStatus': 'تم رفض الاعتراض',
+          'adminFeedback': reason.trim(),
+        },
+      );
+
+      // Rejecting the objection means the current report stands as issued —
+      // undo the 'claim_pending' status submit_objection_screen.dart set on it,
+      // so the verify page/QR show it as valid again instead of stuck pending.
+      final caseSnapshot = await FirebaseFirestore.instance
+          .collection('accidentCase')
+          .doc(resolvedCaseId)
+          .get();
+      final reportId = (caseSnapshot.data()?['reportId'] as String?)?.trim();
+      if (reportId != null && reportId.isNotEmpty) {
+        batch.update(
+          FirebaseFirestore.instance.collection('reports').doc(reportId),
+          {'status': 'valid'},
+        );
+      }
+
+      await batch.commit();
       if (!mounted) return;
       _showMessage('تم رفض الاعتراض', isError: false);
     } catch (error) {
@@ -722,7 +741,7 @@ class _AdminClaimDetailsScreenState extends State<AdminClaimDetailsScreen> {
           child: SizedBox(
             height: 54,
             child: ElevatedButton(
-              onPressed: _isSubmitting ? null : _handleReject,
+              onPressed: _isSubmitting ? null : () => _handleReject(resolvedCaseId),
               style: ElevatedButton.styleFrom(
                 elevation: 0,
                 backgroundColor: const Color(0xFFEDEDED),
